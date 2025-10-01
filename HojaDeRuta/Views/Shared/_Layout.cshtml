@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hoja de Ruta</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/HojaDeRuta.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+    <header class="bg-bdo">
+        <div class="content-wrapper container">
+            <nav class="navbar navbar-expand-sm navbar-light" style="height: 60px;">
+                <div class="container-fluid">
+                    <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                        <img src="~/img/bdo.svg" style="max-height: 50px;" alt="HojaDeRuta">
+                    </a>
+
+                    @if (ViewBag.CurrentSection == "Home")
+                    {
+                        <div class="collapse navbar-collapse justify-content-center">
+                            <ul class="nav justify-content-center">
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Create">Crear Hoja</a></li>
+                                <li class="nav-item"><a class="nav-link" href="#">Seguimiento</a></li>
+                                <li class="nav-item"><a class="nav-link">Check workflow</a></li>
+                                <li class="nav-item"><a class="nav-link">Ver mis hojas</a></li>
+                            </ul>
+                        </div>
+                    }
+
+                    <div class="d-sm-inline-flex justify-content-end">
+                        <a class="navbar-brand text-white fw-bolder" asp-area="" asp-controller="Home" asp-action="Index">Hoja de Ruta</a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main role="main">
+        <div class="content-wrapper container">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer class="footer border-top bg-bdo py-0 mt-3">
+        <div class="container text-center">
+            BDO - &copy; @DateTime.Now.Year - Hoja de Ruta
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

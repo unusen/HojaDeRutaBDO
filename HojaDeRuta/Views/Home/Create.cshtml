@@ -1,0 +1,367 @@
+﻿@model HojaDeRuta.Models.DAO.Hoja
+
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = @ViewData["Title"];
+}
+
+<div class="container-fluid content-wrapper">
+
+    <h3 class="mb-2 mt-2 fs-4 text-center color-bdo">@ViewData["Title"]</h3>
+
+
+    <div class="border border-2 rounded-3 p-3">
+
+        <form id="hojaForm" asp-action="Create" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col-md-5">
+                    @* <label for="Cliente" class="form-label">Cliente</label> *@
+                    <select asp-for="Cliente" asp-items="@ViewBag.Clientes" id="Cliente" readonly="@(ViewData["Mode"] == "View")" class="form-select form-select-sm">
+                        <option value="">Seleccione Cliente</option>
+                    </select>
+                    <span asp-validation-for="Cliente" class="text-danger small"></span>
+                </div>
+                <div class="col-md-3">
+                    @* <label for="Sector" class="form-label">Sector</label> *@
+                    <select asp-for="Sector" asp-items="@ViewBag.Sectores" id="Sector"
+                            onchange="onSectorChange(this)" class="form-select form-select-sm readonly">
+                        <option value="">Seleccione Sector</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    @* <label for="subarea" class="form-label">Subarea</label> *@
+                    <select asp-for="Subarea" id="subarea" class="form-select form-select-sm">
+                        <option value="">Seleccione SubArea</option>
+                    </select>
+                </div>
+                @* <div class="col-2">
+                    <label for="Número" class="form-label small d-inline">Nº</label>
+                    <input type="text" class="form-control form-control-sm d-inline" id="Número" placeholder="Número" readonly>
+                </div> *@
+                <div class="col-md-2">
+                    <div class="row g-1 align-items-center">
+                        <div class="col-auto">
+                            <label asp-for="Numero" class="form-label form-label-sm mb-0">Nº</label>
+                        </div>
+                        <div class="col">
+                            <input asp-for="Numero" type="text" class="form-control form-control-sm" placeholder="Número" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                @*  <div class="col-3">
+                    @*<label for="nombreGenerico" class="form-label small">Nombre generico</label> 
+                    <input asp-for="NombreGenerico" type="text" class="form-control form-control-sm" id="nombreGenerico" placeholder="Nombre generico">
+                </div> *@
+                <div class="col-md-3">
+                    <select asp-for="NombreGenerico" asp-items="@ViewBag.NombreGenerico" id="NombreGenerico" class="form-select form-select-sm">
+                        <option value="">Seleccione Tipo de Documento</option>
+                    </select>
+                    <span asp-validation-for="NombreGenerico" class="text-danger small"></span>
+                </div>
+                <div class="col-3">
+                    @*<label for="Descripcion" class="form-label small">Descripción</label>*@
+                    <input asp-for="Descripcion" type="text" class="form-control form-control-sm" id="descripcion" placeholder="Descripcion">
+                </div>
+                <div class="col-2">
+                    @*<label for="FechaDocumento" class="form-label small">Fecha Documento</label>*@
+                    <input asp-for="FechaDocumento" type="text" class="form-control form-control-sm" id="fechaDocumento" placeholder="Fecha Documento">
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    @*<label for="SocioFirmante" class="form-label">Socio Firmante</label>*@
+                    <select asp-for="SocioFirmante" id="SocioFirmante" class="form-select form-select-sm">
+                        <option value="">Seleccione Socio Firmante</option>
+                        <option>Murdocca, Diego Adrian</option>
+                    </select>
+                </div>
+                @*            <div class="col-3">
+                    <label for="Socio" class="form-label small">.</label>
+                    <input type="text" class="form-control form-control-sm" id="Socio">
+                </div> *@
+                <div class="col-md-2">
+                    <div class="row g-1 align-items-center">
+                        <div class="col-auto">
+                            <label asp-for="IsSindico" class="form-label form-label-sm mb-0">Sindico</label>
+                        </div>
+                        <div class="col">
+                            <select id="IsSindico" class="form-select form-select-sm">
+                                <option selected>NO</option>
+                                <option>SI</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                @*            <div class="col-md-1">
+                    <label for="Sindico" class="form-label">Sindico</label>
+                    <select id="Sindico" class="form-select form-select-sm">
+                        <option selected>NO</option>
+                        <option>SI</option>
+                    </select>
+                </div> *@
+                <div class="col-md-2">
+                    @*<label for="Sindico1" class="form-label">.</label> *@
+                    <select asp-for="Sindico" id="Sindico" class="form-select form-select-sm" readonly>
+                        <option value="">Seleccione Sindico</option>
+                        <option>Murdocca, Diego Adrian</option>
+                    </select>
+                </div>
+                <div class="col-2">
+                    @*<label for="CodCliente" class="form-label small">Cod.Cliente</label> *@
+                    <input type="text" class="form-control form-control-sm" id="CodCliente" placeholder="Cod.Cliente" readonly>
+                </div>
+                <div class="col-md-3">
+                    @*<label for="ContratoPlataforma" class="form-label">Contrato Plataforma</label> *@
+                    <select asp-for="ContratoPlataforma" id="ContratoPlataforma" class="form-select form-select-sm">
+                        <option value="">Seleccione Contrato Plataforma</option>
+                        <option>Contrato N° 123</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-6">
+                    <div class="row">
+                        <div class="col-8">
+                            <div class="input-group">
+                                @* TOMA LOS DATOS DEL USUARIO LOGUEADO QUE CREA LA HOJA - ES MODIFICABLE? *@
+                                <select asp-for="Preparo" id="preparo" class="form-select form-select-sm">
+                                    <option selected>Murdocca, Diego Adrian</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <input asp-for="PreparoFecha" type="text" id="preparoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-8">
+                            <div class="input-group">
+                                <select asp-for="Reviso" id="reviso" class="form-select form-select-sm">
+                                    <option value="">Seleccione Revisor</option>
+                                    <option>Murdocca, Diego Adrian</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <input asp-for="RevisoFecha" type="text" id="revisoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-8">
+                            <div class="input-group">
+                                <select asp-for="RevisionGerente" id="revisoGerente" class="form-select form-select-sm">
+                                    <option value="">Seleccione Revisor Gerente</option>
+                                    <option>Murdocca, Diego Adrian</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <input asp-for="RevisionGerenteFecha" type="text" id="revisoGerenteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-8">
+                            <div class="input-group">
+                                <select asp-for="EngagementPartner" id="revisoEngagement" class="form-select form-select-sm">
+                                    <option value="">Seleccione Engagement Partner</option>
+                                    <option>Murdocca, Diego Adrian</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <input asp-for="EngagementPartnerFecha" type="text" id="revisoEngagementFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-8">
+                            <div class="input-group">
+                                <select asp-for="SocioFirmante" id="revisoSocioFirmante" class="form-select form-select-sm">
+                                    <option value="">Seleccione Socio Firmante</option>
+                                    <option>Murdocca, Diego Adrian</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <input asp-for="SocioFirmanteFecha" type="text" id="revisoSocioFirmanteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            @* <label for="fechaLimite" class="form-label">Fecha limite:</label> *@
+                            <input asp-for="FechaLimite" type="text" id="fechaLimite" class="form-control form-control-sm" placeholder="Fecha limite" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        </div>
+                        <div class="col-md-8">
+                            @* <label for="gestorFinal" class="form-label">Gestor final:</label> *@
+                            <select asp-for="GestorFinal" id="gestorFinal" class="form-select form-select-sm">
+                                <option value="">Seleccione Gestor Final</option>
+                                <option>No declara</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 mt-3">
+                            @* <label for="lugarFirmaDoc" class="form-label">Lugar de firma del doc.</label> *@
+                            <input asp-for="LugarFirma" type="text" class="form-control form-control-sm" id="lugarFirmaDoc" placeholder="Lugar de firma del doc.">
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="col-6">
+                    <div class="col-12">
+                        @* <label for="ruta1" class="form-label">Ruta de papeles de trabajo:</label> *@
+                        <input type="text" class="form-control form-control-sm" id="ruta1" placeholder="Ruta de papeles de trabajo">
+                    </div>
+                    <div class="col-12 mt-3">
+                        @* <label for="ruta2" class="form-label">Ruta de documento:</label> *@
+                        <input type="text" class="form-control form-control-sm" id="ruta2" placeholder="Ruta de documento">
+                    </div>
+
+                    <div class="col-12 mt-3">
+                        @* <label for="adjuntos" class="form-label">Archivos adjuntos</label> *@
+                        <textarea class="form-control" id="adjuntos" rows="4" placeholder="Archivos adjuntos"></textarea>
+                    </div>
+
+                    <div class="col-12 mt-3">
+                        @* <label for="observaciones" class="form-label">Observaciones:</label> *@
+                        <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            @* <div class="row mt-3">
+                <label for="observaciones" class="form-label">Observaciones:</label>
+                <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones"></textarea>
+            </div> *@
+
+            <@* div class="col-12 mt-3">
+                <button id="btnCrear" type="submit" class="btn btn-success me-2" style="@(Model?.Id == "" ? "" : "display:none")"><i class="bi bi-plus-lg"></i>Crear hoja</button>
+                <button id="btnGuardar" type="submit" class="btn btn-success me-2" style="@(Model?.Id != "" ? "" : "display:none")"><i class="bi bi-floppy"></i> Guardar cambios</button>
+                <button type="submit" class="btn btn-success"> <i class="bi bi-pencil-fill"></i> Firmar Documento</button>
+            </div> *@
+            <div class="col-12 mt-3">
+                @if (@String.IsNullOrEmpty(Model.Id))
+                {
+                    <button id="btnCrear" type="submit" class="btn btn-success me-2"><i class="bi bi-plus-lg"></i>Crear hoja</button>
+                }
+                else
+                {
+                        @if (@ViewBag.Visualizacion)
+                    {
+                        <button type="submit" class="btn bg-bdo"> Volver al Inicio </button>
+                    }
+
+                    <button id="btnGuardar" type="submit" class="btn btn-success me-2"><i class="bi bi-floppy"></i> Guardar cambios</button>
+                    <button type="submit" class="btn btn-success"> <i class="bi bi-pencil-fill"></i> Firmar Documento</button>
+                }
+            </div>
+
+        </form>
+    </div>
+</div>
+
+@{
+    //var subareasJson = System.Text.Json.JsonSerializer.Serialize(ViewBag.Subareas);
+
+    //var subareas = @Html.Raw(ViewBag.SubareasJson);
+}
+
+@section Scripts {
+
+    <script>
+
+        var subareas = JSON.parse('@Html.Raw(ViewBag.Subareas)');
+
+        //       (function () {
+        //     let form = document.getElementById("hojaForm");
+        //     let isDirty = false;
+        //     debugger;
+
+        //     // Detectar cambios en cualquier campo del formulario
+        //     form.querySelectorAll("input, select, textarea").forEach(campo => {
+        //         campo.addEventListener("change", () => {
+        //             isDirty = true;
+        //         });
+        //         campo.addEventListener("input", () => {
+        //             isDirty = true;
+        //         });
+        //     });
+
+        //     // Desactivar advertencia al enviar el formulario
+        //     form.addEventListener("submit", () => {
+        //         isDirty = false;
+        //     });
+
+        //     // Detectar intento de cerrar o refrescar página
+        //     window.addEventListener("beforeunload", function (e) {
+        //         debugger;
+        //         if (isDirty) {
+        //             e.preventDefault();
+        //             e.returnValue = "Hay cambios sin guardar. ¿Seguro que quieres salir?";
+        //         }
+        //     });
+        // })();
+
+        //     //VALIDACION PARA MODO CREACION O EDICION DEL BOTON
+        //     document.getElementById("btnCrear").addEventListener("click", function (e) {
+        //     e.preventDefault();
+
+        //     const form = e.target.closest("form");
+        //     const formData = new FormData(form);
+
+        //     fetch(form.action, {
+        //         method: "POST",
+        //         body: formData
+        //     })
+        //     .then(response => response.json()) // tu acción debe devolver JSON con el Id
+        //     .then(data => {
+        //         if (data.id && data.id > 0) {
+        //             document.getElementById("btnCrear").style.display = "none";
+        //             document.getElementById("btnGuardar").style.display = "inline-block";
+        //         }
+        //     })
+        //     .catch(err => console.error(err));
+        // });
+
+
+        function onSectorChange(select) {
+                    debugger;
+                var sector = select.value;
+                cargarSubareas(sector);
+        }
+
+
+        // function cargarSubareas(sector, selectedSubareaId = null) {
+        //     debugger;
+        //     var subareaSelect = document.getElementById("Subarea");
+
+        //     subareaSelect.innerHTML = '<option value="">Seleccione SubArea</option>';
+
+        //     if (sectorId) {
+        //         var filtradas = subareas.filter(s => s.Sector == sector);
+
+        //         filtradas.forEach(function (s) {
+        //             var option = document.createElement("option");
+        //             option.value = s.Nombre;
+        //             option.text = s.Detalle;
+
+        //             // if (selectedSubareaId && selectedSubareaId == s.Id) {
+        //             //     option.selected = true;
+        //             // }
+
+        //             subareaSelect.appendChild(option);
+        //         });
+        //     }
+        // }
+
+    </script>
+}

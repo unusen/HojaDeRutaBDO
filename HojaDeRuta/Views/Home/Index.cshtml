@@ -1,0 +1,394 @@
+﻿@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="container-fluid content-wrapper">
+
+    <div id="alertContainer" class="mt-2"></div>
+
+    <div class="accordion mt-3 mb-3" id="accordionExample">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+                <button class="accordion-button bg-bdo text-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                    <i class="bi bi-filter me-2"></i> Filtrar hojas de ruta
+                </button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                <div class="accordion-body p-0">
+                    <div class="card mt-3 mb-3 border-0">
+                        <div class="card-body py-1">
+                            <!-- Filtros dinamicos -->
+                            <div class="row mb-3">
+                                <div class="col-md-1">
+                                    <input type="text" id="filtroNumero" class="form-control" placeholder="N° HR" oninput="applyFilters()" />
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" id="filtroCliente" class="form-control" placeholder="Cliente" oninput="applyFilters()" />
+                                </div>
+                                <div class="col-md-2">
+                                    <select id="filtroEstado" class="form-control" onchange="applyFilters()">
+                                        <option value="">Todos los Estados</option>
+                                        @foreach (var estado in ViewBag.Estados)
+                                        {
+                                            <option value="@estado.Id">@estado.Desc</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-1">
+                                    <input type="text" id="filtroSector" class="form-control" placeholder="Sector" oninput="applyFilters()" />
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" id="filtroSocio" class="form-control" placeholder="Socio" oninput="applyFilters()" />
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" id="filtroDesde" class="form-control" placeholder="Fecha desde" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" id="filtroHasta" class="form-control" placeholder="Fecha hasta" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
+                                </div>
+                            </div>
+                            <!-- Filtros paginacion -->
+                            <div class="row mb-3">
+                                <!-- Cantidad por pagina -->
+                                <div class="col-md-1">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text" data-bs-toggle="tooltip" title="Registros por página">
+                                            <i class="bi bi-list-nested"></i>
+                                        </span>
+                                        <input type="number" min="1" class="form-control" id="inputPageSize" value="10" oninput="changePageSize()" />
+                                    </div>
+                                </div>
+                                <!-- Ir a pagina -->
+                                <div class="col-md-1">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text" data-bs-toggle="tooltip" title="Ir a página Nro">
+                                            <i class="bi bi-box-arrow-in-right"></i>
+                                        </span>
+                                        <input type="number" min="1" class="form-control" id="inputGoToPage" value="1" oninput="goToInputPage()" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
+                                        <i class="bi bi-trash3 me-2"></i>
+                                        Limpiar Filtros
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla resultados -->
+    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+        <table class="table table-sm table-hover table-bordered mb-0">
+            <thead class="bg-bdo text-white">
+                <tr>
+                    <th class="text-center fw-normal" onclick="sortTableBy('Numero')">Número</th>
+                    <th class="text-center fw-normal" onclick="sortTableBy('Cliente')">Cliente</th>
+                    <th class="text-center fw-normal" onclick="sortTableBy('TipoDocumento')">Tipo Documento</th>
+                    <th class="text-center fw-normal" onclick="sortTableBy('Sector')">Sector</th>
+                    <th class="text-center fw-normal" onclick="sortTableBy('SocioFirmante')">Socio Firmante</th>
+                    <th class="text-center fw-normal" onclick="sortTableBy('FechaDocumento')">Fecha</th>
+                    <th class="text-center fw-normal" onclick="sortTableBy('Estado')">Estado</th>
+                    <th class="text-center fw-normal">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="hojasBody"> </tbody>
+        </table>
+    </div>
+
+    <div class="card-footer text-end mt-2 bg-white">
+        <nav>
+            <ul class="pagination justify-content-end mb-2" id="pagination">
+                <!-- Se completará dinámicamente -->
+            </ul>
+        </nav>
+    </div>
+</div>
+
+@{
+    var estadosJson = System.Text.Json.JsonSerializer.Serialize(ViewBag.Estados);
+}
+
+@section Scripts {
+
+    <script>
+        const allHojas = @Html.Raw(ViewBag.HojasJson);
+        let currentSort = { field: '', direction: 'asc' };
+        let currentPage = 1;
+        let pageSize = parseInt(document.getElementById('inputPageSize')?.value) || 5;
+        let filteredHojas = [...allHojas];
+        const estadoMap = @Html.Raw(estadosJson);
+
+        function sortTableBy(field) {
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+            }
+
+            renderTable();
+        }
+
+        function applyFilters() {
+            const cliente = document.getElementById('filtroCliente').value.toLowerCase();
+            const estado = document.getElementById('filtroEstado').value;
+            const sector = document.getElementById('filtroSector').value.toLowerCase();
+            const socio = document.getElementById('filtroSocio').value.toLowerCase();
+            const numero = document.getElementById('filtroNumero').value.toLowerCase();
+            const desde = document.getElementById('filtroDesde').value;
+            const hasta = document.getElementById('filtroHasta').value;
+
+            filteredHojas = allHojas.filter(h => {
+                const matchCliente = h.Cliente.toLowerCase().includes(cliente);
+                const matchEstado = !estado || h.Estado === parseInt(estado);
+                const matchSector = h.Sector.toLowerCase().includes(sector);
+                const matchSocio = h.SocioFirmante.toLowerCase().includes(socio);
+                const matchNumero = h.Numero.toLowerCase().includes(numero);
+                const fecha = new Date(h.Fecha);
+                const matchDesde = !desde || fecha >= new Date(desde);
+                const matchHasta = !hasta || fecha <= new Date(hasta);
+
+                return matchCliente && matchEstado && matchSector && matchSocio && matchNumero && matchDesde && matchHasta;
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        function resetFilters() {
+            debugger;
+            document.getElementById('filtroCliente').value = '';
+            document.getElementById('filtroEstado').value = '';
+            document.getElementById('filtroSector').value = '';
+            document.getElementById('filtroSocio').value = '';
+            document.getElementById('filtroNumero').value = '';
+            document.getElementById('filtroDesde').value = '';
+            document.getElementById('filtroHasta').value = '';
+            
+            filteredHojas = [...allHojas];
+            currentPage = 1;
+
+            renderTable();
+        }
+
+        function renderTable() {
+            debugger;
+            let sorted = [...filteredHojas];
+
+            if (currentSort.field) {
+                sorted.sort((a, b) => {
+                    let valA = a[currentSort.field];
+                    let valB = b[currentSort.field];
+
+                    if (currentSort.field === 'Fecha') {
+                        valA = new Date(valA);
+                        valB = new Date(valB);
+                    } else {
+                        valA = valA.toString().toLowerCase();
+                        valB = valB.toString().toLowerCase();
+                    }
+
+                    if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+                    if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            const start = (currentPage - 1) * pageSize;
+            const paged = sorted.slice(start, start + pageSize);
+
+            const tbody = document.getElementById('hojasBody');
+            tbody.innerHTML = '';
+
+            paged.forEach(h => {
+                debugger;
+                const row = `<tr>
+                    <td class="text-center">${h.Numero}</td>
+                    <td class="text-center">${h.ClienteName}</td>
+                    <td class="text-center">${h.NombreGenerico}</td>
+                    <td class="text-center">${h.Sector}</td>
+                    <td class="text-center">${h.SocioFirmante}</td>
+                    <td class="text-center">${parseFecha(h.FechaDocumento)}</td>
+                    <td class="text-center">
+                        <span class="badge ${getBadgeClass(h.Estado)}">${getEstadoTexto(h.Estado)}</span>
+                    </td>                    
+                    <td class="text-center">
+                        <a href="/Home/Details?id=${h.Id}"
+                            class="me-2 text-decoration-none icon-action" title="Ver detalles">
+                                <i class="bi bi-eye text-success fs-5"></i>
+                        </a>
+
+                        <a href="/Home/Edit?id=${h.Id}"
+                            class="me-2 text-decoration-none icon-action" title="Editar">
+                                <i class="bi bi-pencil text-info fs-5"></i>
+                        </a>
+
+                        <a class="text-decoration-none icon-action" title="Imprimir">
+                            <i class="bi bi-printer text-secondary fs-5"></i>
+                        </a>
+                    </td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+
+            renderPagination(sorted.length);
+        }
+               
+        function renderPagination(totalItems) {
+            const totalPages = Math.ceil(totalItems / pageSize);
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+
+            const maxPagesToShow = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+            let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+            if (endPage - startPage + 1 < maxPagesToShow) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+            }
+
+            // Botón Anterior
+            const prevDisabled = currentPage === 1 ? 'disabled' : '';
+            pagination.innerHTML += `
+                <li class="page-item ${prevDisabled}">
+                    <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">Anterior</a>
+                </li>
+            `;
+
+            // Botón para la primera página
+            if (startPage > 1) {
+                pagination.innerHTML += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" onclick="goToPage(1); return false;">1</a>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                `;
+            }
+
+            // Números de página
+            for (let i = startPage; i <= endPage; i++) {
+                const active = currentPage === i ? 'active' : '';
+                pagination.innerHTML += `
+                    <li class="page-item ${active}">
+                        <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+                    </li>
+                `;
+            }
+
+            // Botón para la última página
+            if (endPage < totalPages) {
+                pagination.innerHTML += `
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#" onclick="goToPage(${totalPages}); return false;">${totalPages}</a>
+                    </li>
+                `;
+            }
+
+            // Botón Siguiente
+            const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+            pagination.innerHTML += `
+                <li class="page-item ${nextDisabled}">
+                    <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">Siguiente</a>
+                </li>
+            `;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            renderTable();
+        }
+
+        window.onload = () => {
+            const input = document.getElementById('inputPageSize');
+            if (input && !isNaN(parseInt(input.value))) {
+                pageSize = parseInt(input.value);
+            }
+
+            filteredHojas = [...allHojas];
+            renderTable();
+        };
+
+        function changePageSize() {
+            const input = document.getElementById('inputPageSize');
+            const newSize = parseInt(input.value);
+
+            if (!isNaN(newSize) && newSize > 0) {
+                pageSize = newSize;
+                currentPage = 1;
+                renderTable();
+            }
+        }
+
+        function goToInputPage() {
+            const input = document.getElementById('inputGoToPage');
+            const totalPages = Math.ceil(filteredHojas.length / pageSize);
+            let page = parseInt(input.value);
+
+            if (!isNaN(page) && page >= 1 && page <= totalPages) {
+                currentPage = page;
+                renderTable();
+                clearAlert();
+            } else {
+                showAlert(`Número de página inválido. Debe estar entre 1 y ${totalPages}.`);
+            }
+        }
+
+        function showAlert(message) {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+            `;
+        }
+
+        function clearAlert() {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = '';
+        }        
+
+        function getEstadoTexto(estadoNumero) {
+            return estadoMap[estadoNumero].Desc || 'Desconocido';
+        }
+
+        function getBadgeClass(estado) {
+            const estadoNum = parseInt(estado);
+            switch(estadoNum) {
+                case 0: return "badge bg-success";
+                case 1: return "badge bg-secondary";
+                case 2: return "badge bg-danger"; 
+                default: return "badge bg-light text-dark";
+            }
+        }
+
+        function parseFecha(fechaStr) {
+            debugger;
+            if (!fechaStr || fechaStr.trim() === "") {
+                return null;
+            }
+
+            const partes = fechaStr.split('/');
+            if (partes.length !== 3) {
+                return null;
+            }
+
+            const [dia, mes, anio] = partes;
+            return new Date(`${anio}-${mes}-${dia}`).toLocaleDateString("es-AR");
+        }
+
+
+    </script>
+}
+

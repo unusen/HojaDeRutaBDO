@@ -1,0 +1,489 @@
+﻿@model HojaDeRuta.Models.DAO.Hoja
+
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = @ViewData["Title"];
+
+}
+
+@functions {
+
+    public string GetDisabledAttribute(string fieldName)
+    {
+        var habilitado = ViewBag.CampoHabilitado as string;
+        return fieldName == habilitado ? null : "disabled";
+    }
+
+    public string DisabledByDetail()
+    {
+        return @ViewBag.Detail ? "disabled" : null;
+    }
+
+}
+
+<div class="container-fluid content-wrapper">
+
+    <h3 class="mb-2 mt-2 fs-4 text-center color-bdo">@ViewData["Title"]</h3>
+
+
+    <div class="border border-2 rounded-3 p-3">
+
+        <form id="hojaForm" asp-action="Create" enctype="multipart/form-data">
+            <fieldset disabled=@DisabledByDetail()>
+                <div class="row">
+                    <div class="col-auto">
+                        <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cliente</label>
+                    </div>
+                    <div class="col-md-4">
+                        <select asp-for="Cliente" asp-items="@ViewBag.Clientes" id="Cliente"
+                                disabled=@DisabledByDetail() class="form-select form-select-sm"
+                                onchange="actualizarCodigoPlataforma(this.value)">
+                            <option value="">Seleccione Cliente</option>
+                        </select>
+                        <span asp-validation-for="Cliente" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-auto">
+                        <label asp-for="Sector" class="form-label form-label-sm mb-0">Sector</label>
+                    </div>
+                    <div class="col">
+                        <select asp-for="Sector" asp-items="@ViewBag.Sectores" id="Sector" disabled=@DisabledByDetail()
+                                onchange="onSectorChange(this)" class="form-select form-select-sm readonly">
+                            <option value="">Seleccione Sector</option>
+                        </select>
+                    </div>
+
+                    <div class="col-auto">
+                        <label asp-for="Subarea" class="form-label form-label-sm mb-0">Subarea</label>
+                    </div>
+                    <div class="col">
+                        <select asp-for="Subarea" id="subarea" disabled=@DisabledByDetail() class="form-select form-select-sm">
+                            <option value="">Seleccione SubArea</option>
+                        </select>
+                    </div>
+
+                    <div class="col-auto">
+                        <label asp-for="Numero" class="form-label form-label-sm mb-0">Nº</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input asp-for="Numero" type="text" class="form-control form-control-sm" placeholder="Número" readonly>
+                    </div>
+
+                </div>
+
+                <div class="row mt-3">
+                    @*  <div class="col-3">
+                    @*<label for="nombreGenerico" class="form-label small">Nombre generico</label> 
+                    <input asp-for="NombreGenerico" type="text" class="form-control form-control-sm" id="nombreGenerico" placeholder="Nombre generico">
+                </div> *@
+                    <div class="col-auto">
+                        <label for="nombreGenerico" class="form-label small">Nombre generico:</label>
+                    </div>
+                    <div class="col-md-3">
+                        <select asp-for="NombreGenerico" asp-items="@ViewBag.NombreGenerico" id="NombreGenerico" class="form-select form-select-sm">
+                            <option value="">Seleccione Tipo de Documento</option>
+                        </select>
+                        <span asp-validation-for="NombreGenerico" class="text-danger small"></span>
+                    </div>
+                    <div class="col-auto">
+                        <label for="Descripcion" class="form-label small">Descripción:</label>
+                    </div>
+                    <div class="col-md-4">
+                        @*<label for="Descripcion" class="form-label small">Descripción</label>*@
+                        <input asp-for="Descripcion" type="text" class="form-control form-control-sm" id="descripcion" placeholder="Descripcion">
+                    </div>
+                    <div class="col-auto">
+                        <label for="FechaDocumento" class="form-label small">Fecha doc.:</label>
+                    </div>
+                    <div class="col-md-2">
+                        <input asp-for="FechaDocumento" type="text" id="fechaDocumento" class="form-control form-control-sm" placeholder="Fecha Documento" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    @*      <div class="col-md-3">
+                        <label for="SocioFirmante" class="form-label">Socio Firmante</label>
+                        <select asp-for="SocioFirmante" id="SocioFirmante" class="form-select form-select-sm">
+                            <option value="">Seleccione Socio Firmante</option>
+                            <option>Murdocca, Diego Adrian</option>
+                            <option>Test, Revisor</option>
+                        </select>
+                    </div> *@
+
+                    <div class="col-auto">
+                        <label asp-for="IsSindico" class="form-label form-label-sm mb-0">Requiere síndico</label>
+                    </div>
+                    <div class="col-md-1">
+                        <select id="IsSindico" class="form-select form-select-sm" onchange="toggleSindico(this)">
+                            <option selected>NO</option>
+                            <option>SI</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label asp-for="Sindico" class="form-label form-label-sm mb-0">Síndico</label>
+                    </div>
+                    <div class="col-md-3">
+                        <select asp-for="Sindico" asp-items="@ViewBag.Sindicos" id="Sindico" class="form-select form-select-sm" disabled>
+                            <option value="">Seleccione Sindico</option>
+                        </select>
+                    </div>
+
+                    <div class="col-auto">
+                        <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cod. Cliente</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input asp-for="Cliente" type="text" class="form-control form-control-sm"
+                               onchange="cargarContratos(this.value)" id="CodCliente" readonly>
+                    </div>
+
+                    <div class="col-auto">
+                        <label asp-for="ContratoPlataforma" class="form-label form-label-sm mb-0">Contrato Plataforma</label>
+                    </div>
+                    <div class="col-md-3">
+                        <select asp-for="ContratoPlataforma" id="ContratoPlataforma" class="form-select form-select-sm">
+                            <option value="">Seleccione Contrato Plataforma</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-7">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <label for="Preparo" class="form-label fs-6">Preparó:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="input-group">
+                                    @*  <select asp-for="Preparo" id="preparo" class="form-select form-select-sm" readonly>
+                                    </select> *@
+                                    <input asp-for="Preparo" type="text" class="form-control form-control-sm" id="Preparo" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input asp-for="PreparoFecha" type="text" id="preparoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-2">
+                                <label for="Reviso" class="form-label fs-6">Revisó:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="input-group">
+                                    <select asp-for="Reviso" asp-items="@ViewBag.Revisores" id="reviso" class="form-select form-select-sm"
+                                            disabled=@GetDisabledAttribute("Reviso")>
+                                        <option value="">Seleccione Revisor</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input asp-for="RevisoFecha" type="text" id="revisoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-2">
+                                <label for="RevisionGerente" class="form-label fs-6">Gerente/Dir.:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="input-group">
+                                    <select asp-for="RevisionGerente" asp-items="@ViewBag.Revisores" id="revisoGerente" class="form-select form-select-sm"
+                                            disabled="@GetDisabledAttribute("RevisionGerente")">
+                                        <option value="">Seleccione Revisor Gerente</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input asp-for="RevisionGerenteFecha" type="text" id="revisoGerenteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-2">
+                                <label for="EngagementPartner" class="form-label">Eng. Partner:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="input-group">
+                                    <select asp-for="EngagementPartner" asp-items="@ViewBag.Revisores" id="revisoEngagement" class="form-select form-select-sm"
+                                            disabled="@GetDisabledAttribute("EngagementPartner")">
+                                        <option value="">Seleccione Engagement Partner</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input asp-for="EngagementPartnerFecha" type="text" id="revisoEngagementFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-2">
+                                <label for="SocioFirmante" class="form-label">Socio firmante:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="input-group">
+                                    <select asp-for="SocioFirmante" asp-items="@ViewBag.Revisores" id="revisoSocioFirmante" class="form-select form-select-sm"
+                                            disabled="@GetDisabledAttribute("SocioFirmante")">
+                                        <option value="">Seleccione Socio Firmante</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input asp-for="SocioFirmanteFecha" type="text" id="revisoSocioFirmanteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-2">
+                                <label for="FechaLimite" class="form-label">Fecha Limite:</label>
+                            </div>
+                            <div class="col-md-3">
+                                @* <label for="fechaLimite" class="form-label">Fecha limite:</label> *@
+                                <input asp-for="FechaLimite" type="text" id="fechaLimite" class="form-control form-control-sm" placeholder="Fecha limite" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <label for="GestorFinal" class="form-label">Gestor Final:</label>
+                            </div>
+                            <div class="col-md-5">
+                                @* <label for="gestorFinal" class="form-label">Gestor final:</label> *@
+                                <select asp-for="GestorFinal" asp-items="@ViewBag.Gestores" id="gestorFinal" class="form-select form-select-sm"
+                                        disabled="@GetDisabledAttribute("GestorFinal")">
+                                    <option value="">Seleccione Gestor Final</option>
+                                </select>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <label for="lugarFirmaDoc" class="form-label">Lugar de firma del doc.:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <input asp-for="LugarFirma" type="text" class="form-control form-control-sm" id="lugarFirmaDoc" placeholder="Lugar de firma del doc.">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="RutaPapeles" class="form-label">Ruta papeles:</label>
+                            </div>
+                            <div class="col-md-9">
+                                <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <label for="RutaDoc" class="form-label">Ruta doc.:</label>
+                            </div>
+                            <div class="col-md-9">
+                                <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <label for="Adjuntos" class="form-label">Adjuntos:</label>
+                            </div>
+                            <div class="col-md-9">
+                                <textarea asp-for="Adjuntos" class="form-control" id="adjuntos" rows="3" placeholder="Archivos adjuntos"></textarea>
+                                <span asp-validation-for="Adjuntos" class="text-danger small"></span>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <label for="Observaciones" class="form-label">Observaciones:</label>
+                            </div>
+                            <div class="col-md-9">
+                                <textarea asp-for="Observaciones" class="form-control" id="observaciones" rows="3" placeholder="Observaciones"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* <div class="row mt-3">
+                <label for="observaciones" class="form-label">Observaciones:</label>
+                <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones"></textarea>
+            </div> *@
+
+                @*< div class="col-12 mt-3">
+                <button id="btnCrear" type="submit" class="btn btn-success me-2" style="@(Model?.Id == "" ? "" : "display:none")"><i class="bi bi-plus-lg"></i>Crear hoja</button>
+                <button id="btnGuardar" type="submit" class="btn btn-success me-2" style="@(Model?.Id != "" ? "" : "display:none")"><i class="bi bi-floppy"></i> Guardar cambios</button>
+                <button type="submit" class="btn btn-success"> <i class="bi bi-pencil-fill"></i> Firmar Documento</button>
+            </div> *@
+            </fieldset>
+
+            <div class="col-md-12 mt-3">
+                <button type="submit" asp-action="Index" class="btn bg-bdo"> <i class="bi bi-arrow-90deg-left"></i> Volver al Inicio </button>
+
+                @if (@String.IsNullOrEmpty(Model.Id))
+                {
+                    <button id="btnCrear" asp-action="Create" type="submit" class="btn btn-success me-2"><i class="bi bi-file-earmark-plus me-1"></i>Crear hoja</button>
+                }
+                else
+                {
+                    @if (!@ViewBag.Detail)
+                    {
+                        <button id="btnVer" type="submit" class="btn btn-info"> <i class="bi bi-file-earmark-bar-graph"></i> Ver Documentos </button>
+
+                        <button id="btnAprobar" asp-action="Aprobar" type="submit" class="btn btn-success"> <i class="bi bi-check-lg"></i> Aprobar </button>
+                        <button id="btnRechazar" asp-action="Rechazar" type="submit" class="btn btn-danger me-2"><i class="bi bi-x-lg"></i> Rechazar</button>
+                        <button id="btnGuardar" asp-route-mode="Update" type="submit" class="btn btn-secondary me-2"><i class="bi bi-floppy"></i> Modificar </button>
+                    }
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+@{
+    //var subareasJson = System.Text.Json.JsonSerializer.Serialize(ViewBag.Subareas);
+
+    //var subareas = @Html.Raw(ViewBag.SubareasJson);
+}
+
+@section Scripts {
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', function() {
+            addClassToLabels('fs-7');
+        });
+
+        var subareas = JSON.parse('@Html.Raw(ViewBag.Subareas)');
+        var clientesData = JSON.parse('@Html.Raw(ViewBag.ClientesJson)');
+
+        //AVISAR SI HAY CAMBIOS PARA GUARDAR AL ABANDONAR LA HOJA
+        //       (function () {
+        //     let form = document.getElementById("hojaForm");
+        //     let isDirty = false;
+        //     debugger;
+
+        //     // Detectar cambios en cualquier campo del formulario
+        //     form.querySelectorAll("input, select, textarea").forEach(campo => {
+        //         campo.addEventListener("change", () => {
+        //             isDirty = true;
+        //         });
+        //         campo.addEventListener("input", () => {
+        //             isDirty = true;
+        //         });
+        //     });
+
+        //     // Desactivar advertencia al enviar el formulario
+        //     form.addEventListener("submit", () => {
+        //         isDirty = false;
+        //     });
+
+        //     // Detectar intento de cerrar o refrescar página
+        //     window.addEventListener("beforeunload", function (e) {
+        //         debugger;
+        //         if (isDirty) {
+        //             e.preventDefault();
+        //             e.returnValue = "Hay cambios sin guardar. ¿Seguro que quieres salir?";
+        //         }
+        //     });
+        // })();
+
+        function onSectorChange(select) {
+                    debugger;
+                var sector = select.value;
+                cargarSubareas(sector);
+        }
+
+        function cargarSubareas(sector, selectedSubareaId = null) {
+            debugger;
+            var subareaSelect = document.getElementById("subarea");
+
+            subareaSelect.innerHTML = '<option value="">Seleccione SubArea</option>';
+
+            if (sector) {
+                var filtradas = subareas.filter(s => s.Sector == sector);
+
+                filtradas.forEach(function (s) {
+                    var option = document.createElement("option");
+                    option.value = s.Nombre;
+                    option.text = s.Nombre;
+
+                    // if (selectedSubareaId && selectedSubareaId == s.Id) {
+                    //     option.selected = true;
+                    // }
+
+                    subareaSelect.appendChild(option);
+                });
+            }
+        }
+
+        function toggleSindico(selectElement) {
+            var isSindicoValue = selectElement.value;
+            var sindicoSelect = document.getElementById('Sindico');
+
+            if (isSindicoValue === 'SI') {
+                sindicoSelect.disabled = null;
+            }
+            else {
+                sindicoSelect.disabled = true;
+                sindicoSelect.value = "";
+            }
+        }
+
+        function addClassToLabels(className) {
+            var labels = document.querySelectorAll('label');
+
+            if (labels.length === 0) {
+                return;
+            }
+
+            labels.forEach(function(label) {
+                label.classList.add(className);
+            });
+        }
+
+        function actualizarCodigoPlataforma(clienteId) {
+            var inputCodCliente = document.getElementById('CodCliente');
+
+            if (!clienteId) {
+                inputCodCliente.value = '';
+                return;
+            }
+
+            var clienteSeleccionado = clientesData.find(c => c.Id == clienteId);
+
+            if (clienteSeleccionado) {
+                inputCodCliente.value = clienteSeleccionado.CodigoPlataforma;
+                inputCodCliente.dispatchEvent(new Event('change'));
+            } else {
+                inputCodCliente.value = '';
+            }
+        }
+
+        function cargarContratos(codCliente) {
+            debugger;
+            var selectContratos = document.getElementById('ContratoPlataforma');
+
+            selectContratos.innerHTML = '<option value="">Cargando contratos...</option>';
+
+            if (!codCliente) {
+                selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>';
+                return;
+            }
+
+            fetch('/Home/GetContratosByCodigo?codigoPlataforma=' + codCliente)
+                .then(response => response.json())
+                .then(data => {
+                    debugger;
+                    selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>'; // Restablece
+
+                    data.forEach(function(contrato) {
+                        debugger;
+                        var option = document.createElement('option');
+                        option.value = contrato;
+                        option.text = contrato;
+                        selectContratos.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar contratos:', error);
+                    selectContratos.innerHTML = '<option value="">Error al cargar los contratos</option>';
+                });
+        }
+    </script>
+}

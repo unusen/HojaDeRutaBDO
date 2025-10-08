@@ -89,3 +89,21 @@ body {
     font-size: 0.8rem !important;
 }
 
+.form-control.is-valid,
+.form-select.is-valid {
+    border-color: #198754 !important; /* verde Bootstrap */
+    padding-right: 0.375rem !important; /* quita espacio reservado al ícono */
+    background-image: none !important; /* elimina el tilde */
+    box-shadow: 0 0 0 0.1rem rgba(25, 135, 84, 0.25); /* leve brillo verde opcional */
+}
+
+.sortable {
+    cursor: pointer;
+    transition: background-color 0.4s;
+}
+
+
+.sortable:hover {
+    color: grey;
+}
+

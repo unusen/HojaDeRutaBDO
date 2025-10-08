@@ -1,4 +1,6 @@
+using AutoMapper;
 using HojaDeRuta.Models;
+using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Models.Enums;
 using HojaDeRuta.Models.ViewModels;
@@ -7,6 +9,7 @@ using HojaDeRuta.Services.LoginService;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Newtonsoft.Json;
@@ -16,7 +19,7 @@ using System.Diagnostics;
 namespace HojaDeRuta.Controllers
 {
     //TODO: ACTIVAR AUTORIZACION EN CONTROLADOR
-    //[Authorize]
+    [Authorize]
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
@@ -27,6 +30,7 @@ namespace HojaDeRuta.Controllers
         private readonly ILoginService _loginService;
         private readonly MailService _mailService;
         private readonly RevisorService _revisorService;
+        private readonly IMapper _mapper;
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -36,7 +40,8 @@ namespace HojaDeRuta.Controllers
             SharedService sharedService,
             ILoginService loginService,
             MailService mailService,
-            RevisorService revisorService
+            RevisorService revisorService,
+            IMapper mapper
             )
         {
             _logger = logger;
@@ -47,6 +52,7 @@ namespace HojaDeRuta.Controllers
             _loginService = loginService;
             _mailService = mailService;
             _revisorService = revisorService;
+            _mapper = mapper;
         }
 
         [HttpPost]
@@ -60,25 +66,26 @@ namespace HojaDeRuta.Controllers
 
         public async Task<IActionResult> Index(int pageNumber = 1, int pageSize = 10, string sortOrder = "Numero", string sortDirection = "asc")
         {
+            var name = "";
+            var email = "";
+            IList<GroupConfig> roles = new List<GroupConfig>();
+            var area = "";
+            var cargo = "";
+
             //TODO: ACTIVAR DATOS DE LOGIN
-            //try
-            //{
+            try
+            {
+                name = await _loginService.GetUserNameAsync();
+                email = await _loginService.GetUserEmailAsync();
+                roles = await _loginService.GetUserGroupsAsync();
+                area = await _loginService.GetUserAreaAsync();
+                cargo = await _loginService.GetUserCargoAsync();
+            }
+            catch (Exception)
+            {
+                return Challenge();
+            }
 
-            //    var name = await _loginService.GetUserNameAsync();
-            //    var email = await _loginService.GetUserEmailAsync();
-            //    var roles = await _loginService.GetUserGroupsAsync();
-
-            //    var area = await _loginService.GetUserAreaAsync();
-            //    var cargo = await _loginService.GetUserCargoAsync();
-            //}
-            //catch (Exception)
-            //{
-            //    return Challenge();
-            //}
-
-
-
-            //TODO: FILTRAR Y ORDENAR POR FECHA, ORDENAR POR LAS RESTANTES COLUMNAS
             ViewBag.CurrentSection = "Home";
 
             ViewBag.Estados = Enum.GetValues(typeof(Estado))
@@ -87,21 +94,27 @@ namespace HojaDeRuta.Controllers
                 .ToList();
 
             //PARA TEST
-            var parameters = new Dictionary<string, string>
-            {
-                { "Nivel", "11" },
-                { "Sector", "AUDI" },
-                { "Usuario ", "CSZULZYK" }
-            };
-
             //var parameters = new Dictionary<string, string>
             //{
-            //    { "Nivel", roles.FirstOrDefault().Nivel.ToString() },
+            //    { "Nivel", "11" },
             //    { "Sector", "AUDI" },
-            //    { "Usuario ", name }
+            //    { "Usuario ", "CSZULZYK" }
             //};
 
-            var allHojas = await _hojaDeRutaService.GetHojas(parameters);
+            var parameters = new Dictionary<string, string>
+            {
+                { "Nivel", roles.FirstOrDefault().Nivel.ToString() },
+                { "Sector", "AUDI" },
+                { "Usuario ", name }
+            };
+
+            var hojas = await _hojaDeRutaService.GetHojas(parameters);
+            List<Clientes> clientes = await _clienteService.GetClientes();
+
+            var allHojas = _mapper.Map<List<HojaViewModel>>(hojas, opt =>
+            {
+                opt.Items["Clientes"] = clientes;
+            });
 
             //Ordenamiento
             allHojas = sortOrder switch
@@ -116,7 +129,7 @@ namespace HojaDeRuta.Controllers
             var totalItems = allHojas.Count;
             var pagedItems = allHojas.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
 
-            var pagedList = new PagedList<Hoja>
+            var pagedList = new PagedList<HojaViewModel>
             {
                 Items = pagedItems,
                 PageNumber = pageNumber,
@@ -137,49 +150,48 @@ namespace HojaDeRuta.Controllers
             return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Create });
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Hoja hoja)
-        {
-            //TODO: GUARDAR LA HOJA CREADA EN LA BASE
-            //TODO: VALIDAR EL MODELO CORRECTAMENTE
-            if (ModelState.IsValid)
-            {
-                await _hojaDeRutaService.CreateHoja(hoja);
-                return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
-            }
+        //[HttpPost]
+        //[ValidateAntiForgeryToken]
+        //public async Task<IActionResult> Create(Hoja hoja)
+        //{
+        //    //TODO: GUARDAR LA HOJA CREADA EN LA BASE
+        //    //TODO: VALIDAR EL MODELO CORRECTAMENTE
+        //    if (ModelState.IsValid)
+        //    {
+        //        await _hojaDeRutaService.CreateHoja(hoja);
+        //        return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
+        //    }
 
-            return RedirectToAction(nameof(Upsert), new {
-                mode = ViewMode.Create,
-                id = "",
-                hoja = hoja            
-            });
+        //    return RedirectToAction(nameof(Upsert), new
+        //    {
+        //        mode = ViewMode.Create,
+        //        id = "",
+        //        hoja = hoja
+        //    });
 
-        }
+        //}
 
-        public async Task<IActionResult> Edit(string id)
-        {
-            return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = id.ToString() });
-        }
+        //public async Task<IActionResult> Edit(string id)
+        //{
+        //    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = id.ToString() });
+        //}
 
-        public async Task<IActionResult> Details(string id)
-        {
-            return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = id.ToString() });
-        }
+        //public async Task<IActionResult> Details(string id)
+        //{
+        //    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = id.ToString() });
+        //}
 
-        public async Task<IActionResult> Upsert(ViewMode mode, string id, Hoja? hoja)
+        public async Task<IActionResult> Upsert(ViewMode mode, string id, HojaViewModel? hojaViewModel = null)
         {
             //TODO: VER COMO SE LLENAN TODOS LOS CAMPOS EN UN CREATE Y EDIT
-
             //TODO: GENERAR PROCESO BACKGROUND PARA ACTUALIZAR CONTRATOS A LA NOCHE
-
             //TODO: NUEVA VENTANA AUDITORIA
+            //TODO: VER POR QUE NO SE MODIFICAN ALGUNOS CAMPOS EN UPDATE, EJ REVISO
 
+            Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);
 
             ViewBag.CurrentSection = "Upsert";
             ViewBag.Detail = false;
-
-            //Hoja hoja = new Hoja();
 
             if (mode == ViewMode.Visualize)
             {
@@ -188,102 +200,57 @@ namespace HojaDeRuta.Controllers
                 ViewData["Title"] = "Visualizar Hoja de Ruta";
                 hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
 
-                return View(hoja);
+                hoja.IsSindico = String.IsNullOrWhiteSpace(hoja.Sindico);
+
+                ModelState.Clear();
+
+                //return View(hoja);
             }
-
-            List<Clientes> clientes = await _clienteService.GetClientes();
-            List<TipoDocumento> tiposDocumento = await _sharedService.GetTipoDocumentos();
-            List<Sector> sectores = await _sharedService.GetSectores();
-            List<Socios> socios = await _sharedService.GetAllSocios();
-            List<SubArea> subAreas = await _sharedService.GetSubAreas();
-
-            ViewBag.Clientes = clientes.Select(c => new SelectListItem
-            {
-                Value = c.Id.ToString(),
-                Text = c.RazonSocial
-            }).ToList();
-
-            ViewBag.ClientesJson = System.Text.Json.JsonSerializer.Serialize(clientes);
-
-            ViewBag.NombreGenerico = tiposDocumento.Select(c => new SelectListItem
-            {
-                Value = c.NombreGenerico,
-                Text = c.NombreGenerico
-            }).ToList();
-
-            ViewBag.Sectores = sectores.Select(c => new SelectListItem
-            {
-                Value = c.Nombre,
-                Text = c.Nombre
-            }).ToList();
-
-            ViewBag.Subareas = System.Text.Json.JsonSerializer.Serialize(subAreas);
-
-            ViewBag.Sindicos = socios.Select(c => new SelectListItem
-            {
-                Value = c.Socio,
-                Text = c.Detalle
-            }).ToList();
 
             if (mode == ViewMode.Create)
             {
                 ViewData["Title"] = "Crear Hoja de Ruta";
                 hoja = hoja != null ? hoja : new Hoja();
 
+                hoja = new Hoja();
+
+                ModelState.Clear();
+
                 //TODO: LLENAR CAMPO PREPARO CON EL USUARIO LOGUEADO, ES MODIFICABLE?
-                hoja.Preparo = "CSZULZYK";
+                hoja.Preparo = "GBANAY";
                 hoja.PreparoFecha = DateTime.Now.ToShortDateString();
-                hoja.FechaDocumento = DateTime.Now.ToShortDateString();
+                hoja.FechaDocumento = DateTime.Now;
+                hoja.Numero = "3561";
             }
             else if (mode == ViewMode.Update)
             {
                 ViewData["Title"] = "Editar Hoja de Ruta";
                 hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
+                hoja.IsSindico = String.IsNullOrWhiteSpace(hoja.Sindico);
+
                 //hoja.Preparo = "DGONZALEZ"; //5
                 //hoja.Reviso = "CORTOLANI"; //6
                 //hoja.RevisionGerente = "RevisionGerente";
                 //hoja.EngagementPartner = "EngagementPartner";
                 //hoja.SocioFirmante = null;
 
-                ViewBag.CampoHabilitado = await GetCampoHabilitado(hoja);
-
-                int nivelActual = await GetNivelRevisorActual(hoja);
-
-                var parameters = new Dictionary<string, int>
-                {
-                    { "NivelActual", nivelActual }
-                };
-
-                //TODO: AGREGAR LOGICA DE QUE NO PUEDE REPETIRSE REVISOR
-                List<Revisores> revisores = await _revisorService.GetRevisoresByNivel(parameters);
-
-                ViewBag.Revisores = revisores.Select(c => new SelectListItem
-                {
-                    Value = c.Empleado,
-                    Text = c.Detalle
-                }).ToList();
-
-                List<Revisores> gestores = await _revisorService.GetAllRevisores();
-
-                ViewBag.Gestores = gestores.Select(c => new SelectListItem
-                {
-                    Value = c.Empleado,
-                    Text = c.Detalle
-                }).ToList();                
+                ModelState.Clear();
             }
+
+            await CargarViewBags(hoja, mode);
 
             return View(hoja);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Upsert(Hoja hoja, string mode)
+        public async Task<IActionResult> Upsert(Hoja hoja, ViewMode mode)
         {
-            //TODO: IMPACTAR CREATE Y EDIT EN LA BASE
-
             ViewBag.Detail = false;
 
-            if (mode == "Update")
+            await CargarViewBags(hoja, mode);
+
+            if (mode == ViewMode.Update)
             {
                 ViewData["Title"] = "Editar Hoja de Ruta";
 
@@ -292,12 +259,31 @@ namespace HojaDeRuta.Controllers
 
                 //TODO: LOGICA DE APROBACION DE HOJA
                 //TODO: LOGICA DE RECHAZO DE HOJA
+                await _hojaDeRutaService.UpdateHoja(hoja);
+
+                return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
+
+                //return View(hoja);
+            }
+            else if (mode == ViewMode.Create)
+            {
+                //TODO: REVISAR GUARDADO DE CAMPO SINDICO CON EL NOMBRE Y NO CON LAS INICIALES
+                //TODO: REVISAR VALIDACION DE MODELO EN SELECTS QUE SE LLENAN DINAMICOS
+                //TODO: AL VOLVER DEL GUARDADO VIAJA BIEN AL VISUALIZE PERO DE AHI AL UPDATE NO TRAE LOS DATOS
+
+                if (ModelState.IsValid)
+                {
+                    hoja.Id = $"{hoja.Sector}{hoja.Numero}";
+                    await _hojaDeRutaService.CreateHoja(hoja);
+                    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
+                }
+
+                var errores = ModelState
+                .Where(x => x.Value.Errors.Count > 0)
+                .SelectMany(x => x.Value.Errors)
+                .ToList();
 
                 return View(hoja);
-            }
-            else if (mode == "Create")
-            {
-
             }
 
             return View(hoja);
@@ -307,7 +293,6 @@ namespace HojaDeRuta.Controllers
         {
             //TODO: EL BOTON RECHAZAR SOLO PUEDE VERLO EL REVISOR ACTUAL
             //TODO: CAMBIAR ESTADO DE LA HOJA A RECHAZADO
-
 
             //OBTENER TODOS LOS REVISORES DE LA HOJA
             List<string> emails = new List<string>()
@@ -362,7 +347,7 @@ namespace HojaDeRuta.Controllers
         }
 
         public async Task<string> GetCampoHabilitado(Hoja hoja, bool obtenerAnterior = false)
-        {           
+        {
             var pasosFlujo = new List<(string Nombre, string Valor)>
             {
                 ("Preparo", hoja.Preparo),
@@ -398,7 +383,8 @@ namespace HojaDeRuta.Controllers
 
             Revisores revisorActual = await _revisorService.GetRevisorByName(revisor);
 
-            return revisorActual.Cargo.Value;
+            //return revisorActual.Cargo.Value;
+            return revisorActual?.Cargo ?? 0;
         }
 
         public async Task<List<string>> GetContratosByCodigo(string codigoPlataforma)
@@ -414,11 +400,87 @@ namespace HojaDeRuta.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        public async Task<string> ValidarCreate(Hoja hoja)
+        private async Task CargarViewBags(Hoja hoja, ViewMode viewMode)
         {
-            string result = "";
+            List<Clientes> clientes = await _clienteService.GetClientes();
+            List<TipoDocumento> tiposDocumento = await _sharedService.GetTipoDocumentos();
+            List<Sector> sectores = await _sharedService.GetSectores();
+            List<Socios> socios = await _sharedService.GetAllSocios();
+            List<SubArea> subAreas = await _sharedService.GetSubAreas();
 
-            return result;
+            ViewBag.Clientes = clientes.Select(c => new SelectListItem
+            {
+                Value = c.Id.ToString(),
+                Text = c.RazonSocial
+            }).ToList();
+
+            ViewBag.ClientesJson = System.Text.Json.JsonSerializer.Serialize(clientes);
+
+            ViewBag.NombreGenerico = tiposDocumento.Select(c => new SelectListItem
+            {
+                Value = c.NombreGenerico,
+                Text = c.NombreGenerico
+            }).ToList();
+
+            ViewBag.Sectores = sectores.Select(c => new SelectListItem
+            {
+                Value = c.Nombre,
+                Text = c.Nombre
+            }).ToList();
+
+            ViewBag.Subareas = System.Text.Json.JsonSerializer.Serialize(subAreas);
+
+            ViewBag.Sindicos = socios.Select(c => new SelectListItem
+            {
+                Value = c.Socio,
+                Text = c.Detalle
+            }).ToList();
+
+            //if (viewMode == ViewMode.Update)
+            //{
+            ViewBag.CampoHabilitado = await GetCampoHabilitado(hoja);
+
+            int nivelActual = await GetNivelRevisorActual(hoja);
+
+            //Si tiene nivel mayor a 0 significa que existe el revisor
+            if (nivelActual > 0)
+            {
+                var parameters = new Dictionary<string, int>
+                {
+                    { "NivelActual", nivelActual }
+                };
+
+                //TODO: AGREGAR LOGICA DE QUE NO PUEDE REPETIRSE REVISOR
+                List<Revisores> revisores = await _revisorService.GetRevisoresByNivel(parameters);
+
+                ViewBag.Revisores = revisores.Select(c => new SelectListItem
+                {
+                    Value = c.Empleado,
+                    Text = c.Detalle
+                }).ToList();
+            }
+            else
+            {
+                ViewBag.Revisores = new List<SelectListItem>
+                {
+                    new SelectListItem
+                    {
+                        Value = "",
+                        Text = "No existen revisores para el paso actual"
+                    }
+                };
+            }
+
+
+            List<Revisores> gestores = await _revisorService.GetAllRevisores();
+
+            ViewBag.Gestores = gestores.Select(c => new SelectListItem
+            {
+                Value = c.Empleado,
+                Text = c.Detalle
+            }).ToList();
+            //}       
         }
+
     }
 }

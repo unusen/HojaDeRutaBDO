@@ -48,43 +48,28 @@
         public async Task<string> GetUserAreaAsync()
         {
             try
-            {
-                var user = _httpContextAccessor.HttpContext?.User;
+            {            
 
-                var area = user?.FindFirst("jobtitle")?.Value ?? string.Empty;
-                var cargo = user?.FindFirst("department")?.Value ?? string.Empty;
-
-                //string[] scopes = { "User.Read", "Group.Read.All" };
-                //var accessToken = await _tokenAcquisition.GetAccessTokenForUserAsync(scopes);
-
-                var user2 = await _graphClient.Me
-                                     .Request()
-                                     .GetAsync();
-
-                var user1 = await _graphClient.Me
+                var user = await _graphClient.Me
                                          .Request()
-                                         .Select(u => new { u.Department, u.JobTitle })
+                                         .Select(u => new {u.Department})
                                          .GetAsync();
 
-                return "";
+                return user.Department;
             }
             catch (MicrosoftIdentityWebChallengeUserException ex)
             {
                 throw new Exception(ex.Message);
-            }       
-          
-
-            //return user?.Claims.FirstOrDefault(c => c.Type == "department")?.Value
-            //       ?? user?.Identity?.Name
-            //       ?? string.Empty;
+            }
         }
 
         public async Task<string> GetUserCargoAsync()
         {
-            var user = _httpContextAccessor.HttpContext?.User;
-            return user?.Claims.FirstOrDefault(c => c.Type == "jobtitle")?.Value
-                   ?? user?.Identity?.Name
-                   ?? string.Empty;
+            var user = await _graphClient.Me
+                                         .Request()
+                                         .Select(u => new {u.JobTitle })
+                                         .GetAsync();
+            return user.JobTitle;
         }
 
         public async Task<IList<GroupConfig>> GetUserGroupsAsync()

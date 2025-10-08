@@ -1,10 +1,12 @@
 ﻿using HojaDeRuta.DBContext;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Services;
+using HojaDeRuta.Services.AutoMapper;
 using HojaDeRuta.Services.LoginService;
 using HojaDeRuta.Services.Repository;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 
@@ -92,6 +94,11 @@ builder.Services.AddScoped<MailService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddHostedService<SyncService>();
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddProfile<MappingProfile>();
+});
 
 
 var app = builder.Build();

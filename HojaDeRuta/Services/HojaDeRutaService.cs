@@ -1,9 +1,7 @@
 ﻿using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Services.Repository;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Options;
-using System.Collections.Generic;
 
 namespace HojaDeRuta.Services
 {
@@ -78,6 +76,18 @@ namespace HojaDeRuta.Services
             try
             {
                 await _hojaRepository.AddAsync(hoja);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task UpdateHoja(Hoja hoja)
+        {
+            try
+            {
+                await _hojaRepository.UpdateAsync(hoja);
             }
             catch (Exception ex)
             {

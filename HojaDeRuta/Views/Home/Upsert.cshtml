@@ -18,7 +18,6 @@
     {
         return @ViewBag.Detail ? "disabled" : null;
     }
-
 }
 
 <div class="container-fluid content-wrapper">
@@ -31,6 +30,7 @@
         <form id="hojaForm" asp-action="Create" enctype="multipart/form-data">
             <fieldset disabled=@DisabledByDetail()>
                 <div class="row">
+                    <input type="hidden" asp-for="Id" />
                     <div class="col-auto">
                         <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cliente</label>
                     </div>
@@ -50,7 +50,7 @@
                         <select asp-for="Sector" asp-items="@ViewBag.Sectores" id="Sector" disabled=@DisabledByDetail()
                                 onchange="onSectorChange(this)" class="form-select form-select-sm readonly">
                             <option value="">Seleccione Sector</option>
-                        </select>
+                        </select><span asp-validation-for="Sector" class="text-danger small"></span>
                     </div>
 
                     <div class="col-auto">
@@ -60,6 +60,7 @@
                         <select asp-for="Subarea" id="subarea" disabled=@DisabledByDetail() class="form-select form-select-sm">
                             <option value="">Seleccione SubArea</option>
                         </select>
+                        <span asp-validation-for="Subarea" class="text-danger small"></span>
                     </div>
 
                     <div class="col-auto">
@@ -72,10 +73,6 @@
                 </div>
 
                 <div class="row mt-3">
-                    @*  <div class="col-3">
-                    @*<label for="nombreGenerico" class="form-label small">Nombre generico</label> 
-                    <input asp-for="NombreGenerico" type="text" class="form-control form-control-sm" id="nombreGenerico" placeholder="Nombre generico">
-                </div> *@
                     <div class="col-auto">
                         <label for="nombreGenerico" class="form-label small">Nombre generico:</label>
                     </div>
@@ -89,34 +86,26 @@
                         <label for="Descripcion" class="form-label small">Descripción:</label>
                     </div>
                     <div class="col-md-4">
-                        @*<label for="Descripcion" class="form-label small">Descripción</label>*@
                         <input asp-for="Descripcion" type="text" class="form-control form-control-sm" id="descripcion" placeholder="Descripcion">
+                        <span asp-validation-for="Descripcion" class="text-danger small"></span>
                     </div>
                     <div class="col-auto">
                         <label for="FechaDocumento" class="form-label small">Fecha doc.:</label>
                     </div>
                     <div class="col-md-2">
-                        <input asp-for="FechaDocumento" type="text" id="fechaDocumento" class="form-control form-control-sm" placeholder="Fecha Documento" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                        @* <input asp-for="FechaDocumento" type="text" id="fechaDocumento" class="form-control form-control-sm" placeholder="Fecha Documento" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" /> *@
+                        <input asp-for="FechaDocumento" type="date" class="form-control form-control-sm" />
                     </div>
                 </div>
 
                 <div class="row mt-3">
-                    @*      <div class="col-md-3">
-                        <label for="SocioFirmante" class="form-label">Socio Firmante</label>
-                        <select asp-for="SocioFirmante" id="SocioFirmante" class="form-select form-select-sm">
-                            <option value="">Seleccione Socio Firmante</option>
-                            <option>Murdocca, Diego Adrian</option>
-                            <option>Test, Revisor</option>
-                        </select>
-                    </div> *@
-
                     <div class="col-auto">
                         <label asp-for="IsSindico" class="form-label form-label-sm mb-0">Requiere síndico</label>
                     </div>
                     <div class="col-md-1">
-                        <select id="IsSindico" class="form-select form-select-sm" onchange="toggleSindico(this)">
-                            <option selected>NO</option>
-                            <option>SI</option>
+                        <select id="IsSindico" asp-for="IsSindico" class="form-select form-select-sm" onchange="toggleSindico(this.value)">
+                            <option value="false"> NO</option>
+                            <option value="true"> SI</option>
                         </select>
                     </div>
                     <div class="col-auto">
@@ -129,10 +118,10 @@
                     </div>
 
                     <div class="col-auto">
-                        <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cod. Cliente</label>
+                        <label asp-for="CodCliente" class="form-label form-label-sm mb-0">Cod. Cliente</label>
                     </div>
                     <div class="col-md-1">
-                        <input asp-for="Cliente" type="text" class="form-control form-control-sm"
+                        <input asp-for="CodCliente" type="text" class="form-control form-control-sm"
                                onchange="cargarContratos(this.value)" id="CodCliente" readonly>
                     </div>
 
@@ -143,6 +132,7 @@
                         <select asp-for="ContratoPlataforma" id="ContratoPlataforma" class="form-select form-select-sm">
                             <option value="">Seleccione Contrato Plataforma</option>
                         </select>
+                        <span asp-validation-for="ContratoPlataforma" class="text-danger small"></span>
                     </div>
                 </div>
 
@@ -153,11 +143,8 @@
                                 <label for="Preparo" class="form-label fs-6">Preparó:</label>
                             </div>
                             <div class="col-md-7">
-                                <div class="input-group">
-                                    @*  <select asp-for="Preparo" id="preparo" class="form-select form-select-sm" readonly>
-                                    </select> *@
-                                    <input asp-for="Preparo" type="text" class="form-control form-control-sm" id="Preparo" readonly>
-                                </div>
+                                <input asp-for="Preparo" type="text" class="form-control form-control-sm" id="Preparo" readonly>
+
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="PreparoFecha" type="text" id="preparoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -169,12 +156,10 @@
                                 <label for="Reviso" class="form-label fs-6">Revisó:</label>
                             </div>
                             <div class="col-md-7">
-                                <div class="input-group">
-                                    <select asp-for="Reviso" asp-items="@ViewBag.Revisores" id="reviso" class="form-select form-select-sm"
-                                            disabled=@GetDisabledAttribute("Reviso")>
-                                        <option value="">Seleccione Revisor</option>
-                                    </select>
-                                </div>
+                                <select asp-for="Reviso" asp-items="@ViewBag.Revisores" id="reviso" class="form-select form-select-sm"
+                                        disabled=@GetDisabledAttribute("Reviso")>
+                                    <option value="">Seleccione Revisor</option>
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="RevisoFecha" type="text" id="revisoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -186,12 +171,10 @@
                                 <label for="RevisionGerente" class="form-label fs-6">Gerente/Dir.:</label>
                             </div>
                             <div class="col-md-7">
-                                <div class="input-group">
-                                    <select asp-for="RevisionGerente" asp-items="@ViewBag.Revisores" id="revisoGerente" class="form-select form-select-sm"
-                                            disabled="@GetDisabledAttribute("RevisionGerente")">
-                                        <option value="">Seleccione Revisor Gerente</option>
-                                    </select>
-                                </div>
+                                <select asp-for="RevisionGerente" asp-items="@ViewBag.Revisores" id="revisoGerente" class="form-select form-select-sm"
+                                        disabled="@GetDisabledAttribute("RevisionGerente")">
+                                    <option value="">Seleccione Revisor Gerente</option>
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="RevisionGerenteFecha" type="text" id="revisoGerenteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -203,12 +186,10 @@
                                 <label for="EngagementPartner" class="form-label">Eng. Partner:</label>
                             </div>
                             <div class="col-md-7">
-                                <div class="input-group">
-                                    <select asp-for="EngagementPartner" asp-items="@ViewBag.Revisores" id="revisoEngagement" class="form-select form-select-sm"
-                                            disabled="@GetDisabledAttribute("EngagementPartner")">
-                                        <option value="">Seleccione Engagement Partner</option>
-                                    </select>
-                                </div>
+                                <select asp-for="EngagementPartner" asp-items="@ViewBag.Revisores" id="revisoEngagement" class="form-select form-select-sm"
+                                        disabled="@GetDisabledAttribute("EngagementPartner")">
+                                    <option value="">Seleccione Engagement Partner</option>
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="EngagementPartnerFecha" type="text" id="revisoEngagementFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -220,12 +201,11 @@
                                 <label for="SocioFirmante" class="form-label">Socio firmante:</label>
                             </div>
                             <div class="col-md-7">
-                                <div class="input-group">
-                                    <select asp-for="SocioFirmante" asp-items="@ViewBag.Revisores" id="revisoSocioFirmante" class="form-select form-select-sm"
-                                            disabled="@GetDisabledAttribute("SocioFirmante")">
-                                        <option value="">Seleccione Socio Firmante</option>
-                                    </select>
-                                </div>
+                                <select asp-for="SocioFirmante" asp-items="@ViewBag.Revisores"
+                                        id="revisoSocioFirmante" class="form-select form-select-sm">
+                                    <option value="">Seleccione Socio Firmante</option>
+                                </select>
+                                <span asp-validation-for="SocioFirmante" class="text-danger small"></span>
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="SocioFirmanteFecha" type="text" id="revisoSocioFirmanteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -237,18 +217,17 @@
                                 <label for="FechaLimite" class="form-label">Fecha Limite:</label>
                             </div>
                             <div class="col-md-3">
-                                @* <label for="fechaLimite" class="form-label">Fecha limite:</label> *@
                                 <input asp-for="FechaLimite" type="text" id="fechaLimite" class="form-control form-control-sm" placeholder="Fecha limite" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
                             </div>
                             <div class="col-md-2 text-end">
                                 <label for="GestorFinal" class="form-label">Gestor Final:</label>
                             </div>
                             <div class="col-md-5">
-                                @* <label for="gestorFinal" class="form-label">Gestor final:</label> *@
-                                <select asp-for="GestorFinal" asp-items="@ViewBag.Gestores" id="gestorFinal" class="form-select form-select-sm"
-                                        disabled="@GetDisabledAttribute("GestorFinal")">
+                                <select asp-for="GestorFinal" asp-items="@ViewBag.Gestores"
+                                        id="gestorFinal" class="form-select form-select-sm">
                                     <option value="">Seleccione Gestor Final</option>
                                 </select>
+                                <span asp-validation-for="GestorFinal" class="text-danger small"></span>
                             </div>
 
                             <div class="row mt-3">
@@ -257,6 +236,7 @@
                                 </div>
                                 <div class="col-md-9">
                                     <input asp-for="LugarFirma" type="text" class="form-control form-control-sm" id="lugarFirmaDoc" placeholder="Lugar de firma del doc.">
+                                    <span asp-validation-for="LugarFirma" class="text-danger small"></span>
                                 </div>
                             </div>
                         </div>
@@ -270,6 +250,7 @@
                             </div>
                             <div class="col-md-9">
                                 <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
+                                <span asp-validation-for="RutaPapeles" class="text-danger small"></span>
                             </div>
                         </div>
                         <div class="row mt-3">
@@ -278,6 +259,7 @@
                             </div>
                             <div class="col-md-9">
                                 <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
+                                <span asp-validation-for="RutaDoc" class="text-danger small"></span>
                             </div>
                         </div>
                         <div class="row mt-3">
@@ -299,17 +281,6 @@
                         </div>
                     </div>
                 </div>
-
-                @* <div class="row mt-3">
-                <label for="observaciones" class="form-label">Observaciones:</label>
-                <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones"></textarea>
-            </div> *@
-
-                @*< div class="col-12 mt-3">
-                <button id="btnCrear" type="submit" class="btn btn-success me-2" style="@(Model?.Id == "" ? "" : "display:none")"><i class="bi bi-plus-lg"></i>Crear hoja</button>
-                <button id="btnGuardar" type="submit" class="btn btn-success me-2" style="@(Model?.Id != "" ? "" : "display:none")"><i class="bi bi-floppy"></i> Guardar cambios</button>
-                <button type="submit" class="btn btn-success"> <i class="bi bi-pencil-fill"></i> Firmar Documento</button>
-            </div> *@
             </fieldset>
 
             <div class="col-md-12 mt-3">
@@ -317,7 +288,11 @@
 
                 @if (@String.IsNullOrEmpty(Model.Id))
                 {
-                    <button id="btnCrear" asp-action="Create" type="submit" class="btn btn-success me-2"><i class="bi bi-file-earmark-plus me-1"></i>Crear hoja</button>
+                    <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
+                            type="submit" class="btn btn-success me-2">
+                        <i class="bi bi-file-earmark-plus me-1"></i>
+                        Crear hoja
+                    </button>
                 }
                 else
                 {
@@ -327,7 +302,15 @@
 
                         <button id="btnAprobar" asp-action="Aprobar" type="submit" class="btn btn-success"> <i class="bi bi-check-lg"></i> Aprobar </button>
                         <button id="btnRechazar" asp-action="Rechazar" type="submit" class="btn btn-danger me-2"><i class="bi bi-x-lg"></i> Rechazar</button>
-                        <button id="btnGuardar" asp-route-mode="Update" type="submit" class="btn btn-secondary me-2"><i class="bi bi-floppy"></i> Modificar </button>
+                        <button id="btnModificar" asp-route-mode="Update" type="submit" class="btn btn-secondary me-2"><i class="bi bi-floppy"></i> Modificar </button>
+                    }
+                    else
+                    {
+                        <button id="btnEditar" asp-route-mode="Update" asp-route-id="@Model.Id"
+                                type="submit" class="btn btn-secondary me-2">
+                            <i class="bi bi-pencil text-info fs-5"></i>
+                            Modificar
+                        </button>
                     }
                 }
             </div>
@@ -335,53 +318,76 @@
     </div>
 </div>
 
-@{
-    //var subareasJson = System.Text.Json.JsonSerializer.Serialize(ViewBag.Subareas);
-
-    //var subareas = @Html.Raw(ViewBag.SubareasJson);
-}
-
 @section Scripts {
 
     <script>
 
+        var codClientePlataforma = "";
+
         document.addEventListener('DOMContentLoaded', function() {
             addClassToLabels('fs-7');
+            actualizarCodigoPlataforma(@Model.Cliente)
+            inicializarFormulario();
+            validateModel();
+            
         });
+
+        function validateModel(){
+
+            const form = document.querySelector("form");
+            if (!form) return;
+
+            form.querySelectorAll("input, select, textarea").forEach(input => {
+                input.addEventListener("change", function () {
+                    const name = this.getAttribute("name");
+                    const validationSpan = form.querySelector(`span[data-valmsg-for='${name}']`);
+
+                    if (this.value && this.value.trim() !== "") {
+                        this.classList.remove("is-invalid");
+                        this.classList.add("is-valid");
+                        if (validationSpan) validationSpan.textContent = "";
+                    } else {
+                        this.classList.remove("is-valid");
+                        this.classList.add("is-invalid");
+                    }
+                });
+            });
+        }
+
 
         var subareas = JSON.parse('@Html.Raw(ViewBag.Subareas)');
         var clientesData = JSON.parse('@Html.Raw(ViewBag.ClientesJson)');
 
         //AVISAR SI HAY CAMBIOS PARA GUARDAR AL ABANDONAR LA HOJA
-        //       (function () {
-        //     let form = document.getElementById("hojaForm");
-        //     let isDirty = false;
-        //     debugger;
+        (function () {
+            let form = document.getElementById("hojaForm");
+            let isDirty = false;
+            debugger;
 
-        //     // Detectar cambios en cualquier campo del formulario
-        //     form.querySelectorAll("input, select, textarea").forEach(campo => {
-        //         campo.addEventListener("change", () => {
-        //             isDirty = true;
-        //         });
-        //         campo.addEventListener("input", () => {
-        //             isDirty = true;
-        //         });
-        //     });
+            // Detectar cambios en cualquier campo del formulario
+            form.querySelectorAll("input, select, textarea").forEach(campo => {
+                campo.addEventListener("change", () => {
+                    isDirty = true;
+                });
+                campo.addEventListener("input", () => {
+                    isDirty = true;
+                });
+            });
 
-        //     // Desactivar advertencia al enviar el formulario
-        //     form.addEventListener("submit", () => {
-        //         isDirty = false;
-        //     });
+            // Desactivar advertencia al enviar el formulario
+            form.addEventListener("submit", () => {
+                isDirty = false;
+            });
 
-        //     // Detectar intento de cerrar o refrescar página
-        //     window.addEventListener("beforeunload", function (e) {
-        //         debugger;
-        //         if (isDirty) {
-        //             e.preventDefault();
-        //             e.returnValue = "Hay cambios sin guardar. ¿Seguro que quieres salir?";
-        //         }
-        //     });
-        // })();
+            // Detectar intento de cerrar o refrescar página
+            window.addEventListener("beforeunload", function (e) {
+                debugger;
+                if (isDirty) {
+                    e.preventDefault();
+                    e.returnValue = "Hay cambios sin guardar. ¿Seguro que quieres salir?";
+                }
+            });
+        })();
 
         function onSectorChange(select) {
                     debugger;
@@ -389,7 +395,7 @@
                 cargarSubareas(sector);
         }
 
-        function cargarSubareas(sector, selectedSubareaId = null) {
+        function cargarSubareas(sector, selectedSubareaName = null) {
             debugger;
             var subareaSelect = document.getElementById("subarea");
 
@@ -406,17 +412,20 @@
                     // if (selectedSubareaId && selectedSubareaId == s.Id) {
                     //     option.selected = true;
                     // }
-
+                    if (selectedSubareaName && selectedSubareaName === s.Nombre) {
+                        option.selected = true;
+                    }
                     subareaSelect.appendChild(option);
                 });
             }
         }
 
         function toggleSindico(selectElement) {
-            var isSindicoValue = selectElement.value;
+            debugger;
+            var isSindicoValue = selectElement;
             var sindicoSelect = document.getElementById('Sindico');
 
-            if (isSindicoValue === 'SI') {
+            if (isSindicoValue === 'true') {
                 sindicoSelect.disabled = null;
             }
             else {
@@ -450,12 +459,13 @@
             if (clienteSeleccionado) {
                 inputCodCliente.value = clienteSeleccionado.CodigoPlataforma;
                 inputCodCliente.dispatchEvent(new Event('change'));
+                codClientePlataforma = clienteSeleccionado.CodigoPlataforma;
             } else {
                 inputCodCliente.value = '';
             }
         }
 
-        function cargarContratos(codCliente) {
+        function cargarContratos(codCliente, selectedContract = null) {
             debugger;
             var selectContratos = document.getElementById('ContratoPlataforma');
 
@@ -469,7 +479,6 @@
             fetch('/Home/GetContratosByCodigo?codigoPlataforma=' + codCliente)
                 .then(response => response.json())
                 .then(data => {
-                    debugger;
                     selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>'; // Restablece
 
                     data.forEach(function(contrato) {
@@ -477,6 +486,11 @@
                         var option = document.createElement('option');
                         option.value = contrato;
                         option.text = contrato;
+
+                        if (selectedContract && selectedContract === contrato) {
+                            option.selected = true;
+                        }
+
                         selectContratos.appendChild(option);
                     });
                 })
@@ -485,5 +499,29 @@
                     selectContratos.innerHTML = '<option value="">Error al cargar los contratos</option>';
                 });
         }
+
+        function inicializarFormulario() {
+            debugger;
+            //retener valor de subarea
+            var areaSelect = document.getElementById('Sector');
+
+            if (areaSelect && areaSelect.value) {
+                var currentArea = areaSelect.value;
+
+                var currentSubarea = '@Model.Subarea';
+
+                cargarSubareas(currentArea, currentSubarea);
+            }
+
+            //retener valor de contratos
+            //var codCliente = '@Model.CodCliente
+            var codCliente = '@Model.CodCliente' || codClientePlataforma;
+            var selectedContract = '@Model.ContratoPlataforma';
+
+            if (codCliente) {
+                cargarContratos(codCliente, selectedContract);
+            }
+        }
+
     </script>
 }

@@ -2,21 +2,20 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HojaDeRuta.Models.DAO
-
+namespace HojaDeRuta.Models.ViewModels
 {
-    public class Hoja
+    public class HojaViewModel
     {
         [Key]
         [Column("id")]
         public string? Id { get; set; }
 
         [Column("cliente")]
-        [Required(ErrorMessage = "El cliente no puede estar vacío.")]
+        [Required(ErrorMessage = "{El cliente no puede estar vacío.")]
         public int Cliente { get; set; }
 
-        //[Column("ClienteName")]
-        //public string? ClienteName { get; set; }
+        [Column("ClienteName")]
+        public string? ClienteName { get; set; }
 
         [Column("sector")]
         [Required(ErrorMessage = "{0} no puede estar vacío.")]
@@ -37,7 +36,7 @@ namespace HojaDeRuta.Models.DAO
         [Required(ErrorMessage = "{0} no puede estar vacío.")]
         public string Descripcion { get; set; }
 
-        [Column("fecha")]
+        //[Column("fecha")]
         [DataType(DataType.Date)]
         [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
         public DateTime? FechaDocumento { get; set; }

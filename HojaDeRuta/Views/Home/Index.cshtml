@@ -42,10 +42,10 @@
                                     <input type="text" id="filtroSocio" class="form-control" placeholder="Socio" oninput="applyFilters()" />
                                 </div>
                                 <div class="col-md-2">
-                                    <input type="text" id="filtroDesde" class="form-control" placeholder="Fecha desde" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
+                                    <input type="date" id="filtroDesde" class="form-control" placeholder="Fecha desde" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
                                 </div>
                                 <div class="col-md-2">
-                                    <input type="text" id="filtroHasta" class="form-control" placeholder="Fecha hasta" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
+                                    <input type="date" id="filtroHasta" class="form-control" placeholder="Fecha hasta" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
                                 </div>
                             </div>
                             <!-- Filtros paginacion -->
@@ -87,13 +87,25 @@
         <table class="table table-sm table-hover table-bordered mb-0">
             <thead class="bg-bdo text-white">
                 <tr>
-                    <th class="text-center fw-normal" onclick="sortTableBy('Numero')">Número</th>
-                    <th class="text-center fw-normal" onclick="sortTableBy('Cliente')">Cliente</th>
-                    <th class="text-center fw-normal" onclick="sortTableBy('TipoDocumento')">Tipo Documento</th>
-                    <th class="text-center fw-normal" onclick="sortTableBy('Sector')">Sector</th>
-                    <th class="text-center fw-normal" onclick="sortTableBy('SocioFirmante')">Socio Firmante</th>
-                    <th class="text-center fw-normal" onclick="sortTableBy('FechaDocumento')">Fecha</th>
-                    <th class="text-center fw-normal" onclick="sortTableBy('Estado')">Estado</th>
+                    <th class="text-center fw-normal sortable" onclick="sortTableBy('Numero')">Número
+                        <span id="sort-icon-Numero"></span>
+                    </th>
+                    <th class="text-center fw-normal sortable" onclick="sortTableBy('ClienteName')">Cliente
+                        <span id="sort-icon-ClienteName"></span>
+                    </th>
+                    <th class="text-center fw-normal sortable" onclick="sortTableBy('NombreGenerico')">Tipo Documento
+                        <span id="sort-icon-NombreGenerico"></span>
+                    </th>
+                    <th class="text-center fw-normal sortable" onclick="sortTableBy('Sector')">Sector
+                        <span id="sort-icon-Sector"></span>
+                    </th>
+                    <th class="text-center fw-normal sortable" onclick="sortTableBy('SocioFirmante')">Socio Firmante
+                        <span id="sort-icon-SocioFirmante"></span>
+                    </th>
+                    <th class="text-center fw-normal sortable" onclick="sortTableBy('FechaDocumento')">Fecha
+                        <span id="sort-icon-FechaDocumento"></span>
+                    </th>
+                    <th class="text-center fw-normal">Estado</th>
                     <th class="text-center fw-normal">Acciones</th>
                 </tr>
             </thead>
@@ -125,6 +137,7 @@
         const estadoMap = @Html.Raw(estadosJson);
 
         function sortTableBy(field) {
+            debugger;
             if (currentSort.field === field) {
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
             } else {
@@ -132,10 +145,12 @@
                 currentSort.direction = 'asc';
             }
 
+            sortData();
             renderTable();
         }
 
         function applyFilters() {
+            debugger;
             const cliente = document.getElementById('filtroCliente').value.toLowerCase();
             const estado = document.getElementById('filtroEstado').value;
             const sector = document.getElementById('filtroSector').value.toLowerCase();
@@ -145,14 +160,14 @@
             const hasta = document.getElementById('filtroHasta').value;
 
             filteredHojas = allHojas.filter(h => {
-                const matchCliente = h.Cliente.toLowerCase().includes(cliente);
-                const matchEstado = !estado || h.Estado === parseInt(estado);
+                const matchCliente = h.ClienteName.toLowerCase().includes(cliente);
+                const matchEstado = estado === "" || h.Estado == estado;
                 const matchSector = h.Sector.toLowerCase().includes(sector);
                 const matchSocio = h.SocioFirmante.toLowerCase().includes(socio);
                 const matchNumero = h.Numero.toLowerCase().includes(numero);
-                const fecha = new Date(h.Fecha);
-                const matchDesde = !desde || fecha >= new Date(desde);
-                const matchHasta = !hasta || fecha <= new Date(hasta);
+                const fechaStr = h.FechaDocumento ? h.FechaDocumento.substring(0, 10) : null;
+                const matchDesde = !desde || fechaStr >= desde;
+                const matchHasta = !hasta || fechaStr <= hasta;
 
                 return matchCliente && matchEstado && matchSector && matchSocio && matchNumero && matchDesde && matchHasta;
             });
@@ -170,11 +185,34 @@
             document.getElementById('filtroNumero').value = '';
             document.getElementById('filtroDesde').value = '';
             document.getElementById('filtroHasta').value = '';
-            
+
             filteredHojas = [...allHojas];
             currentPage = 1;
 
             renderTable();
+        }
+
+        function sortData() {
+            if (!currentSort.field) return;
+
+            filteredHojas.sort((a, b) => {
+                let valA = a[currentSort.field];
+                let valB = b[currentSort.field];
+
+                // Si es fecha
+                if (currentSort.field.toLowerCase().includes("fecha")) {
+                    valA = valA ? new Date(valA) : new Date(0);
+                    valB = valB ? new Date(valB) : new Date(0);
+                }
+
+                // Normalizar valores
+                if (typeof valA === "string") valA = valA.toLowerCase();
+                if (typeof valB === "string") valB = valB.toLowerCase();
+
+                if (valA < valB) return currentSort.direction === "asc" ? -1 : 1;
+                if (valA > valB) return currentSort.direction === "asc" ? 1 : -1;
+                return 0;
+            });
         }
 
         function renderTable() {
@@ -186,7 +224,8 @@
                     let valA = a[currentSort.field];
                     let valB = b[currentSort.field];
 
-                    if (currentSort.field === 'Fecha') {
+                    if (currentSort.field.toLowerCase().includes("fecha")) {
+                    //if (currentSort.field === 'FechaDocumento') {
                         valA = new Date(valA);
                         valB = new Date(valB);
                     } else {
@@ -200,6 +239,7 @@
                 });
             }
 
+            debugger;
             const start = (currentPage - 1) * pageSize;
             const paged = sorted.slice(start, start + pageSize);
 
@@ -207,39 +247,75 @@
             tbody.innerHTML = '';
 
             paged.forEach(h => {
-                debugger;
-                const row = `<tr>
-                    <td class="text-center">${h.Numero}</td>
-                    <td class="text-center">${h.ClienteName}</td>
-                    <td class="text-center">${h.NombreGenerico}</td>
-                    <td class="text-center">${h.Sector}</td>
-                    <td class="text-center">${h.SocioFirmante}</td>
-                    <td class="text-center">${parseFecha(h.FechaDocumento)}</td>
-                    <td class="text-center">
-                        <span class="badge ${getBadgeClass(h.Estado)}">${getEstadoTexto(h.Estado)}</span>
-                    </td>                    
-                    <td class="text-center">
-                        <a href="/Home/Details?id=${h.Id}"
-                            class="me-2 text-decoration-none icon-action" title="Ver detalles">
+                const row = `
+                    <tr class="text-nowrap">
+                        <td class="text-center align-middle">${h.Numero}</td>
+
+                        <td class="text-center align-middle">
+                            <div class="text-truncate d-inline-block w-100" style="max-width: 200px;" title="${h.ClienteName}">
+                                ${h.ClienteName}
+                            </div>
+                        </td>
+
+                        <td class="text-center align-middle">
+                            <div class="text-truncate d-inline-block w-100" style="max-width: 220px;" title="${h.NombreGenerico}">
+                                ${h.NombreGenerico}
+                            </div>
+                        </td>
+
+                        <td class="text-center align-middle">${h.Sector}</td>
+                        <td class="text-center align-middle">${h.SocioFirmante}</td>
+                        <td class="text-center align-middle">${parseFecha(h.FechaDocumento)}</td>
+
+                        <td class="text-center align-middle">
+                            <span class="badge ${getBadgeClass(h.Estado)}">${getEstadoTexto(h.Estado)}</span>
+                        </td>
+
+                        <td class="text-center align-middle">
+                            <a href="/Home/Upsert?mode=2&id=${h.Id}"
+                                class="me-2 text-decoration-none icon-action" title="Ver detalles">
                                 <i class="bi bi-eye text-success fs-5"></i>
-                        </a>
+                            </a>
 
-                        <a href="/Home/Edit?id=${h.Id}"
-                            class="me-2 text-decoration-none icon-action" title="Editar">
+                            <a href="/Home/Upsert?mode=1&id=${h.Id}"
+                                class="me-2 text-decoration-none icon-action" title="Editar">
                                 <i class="bi bi-pencil text-info fs-5"></i>
-                        </a>
+                            </a>
 
-                        <a class="text-decoration-none icon-action" title="Imprimir">
-                            <i class="bi bi-printer text-secondary fs-5"></i>
-                        </a>
-                    </td>
-                </tr>`;
+                            <a class="text-decoration-none icon-action" title="Imprimir">
+                                <i class="bi bi-printer text-secondary fs-5"></i>
+                            </a>
+                        </td>
+                    </tr>`;
                 tbody.innerHTML += row;
-            });
+        });
 
-            renderPagination(sorted.length);
+        renderPagination(sorted.length);
+
+        //ICONOS
+        const allSortIcons = document.querySelectorAll('[id^="sort-icon-"]');
+
+        allSortIcons.forEach(span => {
+            const fieldName = span.id.replace('sort-icon-', '');
+
+            let iconHtml = '';
+
+            if (fieldName === currentSort.field) {
+                if (currentSort.direction === 'asc') {
+                    iconHtml = ' ▲';
+                } else {
+                    iconHtml = ' ▼';
+                }
+                span.parentElement.classList.add('active-sort');
+            } else {
+                span.parentElement.classList.remove('active-sort');
+            }
+
+            span.innerHTML = iconHtml;
+        });
+
         }
-               
+
         function renderPagination(totalItems) {
             const totalPages = Math.ceil(totalItems / pageSize);
             const pagination = document.getElementById('pagination');
@@ -357,37 +433,29 @@
         function clearAlert() {
             const container = document.getElementById('alertContainer');
             container.innerHTML = '';
-        }        
+        }
 
         function getEstadoTexto(estadoNumero) {
-            return estadoMap[estadoNumero].Desc || 'Desconocido';
+            return estadoMap[estadoNumero]?.Desc || 'Desconocido';
         }
+
 
         function getBadgeClass(estado) {
             const estadoNum = parseInt(estado);
             switch(estadoNum) {
                 case 0: return "badge bg-success";
                 case 1: return "badge bg-secondary";
-                case 2: return "badge bg-danger"; 
+                case 2: return "badge bg-danger";
                 default: return "badge bg-light text-dark";
             }
         }
 
-        function parseFecha(fechaStr) {
-            debugger;
-            if (!fechaStr || fechaStr.trim() === "") {
-                return null;
-            }
+        function parseFecha(fecha) {
+            if (!fecha)
+                return '';
 
-            const partes = fechaStr.split('/');
-            if (partes.length !== 3) {
-                return null;
-            }
-
-            const [dia, mes, anio] = partes;
-            return new Date(`${anio}-${mes}-${dia}`).toLocaleDateString("es-AR");
+            return new Date(fecha).toISOString().split('T')[0];
         }
-
 
     </script>
 }

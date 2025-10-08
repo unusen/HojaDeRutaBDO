@@ -100,28 +100,51 @@ namespace HojaDeRuta.Services.Repository
             return await _dbSet.Where(filter).OrderByDescending(orderBy).FirstOrDefaultAsync();
         }
 
-        public async Task UpdateAsync(int id, T entity)
+        public async Task UpdateAsync(T entity)
         {
-            if (entity == null) throw new ArgumentNullException(nameof(entity));
+            if (entity == null)
+            {
+                throw new ArgumentNullException(nameof(entity), "La entidad a actualizar no puede ser nula.");
+            }
 
             try
             {
-                T? objOld = await _dbSet.FindAsync(entity);
+                _dbSet.Update(entity);
+                int rowsAffected = await _context.SaveChangesAsync();
 
-                if (objOld != null)
+                if (rowsAffected == 0)
                 {
-                    _context.Entry(objOld).CurrentValues.SetValues(entity);
-                    await _context.SaveChangesAsync();
-                    return;
+                    throw new InvalidOperationException($"La entidad {typeof(T).Name} no se encontró o no tiene cambios para actualizar.");
                 }
-
-                throw new Exception($"No se encontró el id {id} para la entidad {typeof(T).Name}.");
             }
             catch (Exception ex)
             {
                 throw new Exception($"Error al actualizar {typeof(T).Name}.", ex);
             }
         }
+
+        //public async Task UpdateAsync(int id, T entity)
+        //{
+        //    if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+        //    try
+        //    {
+        //        T? objOld = await _dbSet.FindAsync(entity);
+
+        //        if (objOld != null)
+        //        {
+        //            _context.Entry(objOld).CurrentValues.SetValues(entity);
+        //            await _context.SaveChangesAsync();
+        //            return;
+        //        }
+
+        //        throw new Exception($"No se encontró el id {id} para la entidad {typeof(T).Name}.");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        throw new Exception($"Error al actualizar {typeof(T).Name}.", ex);
+        //    }
+        //}
 
         public async Task DeleteAsync(int id)
         {

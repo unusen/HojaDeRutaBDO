@@ -100,28 +100,34 @@ namespace HojaDeRuta.Services.Repository
             return await _dbSet.Where(filter).OrderByDescending(orderBy).FirstOrDefaultAsync();
         }
 
-        public async Task UpdateAsync(T entity)
+        public async Task<bool> UpdateAsync(T entity)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity), "La entidad a actualizar no puede ser nula.");
-            }
-
             try
             {
-                _dbSet.Update(entity);
-                int rowsAffected = await _context.SaveChangesAsync();
+                var entityType = _context.Model.FindEntityType(typeof(T));
+                var keyProperty = entityType.FindPrimaryKey().Properties.First();
 
-                if (rowsAffected == 0)
+                var idValue = entity.GetType().GetProperty(keyProperty.Name).GetValue(entity);
+
+                var existingEntity = await _dbSet.FindAsync(idValue);
+
+                if (existingEntity != null)
                 {
-                    throw new InvalidOperationException($"La entidad {typeof(T).Name} no se encontró o no tiene cambios para actualizar.");
+                    _context.Entry(existingEntity).CurrentValues.SetValues(entity);
+                    await _context.SaveChangesAsync();
+                    return true;
                 }
+
+                return false;
             }
             catch (Exception ex)
             {
                 throw new Exception($"Error al actualizar {typeof(T).Name}.", ex);
             }
+            
+           
         }
+
 
         //public async Task UpdateAsync(int id, T entity)
         //{

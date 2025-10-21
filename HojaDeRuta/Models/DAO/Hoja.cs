@@ -67,7 +67,7 @@ namespace HojaDeRuta.Models.DAO
         public string? PreparoFecha { get; set; }
 
         [Column("reviso")]
-        public string Reviso { get; set; }
+        public string? Reviso { get; set; }
 
         [Column("reviso_fecha")]
         public string? RevisoFecha { get; set; }

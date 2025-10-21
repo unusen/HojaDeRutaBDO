@@ -19,7 +19,7 @@ using System.Diagnostics;
 namespace HojaDeRuta.Controllers
 {
     //TODO: ACTIVAR AUTORIZACION EN CONTROLADOR
-    [Authorize]
+    //[Authorize]
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
@@ -73,18 +73,18 @@ namespace HojaDeRuta.Controllers
             var cargo = "";
 
             //TODO: ACTIVAR DATOS DE LOGIN
-            try
-            {
-                name = await _loginService.GetUserNameAsync();
-                email = await _loginService.GetUserEmailAsync();
-                roles = await _loginService.GetUserGroupsAsync();
-                area = await _loginService.GetUserAreaAsync();
-                cargo = await _loginService.GetUserCargoAsync();
-            }
-            catch (Exception)
-            {
-                return Challenge();
-            }
+            //try
+            //{
+            //    name = await _loginService.GetUserNameAsync();
+            //    email = await _loginService.GetUserEmailAsync();
+            //    roles = await _loginService.GetUserGroupsAsync();
+            //    area = await _loginService.GetUserAreaAsync();
+            //    cargo = await _loginService.GetUserCargoAsync();
+            //}
+            //catch (Exception)
+            //{
+            //    return Challenge();
+            //}
 
             ViewBag.CurrentSection = "Home";
 
@@ -94,26 +94,28 @@ namespace HojaDeRuta.Controllers
                 .ToList();
 
             //PARA TEST
-            //var parameters = new Dictionary<string, string>
-            //{
-            //    { "Nivel", "11" },
-            //    { "Sector", "AUDI" },
-            //    { "Usuario ", "CSZULZYK" }
-            //};
-
             var parameters = new Dictionary<string, string>
             {
-                { "Nivel", roles.FirstOrDefault().Nivel.ToString() },
+                { "Nivel", "11" },
                 { "Sector", "AUDI" },
-                { "Usuario ", name }
+                { "Usuario ", "CSZULZYK" }
             };
+
+            //var parameters = new Dictionary<string, string>
+            //{
+            //    { "Nivel", roles.FirstOrDefault().Nivel.ToString() },
+            //    { "Sector", "AUDI" },
+            //    { "Usuario ", name }
+            //};
 
             var hojas = await _hojaDeRutaService.GetHojas(parameters);
             List<Clientes> clientes = await _clienteService.GetClientes();
+            List<Socios> socios = await _sharedService.GetAllSocios();
 
             var allHojas = _mapper.Map<List<HojaViewModel>>(hojas, opt =>
             {
                 opt.Items["Clientes"] = clientes;
+                opt.Items["Socios"] = socios;
             });
 
             //Ordenamiento
@@ -150,48 +152,22 @@ namespace HojaDeRuta.Controllers
             return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Create });
         }
 
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> Create(Hoja hoja)
-        //{
-        //    //TODO: GUARDAR LA HOJA CREADA EN LA BASE
-        //    //TODO: VALIDAR EL MODELO CORRECTAMENTE
-        //    if (ModelState.IsValid)
-        //    {
-        //        await _hojaDeRutaService.CreateHoja(hoja);
-        //        return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
-        //    }
-
-        //    return RedirectToAction(nameof(Upsert), new
-        //    {
-        //        mode = ViewMode.Create,
-        //        id = "",
-        //        hoja = hoja
-        //    });
-
-        //}
-
-        //public async Task<IActionResult> Edit(string id)
-        //{
-        //    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = id.ToString() });
-        //}
-
-        //public async Task<IActionResult> Details(string id)
-        //{
-        //    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = id.ToString() });
-        //}
-
         public async Task<IActionResult> Upsert(ViewMode mode, string id, HojaViewModel? hojaViewModel = null)
         {
-            //TODO: VER COMO SE LLENAN TODOS LOS CAMPOS EN UN CREATE Y EDIT
             //TODO: GENERAR PROCESO BACKGROUND PARA ACTUALIZAR CONTRATOS A LA NOCHE
             //TODO: NUEVA VENTANA AUDITORIA
-            //TODO: VER POR QUE NO SE MODIFICAN ALGUNOS CAMPOS EN UPDATE, EJ REVISO
+
+            //TODO: REVISAR COMO TRAE REVISORES POR NIVEL EN TODO EL FLUJO
+               // ver nuevo metodo, ver que cada input de revisores traiga el nivel correcto
+               //ver en nuevo metodo que cuando llene el select sea solo para el input correcto
+               //CREAR VIEWBAG PARA CADA REVISOR, TRAYENDO SOLO POR NIVEL ACTUAL
+
+            //SOLO SE PUEDE REPETIR EN EL FLUJO EL SOCIO FIRMANTE
 
             Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);
 
             ViewBag.CurrentSection = "Upsert";
-            ViewBag.Detail = false;
+            ViewBag.Detail = false;            
 
             if (mode == ViewMode.Visualize)
             {
@@ -203,8 +179,6 @@ namespace HojaDeRuta.Controllers
                 hoja.IsSindico = String.IsNullOrWhiteSpace(hoja.Sindico);
 
                 ModelState.Clear();
-
-                //return View(hoja);
             }
 
             if (mode == ViewMode.Create)
@@ -220,13 +194,14 @@ namespace HojaDeRuta.Controllers
                 hoja.Preparo = "GBANAY";
                 hoja.PreparoFecha = DateTime.Now.ToShortDateString();
                 hoja.FechaDocumento = DateTime.Now;
-                hoja.Numero = "3561";
+                hoja.Numero = "3562";
             }
             else if (mode == ViewMode.Update)
             {
+
                 ViewData["Title"] = "Editar Hoja de Ruta";
                 hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
-                hoja.IsSindico = String.IsNullOrWhiteSpace(hoja.Sindico);
+                hoja.IsSindico = !String.IsNullOrWhiteSpace(hoja.Sindico);
 
                 //hoja.Preparo = "DGONZALEZ"; //5
                 //hoja.Reviso = "CORTOLANI"; //6
@@ -246,6 +221,10 @@ namespace HojaDeRuta.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Upsert(Hoja hoja, ViewMode mode)
         {
+            //TODO: EL FLUJO EN CREATE SE VE BIEN, VOLVER A PROBAR
+            //AL EDITAR VER QUE SE LLENEN LOS CAMPOS CON LOS VALORES
+            //Y QUE SE BLOQUEEN SI YA TIENEN VALOR
+
             ViewBag.Detail = false;
 
             await CargarViewBags(hoja, mode);
@@ -259,7 +238,7 @@ namespace HojaDeRuta.Controllers
 
                 //TODO: LOGICA DE APROBACION DE HOJA
                 //TODO: LOGICA DE RECHAZO DE HOJA
-                await _hojaDeRutaService.UpdateHoja(hoja);
+                bool isUpate = await _hojaDeRutaService.UpdateHoja(hoja);
 
                 return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
 
@@ -267,10 +246,6 @@ namespace HojaDeRuta.Controllers
             }
             else if (mode == ViewMode.Create)
             {
-                //TODO: REVISAR GUARDADO DE CAMPO SINDICO CON EL NOMBRE Y NO CON LAS INICIALES
-                //TODO: REVISAR VALIDACION DE MODELO EN SELECTS QUE SE LLENAN DINAMICOS
-                //TODO: AL VOLVER DEL GUARDADO VIAJA BIEN AL VISUALIZE PERO DE AHI AL UPDATE NO TRAE LOS DATOS
-
                 if (ModelState.IsValid)
                 {
                     hoja.Id = $"{hoja.Sector}{hoja.Numero}";
@@ -346,6 +321,32 @@ namespace HojaDeRuta.Controllers
                 );
         }
 
+        public async Task<IActionResult> GetRevisoresByNivel(string revisor)
+        {
+            List<Revisores> revisores = new List<Revisores>();
+            Revisores revisorActual = await _revisorService.GetRevisorByName(revisor);
+
+            int nivel = revisorActual?.Cargo ?? 0;
+
+            if (nivel > 0)
+            {
+                var parameters = new Dictionary<string, int>
+                {
+                    { "NivelActual", nivel }
+                };
+
+                revisores = await _revisorService.GetRevisoresByNivel(parameters);
+            }
+
+            var result = revisores.Select(x => new
+            {
+                value = x.Empleado,
+                text = x.Detalle
+            });
+
+            return Json(result);
+        }
+
         public async Task<string> GetCampoHabilitado(Hoja hoja, bool obtenerAnterior = false)
         {
             var pasosFlujo = new List<(string Nombre, string Valor)>
@@ -353,8 +354,8 @@ namespace HojaDeRuta.Controllers
                 ("Preparo", hoja.Preparo),
                 ("Reviso", hoja.Reviso),
                 ("RevisionGerente", hoja.RevisionGerente),
-                ("EngagementPartner", hoja.EngagementPartner),
-                ("SocioFirmante", hoja.SocioFirmante)
+                ("EngagementPartner", hoja.EngagementPartner)
+                //("SocioFirmante", hoja.SocioFirmante)
             };
 
             for (int i = 0; i < pasosFlujo.Count; i++)
@@ -407,6 +408,7 @@ namespace HojaDeRuta.Controllers
             List<Sector> sectores = await _sharedService.GetSectores();
             List<Socios> socios = await _sharedService.GetAllSocios();
             List<SubArea> subAreas = await _sharedService.GetSubAreas();
+            List<Revisores> gestores = await _revisorService.GetAllRevisores();
 
             ViewBag.Clientes = clientes.Select(c => new SelectListItem
             {
@@ -436,9 +438,11 @@ namespace HojaDeRuta.Controllers
                 Text = c.Detalle
             }).ToList();
 
-            //if (viewMode == ViewMode.Update)
-            //{
             ViewBag.CampoHabilitado = await GetCampoHabilitado(hoja);
+
+            //TODO: HACER UN VIEWBAG PARA CADA REVISOR
+            //TODO: EN MODO EDICION O VISUALIZACION, SI TIENE VALOR SOLO MANDAR ESE
+
 
             int nivelActual = await GetNivelRevisorActual(hoja);
 
@@ -458,6 +462,15 @@ namespace HojaDeRuta.Controllers
                     Value = c.Empleado,
                     Text = c.Detalle
                 }).ToList();
+
+                string revisoActual = hoja.Reviso;
+
+                SelectListItem reviso = await GetRevisorActual(hoja.Reviso, revisores);
+
+                if (reviso != null)
+                {
+                    ViewBag.Revisores.Add(reviso);
+                }
             }
             else
             {
@@ -471,15 +484,38 @@ namespace HojaDeRuta.Controllers
                 };
             }
 
-
-            List<Revisores> gestores = await _revisorService.GetAllRevisores();
+            ViewBag.Socios = socios.Select(c => new SelectListItem
+            {
+                Value = c.Socio,
+                Text = c.Detalle
+            }).ToList();
 
             ViewBag.Gestores = gestores.Select(c => new SelectListItem
             {
                 Value = c.Empleado,
                 Text = c.Detalle
             }).ToList();
-            //}       
+
+            ViewBag.RevisoresFull = gestores;
+
+            ViewBag.ViewMode = viewMode;
+        }
+
+        private async Task<SelectListItem?> GetRevisorActual(string revisoActual, List<Revisores> revisores)
+        {
+            if (!string.IsNullOrWhiteSpace(revisoActual) &&
+                !revisores.Any(item => item.Empleado == revisoActual))
+            {
+                Revisores reviso = await _revisorService.GetRevisorByName(revisoActual);
+
+                return new SelectListItem
+                {
+                    Value = reviso.Empleado,
+                    Text = reviso.Detalle,
+                };
+            }
+
+            return null;
         }
 
     }

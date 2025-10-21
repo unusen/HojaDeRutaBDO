@@ -83,11 +83,11 @@ namespace HojaDeRuta.Services
             }
         }
 
-        public async Task UpdateHoja(Hoja hoja)
+        public async Task<bool> UpdateHoja(Hoja hoja)
         {
             try
             {
-                await _hojaRepository.UpdateAsync(hoja);
+                return await _hojaRepository.UpdateAsync(hoja);
             }
             catch (Exception ex)
             {

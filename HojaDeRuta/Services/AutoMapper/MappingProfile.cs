@@ -14,7 +14,21 @@ namespace HojaDeRuta.Services.AutoMapper
                         ctx.Items.ContainsKey("Clientes")
                             ? ((List<Clientes>)ctx.Items["Clientes"])
                                 .FirstOrDefault(c => c.Id == src.Cliente)?.RazonSocial
-                            : null));
+                            : null))
+
+                .ForMember(dest => dest.SindicoDetalle,
+                    opt => opt.MapFrom((src, dest, destMember, ctx) =>
+                        ctx.Items.ContainsKey("Socios")
+                            ? ((List<Socios>)ctx.Items["Socios"])
+                                .FirstOrDefault(s => s.Socio == src.Sindico)?.Mail
+                            : null))
+
+                .ForMember(dest => dest.SocioFirmanteDetalle,
+                        opt => opt.MapFrom((src, dest, destMember, ctx) =>
+                            ctx.Items.ContainsKey("Socios")
+                                ? ((List<Socios>)ctx.Items["Socios"])
+                                    .FirstOrDefault(s => s.Socio == src.SocioFirmante)?.Mail
+                                : null));
 
             CreateMap<HojaViewModel, Hoja>();
 

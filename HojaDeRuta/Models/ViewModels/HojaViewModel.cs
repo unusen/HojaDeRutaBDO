@@ -46,11 +46,18 @@ namespace HojaDeRuta.Models.ViewModels
         [Required(ErrorMessage = "Socio Firmante no puede estar vacío.")]
         public string SocioFirmante { get; set; }
 
+        [Column("SocioFirmanteDetalle")]
+        public string SocioFirmanteDetalle { get; set; }
+
+
         [NotMapped]
         public bool IsSindico { get; set; }
 
         [Column("sindica")]
         public string? Sindico { get; set; }
+
+        [Column("SindicoDetalle")]
+        public string? SindicoDetalle { get; set; }
 
         [NotMapped]
         public string CodCliente { get; set; }

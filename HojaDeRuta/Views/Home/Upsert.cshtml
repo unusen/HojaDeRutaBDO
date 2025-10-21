@@ -1,4 +1,5 @@
-﻿@model HojaDeRuta.Models.DAO.Hoja
+﻿@using HojaDeRuta.Models.Enums
+@model HojaDeRuta.Models.DAO.Hoja
 
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -17,6 +18,15 @@
     public string DisabledByDetail()
     {
         return @ViewBag.Detail ? "disabled" : null;
+    }
+
+    public string GetCampoHabilitadoClass()
+    {
+        var currentMode = (ViewMode)ViewBag.ViewMode;
+
+        return (currentMode == ViewMode.Update)
+                            ? "campoHabilitado" //clase css
+                           : "";
     }
 }
 
@@ -115,6 +125,7 @@
                         <select asp-for="Sindico" asp-items="@ViewBag.Sindicos" id="Sindico" class="form-select form-select-sm" disabled>
                             <option value="">Seleccione Sindico</option>
                         </select>
+                        <input type="hidden" asp-for="Sindico" />
                     </div>
 
                     <div class="col-auto">
@@ -143,8 +154,9 @@
                                 <label for="Preparo" class="form-label fs-6">Preparó:</label>
                             </div>
                             <div class="col-md-7">
-                                <input asp-for="Preparo" type="text" class="form-control form-control-sm" id="Preparo" readonly>
-
+                                <input asp-for="Preparo" type="text" class="form-control form-control-sm"
+                                       id="Preparo" data-value="@Model.Preparo" readonly>
+                                <input type="hidden" asp-for="Preparo" />
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="PreparoFecha" type="text" id="preparoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -157,9 +169,11 @@
                             </div>
                             <div class="col-md-7">
                                 <select asp-for="Reviso" asp-items="@ViewBag.Revisores" id="reviso" class="form-select form-select-sm"
-                                        disabled=@GetDisabledAttribute("Reviso")>
+                                        data-placeholder="Seleccione Revisor"
+                                        data-value="@Model.Reviso">
                                     <option value="">Seleccione Revisor</option>
                                 </select>
+                                <input type="hidden" asp-for="Reviso" />
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="RevisoFecha" type="text" id="revisoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -172,9 +186,11 @@
                             </div>
                             <div class="col-md-7">
                                 <select asp-for="RevisionGerente" asp-items="@ViewBag.Revisores" id="revisoGerente" class="form-select form-select-sm"
-                                        disabled="@GetDisabledAttribute("RevisionGerente")">
+                                        data-placeholder="Seleccione Revisor Gerente"
+                                        data-value="@Model.RevisionGerente" disabled>
                                     <option value="">Seleccione Revisor Gerente</option>
                                 </select>
+                                <input type="hidden" asp-for="RevisionGerente" />
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="RevisionGerenteFecha" type="text" id="revisoGerenteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -187,9 +203,12 @@
                             </div>
                             <div class="col-md-7">
                                 <select asp-for="EngagementPartner" asp-items="@ViewBag.Revisores" id="revisoEngagement" class="form-select form-select-sm"
-                                        disabled="@GetDisabledAttribute("EngagementPartner")">
+                                        data-placeholder="Seleccione Engagement Partner"
+                                        data-value="@Model.EngagementPartner"
+                                        disabled>
                                     <option value="">Seleccione Engagement Partner</option>
                                 </select>
+                                <input type="hidden" asp-for="EngagementPartner" />
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="EngagementPartnerFecha" type="text" id="revisoEngagementFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -201,11 +220,12 @@
                                 <label for="SocioFirmante" class="form-label">Socio firmante:</label>
                             </div>
                             <div class="col-md-7">
-                                <select asp-for="SocioFirmante" asp-items="@ViewBag.Revisores"
+                                <select asp-for="SocioFirmante" asp-items="@ViewBag.Socios"
                                         id="revisoSocioFirmante" class="form-select form-select-sm">
                                     <option value="">Seleccione Socio Firmante</option>
                                 </select>
                                 <span asp-validation-for="SocioFirmante" class="text-danger small"></span>
+                                <input type="hidden" asp-for="SocioFirmante" />
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="SocioFirmanteFecha" type="text" id="revisoSocioFirmanteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
@@ -248,10 +268,13 @@
                             <div class="col-md-3">
                                 <label for="RutaPapeles" class="form-label">Ruta papeles:</label>
                             </div>
+
                             <div class="col-md-9">
                                 <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
                                 <span asp-validation-for="RutaPapeles" class="text-danger small"></span>
                             </div>
+
+
                         </div>
                         <div class="row mt-3">
                             <div class="col-md-3">
@@ -302,15 +325,20 @@
 
                         <button id="btnAprobar" asp-action="Aprobar" type="submit" class="btn btn-success"> <i class="bi bi-check-lg"></i> Aprobar </button>
                         <button id="btnRechazar" asp-action="Rechazar" type="submit" class="btn btn-danger me-2"><i class="bi bi-x-lg"></i> Rechazar</button>
-                        <button id="btnModificar" asp-route-mode="Update" type="submit" class="btn btn-secondary me-2"><i class="bi bi-floppy"></i> Modificar </button>
+                        <button id="btnModificar" asp-route-mode="Update" type="submit" asp-controller="Home" class="btn btn-secondary me-2"><i class="bi bi-floppy"></i> Guardar Cambios </button>
                     }
                     else
                     {
-                        <button id="btnEditar" asp-route-mode="Update" asp-route-id="@Model.Id"
+                        @* <button id="btnEditar" asp-route-mode="Update" asp-route-id="@Model.Id"
                                 type="submit" class="btn btn-secondary me-2">
-                            <i class="bi bi-pencil text-info fs-5"></i>
+                            <i class="bi bi-pencil fs-5"></i>
                             Modificar
-                        </button>
+                        </button> *@
+                        <a id="btnModificar" asp-controller="Home" asp-action="Upsert"
+                           asp-route-mode="Update" class="btn btn-secondary me-2" role="button">
+                            <i class="bi bi-pencil fs-5"></i>
+                            <span class="ms-1">Modificar</span>
+                        </a>
                     }
                 }
             </div>
@@ -318,27 +346,204 @@
     </div>
 </div>
 
+
 @section Scripts {
 
     <script>
 
+        const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
+
         var codClientePlataforma = "";
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener("DOMContentLoaded", function () {
+            inicializarRevisores();           
+        })
+
+        function inicializarRevisores() {
             addClassToLabels('fs-7');
-            actualizarCodigoPlataforma(@Model.Cliente)
+            actualizarCodigoPlataforma(@Model.Cliente);
             inicializarFormulario();
             validateModel();
-            
-        });
 
-        function validateModel(){
+            const revisoresFull = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
+
+            const selects = [
+                { id: "reviso", next: "revisoGerente", fecha: "revisoFecha" },
+                { id: "revisoGerente", next: "revisoEngagement", fecha: "revisoGerenteFecha" },
+                { id: "revisoEngagement", next: null, fecha: "revisoEngagementFecha" }
+            ];
+
+            const preparoInput = document.getElementById("Preparo");
+            const preparoValue = preparoInput?.dataset.value || "";
+            const preparoRevisor = revisoresFull.find(r => r.Empleado === preparoValue);
+            const preparoCargo = preparoRevisor ? preparoRevisor.Cargo : 0;
+
+            const valorReviso = (document.getElementById("reviso").dataset.value || "").trim();
+            llenarSelect("reviso", preparoCargo, valorReviso, revisoresFull);
+
+            const revisoSelect = document.getElementById("reviso");
+            if (valorReviso) {
+                asegurarOpcionExistenteEnSelect(revisoSelect, valorReviso, revisoresFull);
+                revisoSelect.value = valorReviso;
+                revisoSelect.classList.add("readonly");
+                revisoSelect.disabled = true;
+            }
+
+            selects.forEach((sel, index) => {
+                if (sel.id === "reviso") return; // ya inicializamos reviso
+
+                const selectElem = document.getElementById(sel.id);
+                const valor = (selectElem.dataset.value || "").trim();
+                const anterior = index > 0 ? document.getElementById(selects[index - 1].id) : null;
+
+                if (valor) {
+                    asegurarOpcionExistenteEnSelect(selectElem, valor, revisoresFull);
+                    selectElem.value = valor;
+                    selectElem.classList.add("readonly");
+                } else {
+                    selectElem.disabled = anterior && !anterior.value;
+                }
+            });
+
+            marcarSiguientePendiente(selects);
+
+            selects.forEach((sel, index) => {
+                const current = document.getElementById(sel.id);
+                const nextElem = sel.next ? document.getElementById(sel.next) : null;
+
+                current.addEventListener("change", function () {
+                    manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull);
+                });
+            });
+        }
+
+        function manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull) {
+            if (!current.value) {
+                current.classList.remove("readonly");
+                const fechaInput = document.getElementById(sel.fecha);
+                if (fechaInput) fechaInput.value = "";
+                limpiarSelectsDesde(index + 1, selects);
+                marcarSiguientePendiente(selects);
+                return;
+            }
+
+            limpiarSelectsDesde(index + 1, selects);
+
+            const selectedOpt = current.selectedOptions[0];
+            const cargoActual = selectedOpt ? parseInt(selectedOpt.dataset.cargo || 0) : 0;
+
+            if (cargoActual > 0 && nextElem) {
+                const valorExistenteSiguiente = nextElem.dataset.value || null;
+                llenarSelect(sel.next, cargoActual, valorExistenteSiguiente, revisoresFull);
+            }
+
+            setFechaActual(sel.fecha);
+
+            current.classList.add("readonly");
+            current.blur();
+
+            marcarSiguientePendiente(selects);
+        }
+
+        function marcarSiguientePendiente(selects) {
+            selects.forEach(s => document.getElementById(s.id).classList.remove("is-valid"));
+
+            const pendiente = selects.find(s => {
+                const el = document.getElementById(s.id);
+                return !el.classList.contains("readonly") && !el.disabled && !el.value;
+            });
+
+            if (pendiente) {
+                const elem = document.getElementById(pendiente.id);
+                elem.classList.add("is-valid");
+                try { elem.focus(); } catch (e) {}
+            }
+        }
+
+        function asegurarOpcionExistenteEnSelect(selectElem, valorExistente, revisoresFull) {
+            if (!valorExistente) return;
+            if ([...selectElem.options].some(o => o.value === valorExistente)) return;
+
+            const revisor = revisoresFull.find(r => r.Empleado === valorExistente);
+            if (!revisor) return;
+
+            const opt = document.createElement("option");
+            opt.value = revisor.Empleado;
+            opt.textContent = `${revisor.Detalle} (${revisor.Area || ''})`;
+            opt.dataset.cargo = revisor.Cargo;
+            selectElem.appendChild(opt);
+        }
+
+        function llenarSelect(selectId, cargoBase, valorExistente, revisoresFull) {
+            const selectElem = document.getElementById(selectId);
+            const filtrados = revisoresFull.filter(r => r.Cargo > cargoBase);
+
+            const placeholder = selectElem.getAttribute('data-placeholder') || '-- Seleccione --';
+            selectElem.innerHTML = `<option value="">${placeholder}</option>`;
+
+            if (valorExistente) {
+                const existe = revisoresFull.find(r => r.Empleado === valorExistente);
+                if (existe && !filtrados.some(f => f.Empleado === valorExistente)) {
+                    const optExist = document.createElement("option");
+                    optExist.value = existe.Empleado;
+                    optExist.textContent = `${existe.Detalle} (${existe.Area || ''})`;
+                    optExist.dataset.cargo = existe.Cargo;
+                    selectElem.appendChild(optExist);
+                }
+            }
+
+            filtrados.forEach(r => {
+                if (!valorExistente || r.Empleado !== valorExistente) {
+                    const opt = document.createElement("option");
+                    opt.value = r.Empleado;
+                    opt.textContent = `${r.Detalle} (${r.Area || ''})`;
+                    opt.dataset.cargo = r.Cargo;
+                    selectElem.appendChild(opt);
+                }
+            });
+
+            selectElem.disabled = false;
+        }
+
+        function limpiarSelectsDesde(startIndex, selects) {
+            for (let i = startIndex; i < selects.length; i++) {
+                const s = document.getElementById(selects[i].id);
+                const placeholder = s.getAttribute('data-placeholder') || '-- Seleccione --';
+                s.innerHTML = `<option value="">${placeholder}</option>`;
+                s.value = "";
+                s.disabled = true;
+                s.classList.remove("select-pendiente", "readonly");
+
+                const fechaInput = document.getElementById(selects[i].fecha);
+                if (fechaInput) fechaInput.value = "";
+            }
+        }
+
+        function setFechaActual(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const hoy = new Date();
+            const dia = String(hoy.getDate()).padStart(2, '0');
+            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            const anio = hoy.getFullYear();
+            input.value = `${dia}/${mes}/${anio}`;
+        }
+
+        function validateModel() {
 
             const form = document.querySelector("form");
             if (!form) return;
 
             form.querySelectorAll("input, select, textarea").forEach(input => {
                 input.addEventListener("change", function () {
+
+                    // Evitar validar los campos del flujo
+                    // const flowFields = ["reviso", "revisoGerente", "revisoEngagement"];
+                    // if (flowFields.includes(this.id)) return;
+
+                    // // No validar campos deshabilitados
+                    // if (this.disabled) return;
+
                     const name = this.getAttribute("name");
                     const validationSpan = form.querySelector(`span[data-valmsg-for='${name}']`);
 
@@ -346,48 +551,58 @@
                         this.classList.remove("is-invalid");
                         this.classList.add("is-valid");
                         if (validationSpan) validationSpan.textContent = "";
+
+                        setTimeout(() => {
+                            this.classList.remove("is-valid");
+                        }, 2000);
+
                     } else {
                         this.classList.remove("is-valid");
                         this.classList.add("is-invalid");
+
+                        setTimeout(() => {
+                            this.classList.remove("is-invalid");
+                        }, 2000);
                     }
                 });
             });
         }
 
 
+
         var subareas = JSON.parse('@Html.Raw(ViewBag.Subareas)');
         var clientesData = JSON.parse('@Html.Raw(ViewBag.ClientesJson)');
 
         //AVISAR SI HAY CAMBIOS PARA GUARDAR AL ABANDONAR LA HOJA
-        (function () {
-            let form = document.getElementById("hojaForm");
-            let isDirty = false;
-            debugger;
+        // (function () {
+        //     let form = document.getElementById("hojaForm");
+        //     let isDirty = false;
+        //     debugger;
 
-            // Detectar cambios en cualquier campo del formulario
-            form.querySelectorAll("input, select, textarea").forEach(campo => {
-                campo.addEventListener("change", () => {
-                    isDirty = true;
-                });
-                campo.addEventListener("input", () => {
-                    isDirty = true;
-                });
-            });
+        //     // Detectar cambios en cualquier campo del formulario
+        //     form.querySelectorAll("input, select, textarea").forEach(campo => {
+        //         campo.addEventListener("change", () => {
+        //             isDirty = true;
+        //         });
+        //         campo.addEventListener("input", () => {
+        //             isDirty = true;
+        //         });
+        //     });
 
-            // Desactivar advertencia al enviar el formulario
-            form.addEventListener("submit", () => {
-                isDirty = false;
-            });
+        //     // Desactivar advertencia al enviar el formulario
+        //     form.addEventListener("submit", () => {
+        //         isDirty = false;
+        //     });
 
-            // Detectar intento de cerrar o refrescar página
-            window.addEventListener("beforeunload", function (e) {
-                debugger;
-                if (isDirty) {
-                    e.preventDefault();
-                    e.returnValue = "Hay cambios sin guardar. ¿Seguro que quieres salir?";
-                }
-            });
-        })();
+        //     // Detectar intento de cerrar o refrescar página
+        //     window.addEventListener("beforeunload", function (e) {
+        //         debugger;
+        //         if (isDirty) {
+        //             e.preventDefault();
+        //             e.returnValue = "Hay cambios sin guardar. ¿Seguro que quieres salir?";
+        //         }
+        //     });
+        // })();
 
         function onSectorChange(select) {
                     debugger;

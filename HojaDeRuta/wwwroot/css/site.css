@@ -107,3 +107,23 @@ body {
     color: grey;
 }
 
+.campoHabilitado:not([disabled]) {
+    border-color: #28a745;
+    border-width: 2px;
+    padding-right: 0.75rem;
+}
+
+.campoHabilitado:not([disabled]):focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
+}
+
+.select-pendiente {
+    background-color: #fff !important;
+    border-color: #198754 !important; /* verde Bootstrap */
+    box-shadow: 0 0 0 .25rem rgba(25, 135, 84, .25);
+    appearance: auto !important; /* mantiene la flecha */
+    -webkit-appearance: auto !important;
+    -moz-appearance: auto !important;
+}
+

@@ -87,6 +87,21 @@ namespace HojaDeRuta.Services
             }
         }
 
+        public async Task<Socios> GetSocioByCodigo(string CodSocio)
+        {
+            try
+            {
+                Expression<Func<Socios, bool>> entityName = s => s.Socio == CodSocio;
+                Expression<Func<Socios, Object>> order = s => s.Socio;
+
+                return await socioslRepository.GetFirstOrLastAsync(entityName, order, false);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
         public async Task<List<Contratos>> GetContratos(string? CodigoPlataforma)
         {
             try

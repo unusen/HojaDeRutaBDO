@@ -1,9 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace HojaDeRuta.Controllers
 {
+    [AllowAnonymous]
     public class ErrorController : Controller
     {
+        [Route("Error")]
         public IActionResult Index(string message)
         {
             ViewBag.Message = string.IsNullOrEmpty(message)
@@ -13,6 +16,7 @@ namespace HojaDeRuta.Controllers
             return View();
         }
 
+        [Route("AccessDenied")]
         public IActionResult AccessDenied(string message)
         {
             ViewBag.Message = string.IsNullOrEmpty(message)

@@ -66,6 +66,7 @@ namespace HojaDeRuta.Controllers
 
         public async Task<IActionResult> Index(int pageNumber = 1, int pageSize = 10, string sortOrder = "Numero", string sortDirection = "asc")
         {
+            ViewBag.CurrentSection = "Home";
             var name = "";
             var email = "";
             IList<GroupConfig> roles = new List<GroupConfig>();
@@ -86,13 +87,6 @@ namespace HojaDeRuta.Controllers
             //    return Challenge();
             //}
 
-            ViewBag.CurrentSection = "Home";
-
-            ViewBag.Estados = Enum.GetValues(typeof(Estado))
-                .Cast<Estado>()
-                .Select(e => new { Id = (int)e, Desc = e.ToString() })
-                .ToList();
-
             //PARA TEST
             var parameters = new Dictionary<string, string>
             {
@@ -101,14 +95,17 @@ namespace HojaDeRuta.Controllers
                 { "Usuario ", "CSZULZYK" }
             };
 
+            //string nivel = roles.FirstOrDefault().Nivel.ToString();
+
             //var parameters = new Dictionary<string, string>
             //{
-            //    { "Nivel", roles.FirstOrDefault().Nivel.ToString() },
-            //    { "Sector", "AUDI" },
+            //    { "Nivel", nivel },
+            //    { "Sector", "O&PS" },
             //    { "Usuario ", name }
             //};
 
             var hojas = await _hojaDeRutaService.GetHojas(parameters);
+
             List<Clientes> clientes = await _clienteService.GetClientes();
             List<Socios> socios = await _sharedService.GetAllSocios();
 
@@ -144,6 +141,11 @@ namespace HojaDeRuta.Controllers
 
             ViewBag.HojasJson = JsonConvert.SerializeObject(allHojas);
 
+            ViewBag.Estados = Enum.GetValues(typeof(Estado))
+                .Cast<Estado>()
+                .Select(e => new { Id = (int)e, Desc = e.ToString() })
+                .ToList();
+
             return View(pagedList);
         }
 
@@ -154,114 +156,125 @@ namespace HojaDeRuta.Controllers
 
         public async Task<IActionResult> Upsert(ViewMode mode, string id, HojaViewModel? hojaViewModel = null)
         {
-            //TODO: GENERAR PROCESO BACKGROUND PARA ACTUALIZAR CONTRATOS A LA NOCHE
-            //TODO: NUEVA VENTANA AUDITORIA
-
-            //TODO: REVISAR COMO TRAE REVISORES POR NIVEL EN TODO EL FLUJO
-               // ver nuevo metodo, ver que cada input de revisores traiga el nivel correcto
-               //ver en nuevo metodo que cuando llene el select sea solo para el input correcto
-               //CREAR VIEWBAG PARA CADA REVISOR, TRAYENDO SOLO POR NIVEL ACTUAL
-
-            //SOLO SE PUEDE REPETIR EN EL FLUJO EL SOCIO FIRMANTE
-
-            Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);
-
-            ViewBag.CurrentSection = "Upsert";
-            ViewBag.Detail = false;            
-
-            if (mode == ViewMode.Visualize)
+            try
             {
-                ViewBag.Detail = true;
+                //TODO: GENERAR PROCESO BACKGROUND PARA ACTUALIZAR CONTRATOS A LA NOCHE
+                //TODO: NUEVA VENTANA AUDITORIA                
 
-                ViewData["Title"] = "Visualizar Hoja de Ruta";
-                hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
+                //SOLO SE PUEDE REPETIR EN EL FLUJO EL SOCIO FIRMANTE
+                
+                //PROBAR EL FLUJO CON USUARIO LOGUEADO
+                //ES NIVEL 10, IR PASANDO EL USER POR DIFERENTES NIVELES
+                //Y POR DIFERENTES ESTADOS DE LA HOJA PARA INTERACTUAR
 
-                hoja.IsSindico = String.IsNullOrWhiteSpace(hoja.Sindico);
+                Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);
 
-                ModelState.Clear();
+                ViewBag.CurrentSection = "Upsert";
+                ViewBag.Detail = false;
+
+                if (mode == ViewMode.Visualize)
+                {
+                    ViewBag.Detail = true;
+
+                    ViewData["Title"] = "Visualizar Hoja de Ruta";
+                    hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
+
+                    hoja.IsSindico = String.IsNullOrWhiteSpace(hoja.Sindico);
+
+                    ModelState.Clear();
+                }
+
+                if (mode == ViewMode.Create)
+                {
+                    ViewData["Title"] = "Crear Hoja de Ruta";
+                    hoja = hoja != null ? hoja : new Hoja();
+
+                    hoja = new Hoja();
+
+                    ModelState.Clear();
+
+                    //TODO: LLENAR CAMPO PREPARO CON EL USUARIO LOGUEADO, ES MODIFICABLE?
+                    hoja.Preparo = await _loginService.GetUserNameAsync(); //"GBANAY";
+                    hoja.PreparoFecha = DateTime.Now.ToShortDateString();
+                    hoja.FechaDocumento = DateTime.Now;
+
+                    int proximoNumero = await _hojaDeRutaService.GetProximoNumero();
+                    hoja.Numero = proximoNumero.ToString();
+                }
+                else if (mode == ViewMode.Update)
+                {
+
+                    ViewData["Title"] = "Editar Hoja de Ruta";
+                    hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
+                    hoja.IsSindico = !String.IsNullOrWhiteSpace(hoja.Sindico);
+
+                    //hoja.Preparo = "DGONZALEZ"; //5
+                    //hoja.Reviso = "CORTOLANI"; //6
+                    //hoja.RevisionGerente = "RevisionGerente";
+                    //hoja.EngagementPartner = "EngagementPartner";
+                    //hoja.SocioFirmante = null;
+
+                    ModelState.Clear();
+                }
+
+                await CargarViewBags(hoja, mode);
+
+                return View(hoja);
             }
-
-            if (mode == ViewMode.Create)
+            catch (Exception ex)
             {
-                ViewData["Title"] = "Crear Hoja de Ruta";
-                hoja = hoja != null ? hoja : new Hoja();
-
-                hoja = new Hoja();
-
-                ModelState.Clear();
-
-                //TODO: LLENAR CAMPO PREPARO CON EL USUARIO LOGUEADO, ES MODIFICABLE?
-                hoja.Preparo = "GBANAY";
-                hoja.PreparoFecha = DateTime.Now.ToShortDateString();
-                hoja.FechaDocumento = DateTime.Now;
-                hoja.Numero = "3562";
+                return RedirectToAction("Index", "Error", new { message = ex.Message }); ;
             }
-            else if (mode == ViewMode.Update)
-            {
-
-                ViewData["Title"] = "Editar Hoja de Ruta";
-                hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
-                hoja.IsSindico = !String.IsNullOrWhiteSpace(hoja.Sindico);
-
-                //hoja.Preparo = "DGONZALEZ"; //5
-                //hoja.Reviso = "CORTOLANI"; //6
-                //hoja.RevisionGerente = "RevisionGerente";
-                //hoja.EngagementPartner = "EngagementPartner";
-                //hoja.SocioFirmante = null;
-
-                ModelState.Clear();
-            }
-
-            await CargarViewBags(hoja, mode);
-
-            return View(hoja);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Upsert(Hoja hoja, ViewMode mode)
         {
-            //TODO: EL FLUJO EN CREATE SE VE BIEN, VOLVER A PROBAR
-            //AL EDITAR VER QUE SE LLENEN LOS CAMPOS CON LOS VALORES
-            //Y QUE SE BLOQUEEN SI YA TIENEN VALOR
-
-            ViewBag.Detail = false;
-
-            await CargarViewBags(hoja, mode);
-
-            if (mode == ViewMode.Update)
+            try
             {
-                ViewData["Title"] = "Editar Hoja de Ruta";
+                ViewBag.Detail = false;
 
-                //TODO: LOGICA DE REVISOR, SI FUE RECIEN AGREGADO SE NOTIFICA
-                //await NotificarRevisor(hoja.Id,hoja.re);
+                await CargarViewBags(hoja, mode);
 
-                //TODO: LOGICA DE APROBACION DE HOJA
-                //TODO: LOGICA DE RECHAZO DE HOJA
-                bool isUpate = await _hojaDeRutaService.UpdateHoja(hoja);
-
-                return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
-
-                //return View(hoja);
-            }
-            else if (mode == ViewMode.Create)
-            {
-                if (ModelState.IsValid)
+                if (mode == ViewMode.Update)
                 {
-                    hoja.Id = $"{hoja.Sector}{hoja.Numero}";
-                    await _hojaDeRutaService.CreateHoja(hoja);
-                    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
-                }
+                    ViewData["Title"] = "Editar Hoja de Ruta";
 
-                var errores = ModelState
-                .Where(x => x.Value.Errors.Count > 0)
-                .SelectMany(x => x.Value.Errors)
-                .ToList();
+                    //TODO: LOGICA DE REVISOR, SI FUE RECIEN AGREGADO SE NOTIFICA
+                    //await NotificarRevisor(hoja.Id,hoja.re);
+
+                    //TODO: LOGICA DE APROBACION DE HOJA
+                    //TODO: LOGICA DE RECHAZO DE HOJA
+                    bool isUpate = await _hojaDeRutaService.UpdateHoja(hoja);
+
+                    return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
+                }
+                else if (mode == ViewMode.Create)
+                {
+                    if (ModelState.IsValid)
+                    {
+                        hoja.Id = $"{hoja.Sector}{hoja.Numero}";
+                        hoja.Estado = Estado.Preparada;
+                        await _hojaDeRutaService.CreateHoja(hoja);
+                        return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
+                    }
+
+                    //var errores = ModelState
+                    //.Where(x => x.Value.Errors.Count > 0)
+                    //.SelectMany(x => x.Value.Errors)
+                    //.ToList();
+
+                    return View(hoja);
+                }
 
                 return View(hoja);
             }
+            catch (Exception ex)
+            {
+                return RedirectToAction("Index", "Error", new { message = ex.Message }); ;
+            }
 
-            return View(hoja);
         }
 
         public async Task<IActionResult> Rechazar(Hoja hoja, string rechazador, string motivo)
@@ -423,6 +436,8 @@ namespace HojaDeRuta.Controllers
                 Value = c.NombreGenerico,
                 Text = c.NombreGenerico
             }).ToList();
+
+            ViewBag.NombreGenericoFull = tiposDocumento;
 
             ViewBag.Sectores = sectores.Select(c => new SelectListItem
             {

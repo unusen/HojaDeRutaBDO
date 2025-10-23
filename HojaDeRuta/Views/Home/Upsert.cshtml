@@ -221,7 +221,8 @@
                             </div>
                             <div class="col-md-7">
                                 <select asp-for="SocioFirmante" asp-items="@ViewBag.Socios"
-                                        id="revisoSocioFirmante" class="form-select form-select-sm">
+                                        id="revisoSocioFirmante" class="form-select form-select-sm"
+                                        onchange="onSocioFirmanteChange(this)">
                                     <option value="">Seleccione Socio Firmante</option>
                                 </select>
                                 <span asp-validation-for="SocioFirmante" class="text-danger small"></span>
@@ -249,18 +250,32 @@
                                 </select>
                                 <span asp-validation-for="GestorFinal" class="text-danger small"></span>
                             </div>
+                        </div>
 
-                            <div class="row mt-3">
-                                <div class="col-md-3">
-                                    <label for="lugarFirmaDoc" class="form-label">Lugar de firma del doc.:</label>
+                        <div class="row mt-3">
+                            <div class="col" id="lugarFirmaDiv">
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <label for="lugarFirmaDoc" class="form-label">Lugar de firma:</label>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <input asp-for="LugarFirma" type="text" class="form-control form-control-sm" id="lugarFirmaDoc" placeholder="Lugar de firma del doc.">
+                                        <span asp-validation-for="LugarFirma" class="text-danger small"></span>
+                                    </div>
                                 </div>
-                                <div class="col-md-9">
-                                    <input asp-for="LugarFirma" type="text" class="form-control form-control-sm" id="lugarFirmaDoc" placeholder="Lugar de firma del doc.">
-                                    <span asp-validation-for="LugarFirma" class="text-danger small"></span>
+                            </div>
+                            
+                            <div class="col invisible" id="fechaDeCierreDiv">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="FechaDeCierre" class="form-label">Fecha de Cierre:</label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input asp-for="FechaDeCierre" type="text" id="fechaDeCierre" class="form-control form-control-sm" placeholder="Fecha de cierre" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     <div class="col-md-5">
@@ -352,20 +367,22 @@
     <script>
 
         const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
-
         var codClientePlataforma = "";
+        const idHoja = document.getElementById("Id");
 
         document.addEventListener("DOMContentLoaded", function () {
-            inicializarRevisores();           
-        })
-
-        function inicializarRevisores() {
             addClassToLabels('fs-7');
             actualizarCodigoPlataforma(@Model.Cliente);
             inicializarFormulario();
             validateModel();
+            inicializarRevisores();
+            inicializarNombreGenerico();
+        })
 
+        function inicializarRevisores() {
             const revisoresFull = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
+            debugger;
+            const registroGuardado = esRegistroGuardado();
 
             const selects = [
                 { id: "reviso", next: "revisoGerente", fecha: "revisoFecha" },
@@ -385,8 +402,20 @@
             if (valorReviso) {
                 asegurarOpcionExistenteEnSelect(revisoSelect, valorReviso, revisoresFull);
                 revisoSelect.value = valorReviso;
-                revisoSelect.classList.add("readonly");
-                revisoSelect.disabled = true;
+
+               //Solo bloquear si el registro ya está guardado
+               debugger;
+                if (registroGuardado) {
+                    debugger;
+                    revisoSelect.classList.add("readonly");
+                    revisoSelect.disabled = true;
+                }
+                else {
+                    revisoSelect.classList.remove("readonly");
+                    revisoSelect.disabled = false;
+                }
+                // revisoSelect.classList.add("readonly");
+                // revisoSelect.disabled = true;
             }
 
             selects.forEach((sel, index) => {
@@ -399,9 +428,19 @@
                 if (valor) {
                     asegurarOpcionExistenteEnSelect(selectElem, valor, revisoresFull);
                     selectElem.value = valor;
-                    selectElem.classList.add("readonly");
+
+                    if (registroGuardado) {
+                        selectElem.classList.add("readonly");
+                        selectElem.disabled = true;
+                    } else {
+                        selectElem.disabled = false;
+                    }
                 } else {
-                    selectElem.disabled = anterior && !anterior.value;
+                    if (!registroGuardado) {
+                        selectElem.disabled = false;
+                    } else {
+                        selectElem.disabled = anterior && !anterior.value;
+                    }
                 }
             });
 
@@ -415,6 +454,8 @@
                     manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull);
                 });
             });
+
+            inicializarSindico();
         }
 
         function manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull) {
@@ -439,8 +480,21 @@
 
             setFechaActual(sel.fecha);
 
-            current.classList.add("readonly");
-            current.blur();
+            const registroGuardado = esRegistroGuardado();
+
+            //Solo bloquear si el registro ya está guardado
+            debugger;
+            if (registroGuardado) {
+                debugger;
+                current.classList.add("readonly");
+                current.blur();
+            }
+            else {
+                current.classList.remove("readonly");
+            }
+
+            // current.classList.add("readonly");
+            // current.blur();
 
             marcarSiguientePendiente(selects);
         }
@@ -516,6 +570,23 @@
 
                 const fechaInput = document.getElementById(selects[i].fecha);
                 if (fechaInput) fechaInput.value = "";
+            }
+        }
+
+        function esRegistroGuardado() {
+            if (!idHoja) return false;
+
+            const idValue = idHoja.value?.trim();
+            return idValue !== "" && idValue !== null && idValue !== undefined;
+            //return !!(idHoja && idHoja.value && idHoja.value.trim() !== "");
+        }
+
+        function onSocioFirmanteChange(selectElement) {
+            const fechaInput = document.getElementById("revisoSocioFirmanteFecha");
+            if (selectElement.value) {
+                setFechaActual("revisoSocioFirmanteFecha");
+            } else {
+                fechaInput.value = "";
             }
         }
 
@@ -635,6 +706,27 @@
             }
         }
 
+        function inicializarSindico() {
+            const isSindicoSelect = document.getElementById("IsSindico");
+            const sindicoSelect = document.getElementById("Sindico");
+
+            if (!isSindicoSelect || !sindicoSelect) return;
+
+            const valorSindico = (sindicoSelect.dataset.value || sindicoSelect.value || "").trim();
+
+            if (valorSindico) {
+                isSindicoSelect.disabled = true;
+                sindicoSelect.disabled = true;
+                return;
+            }
+
+            isSindicoSelect.addEventListener("change", function () {
+                toggleSindico(this.value);
+            });
+
+            toggleSindico(isSindicoSelect.value);
+        }
+
         function toggleSindico(selectElement) {
             debugger;
             var isSindicoValue = selectElement;
@@ -661,6 +753,48 @@
             });
         }
 
+        function inicializarNombreGenerico() {
+            debugger;
+            const nombreGenericoSelect = document.getElementById("NombreGenerico");
+            const contratosSelect = document.getElementById("ContratoPlataforma");
+            const genericosData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.NombreGenericoFull));
+
+            nombreGenericoSelect.addEventListener("change", function () {
+                debugger;
+                const fechaCierreDiv = document.getElementById("fechaDeCierreDiv");
+                fechaCierreDiv.classList.add("invisible"); 
+
+                const fechaCierre = document.getElementById("fechaDeCierre");
+                fechaCierre.value= "";                               
+
+                const valorSeleccionado = this.value;
+                const generico = genericosData.find(x => x.NombreGenerico === valorSeleccionado);
+
+                //Limpia la opcion sin contrato
+                const sinContratoExistente = Array.from(contratosSelect.options)
+                    .find(opt => opt.value === "Sin Contrato");
+
+                if (sinContratoExistente) {
+                    contratosSelect.removeChild(sinContratoExistente);
+                }
+
+                //Si es propuesta, genera el option sin contrato
+                if (generico && generico.Categoria === "Propuesta") {
+                    const sinContratoOption = document.createElement("option");
+                    sinContratoOption.value = "Sin Contrato";
+                    sinContratoOption.text = "Sin Contrato";
+                    contratosSelect.appendChild(sinContratoOption);
+                    contratosSelect.value = "Sin Contrato";
+                } else if (generico && generico.Categoria === "Auditoria") {
+                    alert("Nueva pantalla auditoria. Debe agregarse fecha de cierre");
+                    fechaCierreDiv.classList.remove("invisible");
+                    contratosSelect.selectedIndex = 0;
+                } else {
+                    contratosSelect.selectedIndex = 0;                    
+                }
+            });
+        }
+
         function actualizarCodigoPlataforma(clienteId) {
             var inputCodCliente = document.getElementById('CodCliente');
 
@@ -678,6 +812,12 @@
             } else {
                 inputCodCliente.value = '';
             }
+
+            //Limpiar nombre generico al cambiar cliente
+            // const select = document.getElementById("NombreGenerico");
+            // select.innerHTML = '<option value="">Seleccione Tipo de Documento</option>';
+            document.getElementById("NombreGenerico").selectedIndex = 0;
+
         }
 
         function cargarContratos(codCliente, selectedContract = null) {

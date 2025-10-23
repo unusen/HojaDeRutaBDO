@@ -6,5 +6,8 @@ namespace HojaDeRuta.Models.DAO
     {
         [Column("nombre_generico")]
         public string NombreGenerico { get; set; }
+
+        [Column("categoria")]
+        public string? Categoria { get; set; }
     }
 }

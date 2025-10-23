@@ -1,4 +1,5 @@
 ﻿using HojaDeRuta.DBContext;
+using HojaDeRuta.Helpers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Services;
 using HojaDeRuta.Services.AutoMapper;
@@ -75,7 +76,7 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddControllersWithViews(options =>
 {
-    //TODO: ACTIVAR FILTRO DE REQUERIDOS (DE ACUERDO A GESTION DE GRUPOS)
+    //TODO: ACTIVAR FILTRO DE GRUPO REQUERIDO (DE ACUERDO A GESTION DE GRUPOS)
     //options.Filters.Add<RequireGroupsFilter>();
 }).AddMicrosoftIdentityUI();
 

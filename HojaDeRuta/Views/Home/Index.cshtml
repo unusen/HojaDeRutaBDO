@@ -438,16 +438,18 @@
 
         function getEstadoTexto(estadoNumero) {
             return estadoMap[estadoNumero]?.Desc || 'Desconocido';
-        }
-
+        }    
 
         function getBadgeClass(estado) {
             const estadoNum = parseInt(estado);
             switch(estadoNum) {
-                case 0: return "badge bg-success";
+                case 0: return "badge bg-warning text-dark";
                 case 1: return "badge bg-secondary";
-                case 2: return "badge bg-danger";
-                default: return "badge bg-light text-dark";
+                case 2: return "badge bg-info";
+                case 3: return "badge bg-dark";
+                case 4: return "badge bg-success";
+                case 5: return "badge bg-danger";
+                default: return "badge bg-link text-dark";
             }
         }
 

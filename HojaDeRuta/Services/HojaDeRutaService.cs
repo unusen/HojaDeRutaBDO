@@ -94,5 +94,24 @@ namespace HojaDeRuta.Services
                 throw new Exception(ex.Message);
             }
         }
+
+        public async Task<int> GetProximoNumero()
+        {
+            try
+            {
+                var maxValue = await _hojaRepository.GetMaxValueAsync(h => h.Numero);
+
+                if (string.IsNullOrWhiteSpace(maxValue) || !int.TryParse(maxValue, out int tempValue))
+                {
+                    throw new Exception("No se pudo encontrar el último número de Hoja de Ruta");
+                }
+
+                return Convert.ToInt32(maxValue) + 1;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
     }
 }

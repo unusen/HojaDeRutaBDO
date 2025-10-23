@@ -29,7 +29,7 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al agregar {typeof(T).Name}.", ex);
+                throw new Exception($"Error al crear {typeof(T).Name}. {ex.Message}");
             }
         }
 
@@ -42,11 +42,11 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (DbUpdateException ex)
             {
-                throw new Exception($"Error al agregar multiples entidades {typeof(T).Name}. ", ex);
+                throw new Exception($"Error al agregar multiples entidades {typeof(T).Name}. {ex.Message}");
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al agregar multiples entidades {typeof(T).Name}. ", ex);
+                throw new Exception($"Error al agregar multiples entidades {typeof(T).Name}. {ex.Message} ");
             }
         }
 
@@ -58,7 +58,7 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al obtener {typeof(T).Name} por ID. ", ex);
+                throw new Exception($"Error al obtener {typeof(T).Name}. {ex.Message}");
             }
         }
 
@@ -70,7 +70,7 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al obtener la lista de {typeof(T).Name}.", ex);
+                throw new Exception($"Error al obtener la lista de {typeof(T).Name}. {ex.Message}");
             }
         }
 
@@ -83,7 +83,7 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al buscar {typeof(T).Name}.", ex);
+                throw new Exception($"Error al buscar {typeof(T).Name}. {ex.Message}");
             }
         }
 
@@ -122,7 +122,7 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al actualizar {typeof(T).Name}.", ex);
+                throw new Exception($"Error al actualizar {typeof(T).Name}. {ex.Message}");
             }
             
            
@@ -168,7 +168,7 @@ namespace HojaDeRuta.Services.Repository
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al eliminar {typeof(T).Name}.", ex);
+                throw new Exception($"Error al eliminar {typeof(T).Name}. {ex.Message}");
             }
         }
 
@@ -194,6 +194,12 @@ namespace HojaDeRuta.Services.Repository
             {
                 throw new Exception($"Error al consultar el SP {spName}. {ex.Message}");
             }
+        }
+
+        public async Task<TResult> GetMaxValueAsync<TResult>(
+            Expression<Func<T, TResult>> prop)
+        {
+            return await _context.Set<T>().MaxAsync(prop);
         }
 
 

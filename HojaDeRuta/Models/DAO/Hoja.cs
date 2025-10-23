@@ -90,6 +90,11 @@ namespace HojaDeRuta.Models.DAO
         [Column("fecha_limite")]
         public string? FechaLimite { get; set; }
 
+        [Column("fecha_cierre")]
+        [DataType(DataType.Date)]
+        [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
+        public DateTime? FechaDeCierre { get; set; }
+
         [Column("manejador_final")]
         [Required(ErrorMessage = "Gestor final no puede estar vacío.")]
         public string GestorFinal { get; set; }

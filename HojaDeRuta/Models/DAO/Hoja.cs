@@ -78,10 +78,10 @@ namespace HojaDeRuta.Models.DAO
         [Column("revisogte_fecha")]
         public string? RevisionGerenteFecha { get; set; }
 
-        [Column("mailengagement")]
+        [Column("revisoengagement")]
         public string? EngagementPartner { get; set; }
 
-        [Column("mailengagement_fecha")]
+        [Column("revisoengagement_fecha")]
         public string? EngagementPartnerFecha { get; set; }
 
         [Column("revisosocio_fecha")]
@@ -112,13 +112,16 @@ namespace HojaDeRuta.Models.DAO
         public string RutaPapeles { get; set; }
 
         [NotMapped]
-        [Required(ErrorMessage = "La carpeta de documento debe tener archivos.")]
-        public string Adjuntos { get; set; }
+        //[Required(ErrorMessage = "La carpeta de documento debe tener archivos.")]
+        public string? Adjuntos { get; set; }
 
         [Column("observaciones")]
         public string? Observaciones { get; set; }
 
         [Column("estado")]
-        public Estado? Estado { get; set; }
+        [NotMapped]
+        public Estado Estado { get; set; }
+
+        public IEnumerable<HojaEstado>? HojaEstados { get; set; } = new List<HojaEstado>();
     }
 }

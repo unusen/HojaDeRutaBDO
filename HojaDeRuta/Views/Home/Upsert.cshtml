@@ -34,13 +34,33 @@
 
     <h3 class="mb-2 mt-2 fs-4 text-center color-bdo">@ViewData["Title"]</h3>
 
-
     <div class="border border-2 rounded-3 p-3">
 
         <form id="hojaForm" asp-action="Create" enctype="multipart/form-data">
             <fieldset disabled=@DisabledByDetail()>
                 <div class="row">
                     <input type="hidden" asp-for="Id" />
+
+                    @if (Model.HojaEstados != null)
+                    {
+                        for (int i = 0; i < Model.HojaEstados.Count(); i++)
+                        {
+                            var estado = Model.HojaEstados.ElementAt(i);
+
+                            <input type="hidden"
+                                   name="HojaEstados[@i].HojaId"
+                                   value="@estado.HojaId" />
+
+                            <input type="hidden"
+                                   name="HojaEstados[@i].Etapa"
+                                   value="@estado.Etapa" />
+
+                            <input type="hidden"
+                                   name="HojaEstados[@i].Estado"
+                                   value="@estado.Estado" />
+                        }
+                    }
+
                     <div class="col-auto">
                         <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cliente</label>
                     </div>
@@ -264,7 +284,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="col invisible" id="fechaDeCierreDiv">
                                 <div class="row">
                                     <div class="col-md-4">
@@ -283,20 +303,41 @@
                             <div class="col-md-3">
                                 <label for="RutaPapeles" class="form-label">Ruta papeles:</label>
                             </div>
-
-                            <div class="col-md-9">
+                            @* <div class="col-md-9">
+                                <label for="archivo" class="btn btn-primary">
+                                    Seleccionar archivo
+                                    <input type="file" id="archivo" class="d-none">
+                                </label>
                                 <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
                                 <span asp-validation-for="RutaPapeles" class="text-danger small"></span>
+                            </div> *@
+                            <div class="col-md-9">
+                                <div class="input-group input-group-sm">
+                                    <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
+                                    <label for="archivo" class="input-group-text btn bg-bdo">
+                                        <i class="bi bi-arrow-bar-up"></i>
+                                        <input type="file" id="archivo" class="d-none">
+                                    </label>
+                                </div>
+                                <span asp-validation-for="RutaPapeles" class="text-danger small"></span>
                             </div>
-
-
                         </div>
                         <div class="row mt-3">
                             <div class="col-md-3">
                                 <label for="RutaDoc" class="form-label">Ruta doc.:</label>
                             </div>
-                            <div class="col-md-9">
+                            @* <div class="col-md-9">
                                 <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
+                                <span asp-validation-for="RutaDoc" class="text-danger small"></span>
+                            </div> *@
+                            <div class="col-md-9">
+                                <div class="input-group input-group-sm">
+                                    <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
+                                    <label for="archivo" class="input-group-text btn bg-bdo">
+                                        <i class="bi bi-arrow-bar-up"></i>
+                                        <input type="file" id="archivo" class="d-none">
+                                    </label>
+                                </div>
                                 <span asp-validation-for="RutaDoc" class="text-danger small"></span>
                             </div>
                         </div>
@@ -356,19 +397,139 @@
                         </a>
                     }
                 }
+
+                @*  <button id="btnAuditoria" type="button"
+                        class="btn btn-info me-2 invisible"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalAuditoria">
+                    <i class="bi bi-list-task"></i>
+                    Abrir Ventana Auditoria
+                </button> *@
+
+                <button id="btnAuditoria" type="button" class="btn btn-info me-2 invisible"
+                        onclick="abrirModalAuditoria()">
+                    <i class="bi bi-list-task"></i>
+                    Abrir Ventana Auditoria
+                </button>
+
             </div>
         </form>
     </div>
 </div>
 
+<!-- Modal Auditoria -->
+<div class="modal fade" id="modalAuditoria" tabindex="-1" aria-labelledby="modalAuditoriaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-bdo text-white">
+                <h5 class="modal-title" id="modalAuditoriaLabel">Datos de Auditoría</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
 
-@section Scripts {
+            <div class="modal-body">
+                <form id="formAuditoria">
+                    <fieldset disabled=@DisabledByDetail()>
+                        <input type="hidden" id="HojaId" name="HojaId" value="@Model.Id" />
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Activo</label>
+                                <input type="number" step="0.01" class="form-control" id="Activo" name="Activo" required />
+                                <span data-valmsg-for="Activo" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Pasivo</label>
+                                <input type="number" step="0.01" class="form-control" id="Pasivo" name="Pasivo" required />
+                                <span data-valmsg-for="Pasivo" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Patrimonio Neto</label>
+                                <input type="number" step="0.01" class="form-control" id="PatrimonioNeto" name="PatrimonioNeto" required />
+                                <span data-valmsg-for="PatrimonioNeto" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            @* <div class="col-md-4">
+                                <label class="form-label">Moneda</label>
+                                <input type="text" class="form-control" id="Moneda" name="Moneda" required />
+                                <span data-valmsg-for="Moneda" class="text-danger small"></span>
+                            </div> *@
+                            <div class="col-md-4">
+                                <label class="form-label">Moneda</label>
+                                <select class="form-select" id="Moneda" name="Moneda" required>
+                                    <option value="">Seleccione una moneda</option>
+                                    @if (ViewBag.Monedas != null)
+                                    {
+                                        foreach (var moneda in ViewBag.Monedas as List<SelectListItem>)
+                                        {
+                                            <option value="@moneda.Value">@moneda.Text</option>
+                                        }
+                                    }
+                                </select>
+                                <span data-valmsg-for="Moneda" class="text-danger small"></span>
+                            </div>
+
+                            @*  <div class="col-md-4">
+                                <label class="form-label">Tipo Numeración</label>
+                                <input type="text" class="form-control" id="TipoNumeracion" name="TipoNumeracion" required />
+                                <span data-valmsg-for="TipoNumeracion" class="text-danger small"></span>
+                            </div> *@
+                            <div class="col-md-4">
+                                <label class="form-label">Tipo Numeración</label>
+                                <select class="form-select" id="TipoNumeracion" name="TipoNumeracion" required>
+                                    <option value="" selected>Seleccione Numeración</option>
+                                    <option value="MILES">MILES</option>
+                                    <option value="MILLONES">MILLONES</option>
+                                </select>
+                                <span data-valmsg-for="TipoNumeracion" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Resultado</label>
+                                <input type="number" step="0.01" class="form-control" id="Resultado" name="Resultado" required />
+                                <span data-valmsg-for="Resultado" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Total Ingresos</label>
+                                <input type="number" step="0.01" class="form-control" id="TotalIngresos" name="TotalIngresos" required />
+                                <span data-valmsg-for="TotalIngresos" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Total Otros Ingresos</label>
+                                <input type="number" step="0.01" class="form-control" id="TotalOtrosIngresos" name="TotalOtrosIngresos" required />
+                                <span data-valmsg-for="TotalOtrosIngresos" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                @if (!@ViewBag.Detail)
+                {
+                    <button type="button" class="btn btn-success" id="btnGuardarAuditoria" onclick="guardarAuditoria()">Guardar</button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+@section Scripts {    
 
     <script>
 
         const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
         var codClientePlataforma = "";
         const idHoja = document.getElementById("Id");
+        let isInitialLoad = true;
 
         document.addEventListener("DOMContentLoaded", function () {
             addClassToLabels('fs-7');
@@ -377,11 +538,12 @@
             validateModel();
             inicializarRevisores();
             inicializarNombreGenerico();
+
+            isInitialLoad = false;
         })
 
         function inicializarRevisores() {
             const revisoresFull = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
-            debugger;
             const registroGuardado = esRegistroGuardado();
 
             const selects = [
@@ -404,9 +566,7 @@
                 revisoSelect.value = valorReviso;
 
                //Solo bloquear si el registro ya está guardado
-               debugger;
                 if (registroGuardado) {
-                    debugger;
                     revisoSelect.classList.add("readonly");
                     revisoSelect.disabled = true;
                 }
@@ -459,6 +619,7 @@
         }
 
         function manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull) {
+            debugger;
             if (!current.value) {
                 current.classList.remove("readonly");
                 const fechaInput = document.getElementById(sel.fecha);
@@ -468,36 +629,50 @@
                 return;
             }
 
-            limpiarSelectsDesde(index + 1, selects);
-
             const selectedOpt = current.selectedOptions[0];
-            const cargoActual = selectedOpt ? parseInt(selectedOpt.dataset.cargo || 0) : 0;
+            const cargoActual = selectedOpt ? parseInt(selectedOpt.dataset.cargo || 0, 10) : null;
 
+            // 🔹 Limpiar solo inferiores con cargo menor o igual al actual
+            if (cargoActual !== null) {
+                for (let i = index + 1; i < selects.length; i++) {
+                    const inferior = document.getElementById(selects[i].id);
+                    if (!inferior) continue;
+
+                    const valorInf = (inferior.dataset.value || inferior.value || "").trim();
+                    if (!valorInf) continue;
+
+                    const revInf = revisoresFull.find(r => r.Empleado === valorInf);
+                    if (!revInf) continue;
+
+                    const cargoInf = parseInt(revInf.Cargo || 0, 10);
+                    if (isNaN(cargoInf)) continue;
+
+                    // ✅ Solo limpiar si el cargo del inferior es menor o igual al actual
+                    if (cargoInf <= cargoActual) {
+                        inferior.value = "";
+                        inferior.dataset.value = "";
+                        const fechaInf = document.getElementById(selects[i].fecha);
+                        if (fechaInf) fechaInf.value = "";
+                        const placeholder = inferior.getAttribute('data-placeholder') || '-- Seleccione --';
+                        inferior.innerHTML = `<option value="">${placeholder}</option>`;
+                        inferior.disabled = false; // Aseguramos que quede habilitado
+                    }
+                }
+            }
+
+            // 🔹 Rellenar siguiente select según jerarquía
             if (cargoActual > 0 && nextElem) {
-                const valorExistenteSiguiente = nextElem.dataset.value || null;
+                // obtiene valor existente ya sea del dataset (carga inicial) o del value (selección del usuario)
+                const valorExistenteSiguiente = getExistingSelectValue(nextElem);
                 llenarSelect(sel.next, cargoActual, valorExistenteSiguiente, revisoresFull);
-            }
+        }
 
+            // 🔹 Actualizar fecha del actual
             setFechaActual(sel.fecha);
-
-            const registroGuardado = esRegistroGuardado();
-
-            //Solo bloquear si el registro ya está guardado
-            debugger;
-            if (registroGuardado) {
-                debugger;
-                current.classList.add("readonly");
-                current.blur();
-            }
-            else {
-                current.classList.remove("readonly");
-            }
-
-            // current.classList.add("readonly");
-            // current.blur();
-
+            current.classList.remove("readonly");
             marcarSiguientePendiente(selects);
         }
+
 
         function marcarSiguientePendiente(selects) {
             selects.forEach(s => document.getElementById(s.id).classList.remove("is-valid"));
@@ -530,35 +705,55 @@
 
         function llenarSelect(selectId, cargoBase, valorExistente, revisoresFull) {
             const selectElem = document.getElementById(selectId);
+            if (!selectElem) return;
+
+            // 1️⃣ Guardar selección actual antes de limpiar
+            const seleccionActual = valorExistente || selectElem.value || null;
+
+            // 2️⃣ Filtrar revisores con cargo mayor
             const filtrados = revisoresFull.filter(r => r.Cargo > cargoBase);
 
+            // 3️⃣ Reiniciar el select, pero conservar el placeholder
             const placeholder = selectElem.getAttribute('data-placeholder') || '-- Seleccione --';
             selectElem.innerHTML = `<option value="">${placeholder}</option>`;
 
-            if (valorExistente) {
-                const existe = revisoresFull.find(r => r.Empleado === valorExistente);
-                if (existe && !filtrados.some(f => f.Empleado === valorExistente)) {
+            // 4️⃣ Si existía una selección válida (aunque no cumpla filtro), agregarla
+            if (seleccionActual) {
+                const existe = revisoresFull.find(r => r.Empleado === seleccionActual);
+                // Condición de retención: Si existe Y NO está en la lista filtrada de opciones válidas
+                if (existe && !filtrados.some(f => f.Empleado === seleccionActual)) {
                     const optExist = document.createElement("option");
                     optExist.value = existe.Empleado;
-                    optExist.textContent = `${existe.Detalle} (${existe.Area || ''})`;
+                    optExist.textContent = `${existe.Detalle} (${existe.Area || ''}) (Retenido)`; // Opcional: marca como retenido
                     optExist.dataset.cargo = existe.Cargo;
                     selectElem.appendChild(optExist);
                 }
             }
 
+            // 5️⃣ Agregar todos los filtrados (¡AHORA SIN CONDICIÓN DE EXCLUSIÓN!)
             filtrados.forEach(r => {
-                if (!valorExistente || r.Empleado !== valorExistente) {
-                    const opt = document.createElement("option");
-                    opt.value = r.Empleado;
-                    opt.textContent = `${r.Detalle} (${r.Area || ''})`;
-                    opt.dataset.cargo = r.Cargo;
-                    selectElem.appendChild(opt);
-                }
+                // La opción es elegible y DEBE ser agregada.
+                // Si ya fue agregada en 4, fue porque NO estaba en 'filtrados', así que no hay riesgo de duplicación.
+
+                // Eliminamos el if (!seleccionActual || r.Empleado !== seleccionActual)
+
+                const opt = document.createElement("option");
+                opt.value = r.Empleado;
+                opt.textContent = `${r.Detalle} (${r.Area || ''})`;
+                opt.dataset.cargo = r.Cargo;
+                selectElem.appendChild(opt);
+
             });
 
+            // 6️⃣ Restaurar la selección previa (funcionará porque la opción ya fue agregada en 4 o 5)
+            if (seleccionActual) {
+                selectElem.value = seleccionActual;
+                selectElem.dataset.value = seleccionActual; // sincroniza con dataset
+            }
+
+            // 7️⃣ Asegurarse de que quede habilitado
             selectElem.disabled = false;
         }
-
         function limpiarSelectsDesde(startIndex, selects) {
             for (let i = startIndex; i < selects.length; i++) {
                 const s = document.getElementById(selects[i].id);
@@ -590,6 +785,22 @@
             }
         }
 
+        function obtenerRevisoresSeleccionados(selects) {
+            return selects
+                .filter(s => s.id !== "revisoSocioFirmante")
+                .map(s => document.getElementById(s.id)?.value)
+                .filter(v => v);
+        }
+
+        function getExistingSelectValue(selectElem) {
+            if (!selectElem) return null;
+            const ds = (selectElem.dataset && selectElem.dataset.value) ? selectElem.dataset.value.trim() : "";
+            const val = (selectElem.value) ? selectElem.value.trim() : "";
+            // Preferimos dataset.value si vino del server; sino usamos value actual del control
+            return ds || val || null;
+        }
+
+
         function setFechaActual(inputId) {
             const input = document.getElementById(inputId);
             if (!input) return;
@@ -607,14 +818,6 @@
 
             form.querySelectorAll("input, select, textarea").forEach(input => {
                 input.addEventListener("change", function () {
-
-                    // Evitar validar los campos del flujo
-                    // const flowFields = ["reviso", "revisoGerente", "revisoEngagement"];
-                    // if (flowFields.includes(this.id)) return;
-
-                    // // No validar campos deshabilitados
-                    // if (this.disabled) return;
-
                     const name = this.getAttribute("name");
                     const validationSpan = form.querySelector(`span[data-valmsg-for='${name}']`);
 
@@ -638,8 +841,6 @@
                 });
             });
         }
-
-
 
         var subareas = JSON.parse('@Html.Raw(ViewBag.Subareas)');
         var clientesData = JSON.parse('@Html.Raw(ViewBag.ClientesJson)');
@@ -676,13 +877,11 @@
         // })();
 
         function onSectorChange(select) {
-                    debugger;
                 var sector = select.value;
                 cargarSubareas(sector);
         }
 
         function cargarSubareas(sector, selectedSubareaName = null) {
-            debugger;
             var subareaSelect = document.getElementById("subarea");
 
             subareaSelect.innerHTML = '<option value="">Seleccione SubArea</option>';
@@ -728,7 +927,6 @@
         }
 
         function toggleSindico(selectElement) {
-            debugger;
             var isSindicoValue = selectElement;
             var sindicoSelect = document.getElementById('Sindico');
 
@@ -754,23 +952,19 @@
         }
 
         function inicializarNombreGenerico() {
-            debugger;
             const nombreGenericoSelect = document.getElementById("NombreGenerico");
             const contratosSelect = document.getElementById("ContratoPlataforma");
+            const fechaCierreDiv = document.getElementById("fechaDeCierreDiv");
+            const fechaCierre = document.getElementById("fechaDeCierre");
+            const btnAuditoria = document.getElementById("btnAuditoria");
             const genericosData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.NombreGenericoFull));
 
-            nombreGenericoSelect.addEventListener("change", function () {
+            if (!nombreGenericoSelect || !contratosSelect) return;
+
+            function procesarNombreGenerico(valorSeleccionado, esCargaInicial = false) {
                 debugger;
-                const fechaCierreDiv = document.getElementById("fechaDeCierreDiv");
-                fechaCierreDiv.classList.add("invisible"); 
-
-                const fechaCierre = document.getElementById("fechaDeCierre");
-                fechaCierre.value= "";                               
-
-                const valorSeleccionado = this.value;
                 const generico = genericosData.find(x => x.NombreGenerico === valorSeleccionado);
 
-                //Limpia la opcion sin contrato
                 const sinContratoExistente = Array.from(contratosSelect.options)
                     .find(opt => opt.value === "Sin Contrato");
 
@@ -778,21 +972,41 @@
                     contratosSelect.removeChild(sinContratoExistente);
                 }
 
-                //Si es propuesta, genera el option sin contrato
+                fechaCierreDiv.classList.add("invisible");
+                btnAuditoria.classList.add("invisible");
+                if (!esCargaInicial) fechaCierre.value = "";
+
+                //Si es "Propuesta", agregar opción "Sin Contrato"
                 if (generico && generico.Categoria === "Propuesta") {
                     const sinContratoOption = document.createElement("option");
                     sinContratoOption.value = "Sin Contrato";
                     sinContratoOption.text = "Sin Contrato";
                     contratosSelect.appendChild(sinContratoOption);
                     contratosSelect.value = "Sin Contrato";
-                } else if (generico && generico.Categoria === "Auditoria") {
-                    alert("Nueva pantalla auditoria. Debe agregarse fecha de cierre");
+                }
+
+                //Si es "Auditoría", mostrar campo fecha de cierre y abrir ventana
+                if (generico && generico.Categoria === "Auditoria") {
                     fechaCierreDiv.classList.remove("invisible");
+
+                    if (esCargaInicial) {
+                        btnAuditoria.classList.remove("invisible");
+                    }
+
                     contratosSelect.selectedIndex = 0;
                 } else {
-                    contratosSelect.selectedIndex = 0;                    
+                    contratosSelect.selectedIndex = 0;
                 }
+            }
+
+            nombreGenericoSelect.addEventListener("change", function () {
+                procesarNombreGenerico(this.value);
             });
+
+            const valorInicial = nombreGenericoSelect.value;
+            if (valorInicial) {
+                procesarNombreGenerico(valorInicial, true);
+            }
         }
 
         function actualizarCodigoPlataforma(clienteId) {
@@ -814,14 +1028,12 @@
             }
 
             //Limpiar nombre generico al cambiar cliente
-            // const select = document.getElementById("NombreGenerico");
-            // select.innerHTML = '<option value="">Seleccione Tipo de Documento</option>';
-            document.getElementById("NombreGenerico").selectedIndex = 0;
-
+            if (!isInitialLoad) {
+                selectNombreGenerico.selectedIndex = 0;
+            }
         }
 
         function cargarContratos(codCliente, selectedContract = null) {
-            debugger;
             var selectContratos = document.getElementById('ContratoPlataforma');
 
             selectContratos.innerHTML = '<option value="">Cargando contratos...</option>';
@@ -837,7 +1049,6 @@
                     selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>'; // Restablece
 
                     data.forEach(function(contrato) {
-                        debugger;
                         var option = document.createElement('option');
                         option.value = contrato;
                         option.text = contrato;
@@ -856,7 +1067,6 @@
         }
 
         function inicializarFormulario() {
-            debugger;
             //retener valor de subarea
             var areaSelect = document.getElementById('Sector');
 
@@ -878,5 +1088,129 @@
             }
         }
 
+        function guardarAuditoria() {
+            debugger;
+            const form = document.getElementById("formAuditoria");
+            const formData = new FormData(form);
+
+            // Limpiar errores anteriores
+            form.querySelectorAll(".text-danger").forEach(span => span.textContent = "");
+
+            fetch('/Home/SaveAuditoria', {
+                method: "POST",
+                body: formData
+            })
+            .then(resp => {
+                debugger;
+                if (!resp.ok) throw new Error("Error en el servidor");
+                return resp.json();
+            })
+                .then(data => {
+                debugger;
+                if (data.success) {
+                    alert("Auditoría guardada correctamente");
+                    const modal = bootstrap.Modal.getInstance(document.getElementById("modalAuditoria"));
+                    modal.hide();
+                    form.reset();
+
+                    // Redirigir manualmente a la URL indicada por el servidor
+                    if (data.redirectUrl) {
+                        window.location.href = data.redirectUrl;
+                    }
+                }
+                else if (data.validationErrors) {
+                    // Mostrar errores debajo de cada campo
+                    data.validationErrors.forEach(err => {
+                        debugger;
+                        //const inputName = err.Campo.replace("auditoria.", "").replace("Auditoria.", "");
+                        const inputName = (err.campo || "")
+                        .split('.')
+                        .pop(); // obtiene el último segmento del nombre (por ejemplo: "Auditoria.Activo" → "Activo")
+
+                        const span = form.querySelector(`span[data-valmsg-for='${inputName}']`);
+                        if (span) {
+                            span.textContent = err.errores.join(", ");
+                        }
+                    });
+                }
+                else {
+                    alert("Error: " + (data.message || "Error desconocido"));
+                }
+            })
+            .catch(err => {
+                debugger;
+                console.error(err);
+                alert("Error inesperado al guardar la auditoría.");
+            });
+        }
+
+        function abrirModalAuditoria() {
+            debugger;
+            const form = document.getElementById("formAuditoria");
+            form.reset();
+            form.querySelectorAll(".text-danger").forEach(span => span.textContent = "");
+
+            console.log("Opciones del select:", [...document.getElementById("Moneda").options].map(o => o.value));
+
+            // IDs
+            let auditoriaId = 0;
+            const hojaId = '@Model.Id';
+
+            // Limpia o crea input hidden de AuditoriaId
+            let inputAuditoriaId = document.getElementById("AuditoriaId");
+            if (!inputAuditoriaId) {
+                inputAuditoriaId = document.createElement("input");
+                inputAuditoriaId.type = "hidden";
+                inputAuditoriaId.id = "AuditoriaId";
+                inputAuditoriaId.name = "Id";
+                form.appendChild(inputAuditoriaId);
+            }
+
+            // Asignar siempre el id de hoja
+            document.getElementById("HojaId").value = hojaId;
+
+            // Llamar a la API con fetch
+            fetch('/Home/GetAuditoriaById?IdHoja=' + hojaId)
+                .then(response => {
+                    debugger;
+                    if (!response.ok)
+                    {
+                        throw new Error("Error al obtener la auditoría");
+                    }
+
+                    return response.json();
+                })
+                .then(result => {
+                    debugger;
+                    if (result.exists) {
+                        const data = result.data;
+                        auditoriaId = data.Id;
+
+                        console.log("Valor recibido de Moneda:", data.Moneda);
+
+                        // Completar los campos con los valores existentes
+                        document.getElementById("Activo").value = data.activo ?? "";
+                        document.getElementById("Pasivo").value = data.pasivo ?? "";
+                        document.getElementById("PatrimonioNeto").value = data.patrimonioNeto ?? "";
+                        document.getElementById("Moneda").value = data.moneda ?? "";
+                        document.getElementById("TipoNumeracion").value = data.tipoNumeracion ?? "";
+                        document.getElementById("Resultado").value = data.resultado ?? "";
+                        document.getElementById("TotalIngresos").value = data.totalIngresos ?? "";
+                        document.getElementById("TotalOtrosIngresos").value = data.totalOtrosIngresos ?? "";
+                    }
+
+                    // Asigna el Id de la auditoría (0 si no existe)
+                    inputAuditoriaId.value = auditoriaId;
+
+                    // Abre el modal
+                    const modal = new bootstrap.Modal(document.getElementById("modalAuditoria"));
+                    modal.show();
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Error al cargar los datos de auditoría.");
+                });
+        }
     </script>
+
 }

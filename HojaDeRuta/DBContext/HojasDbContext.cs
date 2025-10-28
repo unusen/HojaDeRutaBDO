@@ -20,8 +20,10 @@ namespace HojaDeRuta.DBContext
         public DbSet<Socios> SOCIOS { get; set; }
         public DbSet<Contratos> CONTRATOS_COMPLETO { get; set; }
         public DbSet<SyncControl> SyncControl { get; set; }
+        public DbSet<Auditoria> AUDITORIAS { get; set; }
+        public DbSet<HojaEstado> Hoja_Estado { get; set; }
 
-        
+
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

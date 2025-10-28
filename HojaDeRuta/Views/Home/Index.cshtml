@@ -68,10 +68,18 @@
                                         <input type="number" min="1" class="form-control" id="inputGoToPage" value="1" oninput="goToInputPage()" />
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
                                         <i class="bi bi-trash3 me-2"></i>
                                         Limpiar Filtros
+                                    </button>
+                                </div>
+                                <div class="col-md-2">                                
+                                    <button id="btnTogglePendientes"
+                                            class="btn btn-success btn-sm"
+                                            onclick="togglePendientes()">
+                                        <i class="bi bi-eye"></i>
+                                        @(ViewBag.Pendientes ? "Mostrar todas" : "Mostrar pendientes")
                                     </button>
                                 </div>
                             </div>
@@ -129,12 +137,28 @@
 @section Scripts {
 
     <script>
+        debugger;
+        // let mostrarPendientes = true;
+        // const hojasPendientes = @Html.Raw(ViewBag.HojasJson);
+        // const hojasTotales = @Html.Raw(ViewBag.HojasTotalJson);
+
+        // let allHojas = mostrarPendientes ? [...hojasPendientes] : [...hojasTotales];
+        // let filteredHojas = [...allHojas];
+
         const allHojas = @Html.Raw(ViewBag.HojasJson);
+        let filteredHojas = [...allHojas];
+
         let currentSort = { field: '', direction: 'asc' };
         let currentPage = 1;
         let pageSize = parseInt(document.getElementById('inputPageSize')?.value) || 5;
-        let filteredHojas = [...allHojas];
+        
         const estadoMap = @Html.Raw(estadosJson);
+
+        function togglePendientes() {
+            debugger;
+            const pendientes = @ViewBag.Pendientes.ToString().ToLowerInvariant();
+            window.location.href = `/Home/Index?pendientes=${!pendientes}`;
+        }
 
         function sortTableBy(field) {
             debugger;

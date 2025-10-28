@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace HojaDeRuta.Controllers
 {
@@ -31,6 +32,14 @@ namespace HojaDeRuta.Controllers
         private readonly MailService _mailService;
         private readonly RevisorService _revisorService;
         private readonly IMapper _mapper;
+
+        private static readonly string[] EtapasDeRevision = new[]
+        {
+            nameof(Hoja.Reviso),
+            nameof(Hoja.RevisionGerente),
+            nameof(Hoja.EngagementPartner),
+            nameof(Hoja.SocioFirmante)
+        };
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -64,7 +73,7 @@ namespace HojaDeRuta.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        public async Task<IActionResult> Index(int pageNumber = 1, int pageSize = 10, string sortOrder = "Numero", string sortDirection = "asc")
+        public async Task<IActionResult> Index(int pageNumber = 1, int pageSize = 10, string sortOrder = "Numero", string sortDirection = "asc", bool pendientes = true)
         {
             ViewBag.CurrentSection = "Home";
             var name = "";
@@ -87,13 +96,27 @@ namespace HojaDeRuta.Controllers
             //    return Challenge();
             //}
 
-            //PARA TEST
-            var parameters = new Dictionary<string, string>
+            var parameters = new Dictionary<string, object>
             {
-                { "Nivel", "11" },
+                { "Nivel", "10" },
                 { "Sector", "AUDI" },
-                { "Usuario ", "CSZULZYK" }
+                { "Usuario", "SGALAZ" },
+                { "Id", null },
+                { "Pendientes", 1 }
             };
+
+            //PARA TEST
+            if (!pendientes)
+            {
+                parameters = new Dictionary<string, object>
+                {
+                    { "Nivel", "10" },
+                    { "Sector", "AUDI" },
+                    { "Usuario ", "SGALAZ" },
+                    { "Id ", null },
+                    { "Pendientes ", 0 }
+                };
+            }
 
             //string nivel = roles.FirstOrDefault().Nivel.ToString();
 
@@ -104,12 +127,12 @@ namespace HojaDeRuta.Controllers
             //    { "Usuario ", name }
             //};
 
-            var hojas = await _hojaDeRutaService.GetHojas(parameters);
+            var hojasPendientes = await _hojaDeRutaService.GetHojas(parameters);
 
             List<Clientes> clientes = await _clienteService.GetClientes();
             List<Socios> socios = await _sharedService.GetAllSocios();
 
-            var allHojas = _mapper.Map<List<HojaViewModel>>(hojas, opt =>
+            var allHojas = _mapper.Map<List<HojaViewModel>>(hojasPendientes, opt =>
             {
                 opt.Items["Clientes"] = clientes;
                 opt.Items["Socios"] = socios;
@@ -139,12 +162,14 @@ namespace HojaDeRuta.Controllers
             ViewBag.CurrentSort = sortOrder;
             ViewBag.SortDirection = sortDirection;
 
-            ViewBag.HojasJson = JsonConvert.SerializeObject(allHojas);
+            ViewBag.HojasJson = JsonConvert.SerializeObject(allHojas);        
 
             ViewBag.Estados = Enum.GetValues(typeof(Estado))
                 .Cast<Estado>()
                 .Select(e => new { Id = (int)e, Desc = e.ToString() })
                 .ToList();
+
+            ViewBag.Pendientes = pendientes;
 
             return View(pagedList);
         }
@@ -162,12 +187,12 @@ namespace HojaDeRuta.Controllers
                 //TODO: NUEVA VENTANA AUDITORIA                
 
                 //SOLO SE PUEDE REPETIR EN EL FLUJO EL SOCIO FIRMANTE
-                
+
                 //PROBAR EL FLUJO CON USUARIO LOGUEADO
                 //ES NIVEL 10, IR PASANDO EL USER POR DIFERENTES NIVELES
                 //Y POR DIFERENTES ESTADOS DE LA HOJA PARA INTERACTUAR
 
-                Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);
+                Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);                
 
                 ViewBag.CurrentSection = "Upsert";
                 ViewBag.Detail = false;
@@ -187,14 +212,12 @@ namespace HojaDeRuta.Controllers
                 if (mode == ViewMode.Create)
                 {
                     ViewData["Title"] = "Crear Hoja de Ruta";
-                    hoja = hoja != null ? hoja : new Hoja();
-
+                    //hoja = hoja != null ? hoja : new Hoja();
                     hoja = new Hoja();
 
                     ModelState.Clear();
 
-                    //TODO: LLENAR CAMPO PREPARO CON EL USUARIO LOGUEADO, ES MODIFICABLE?
-                    hoja.Preparo = await _loginService.GetUserNameAsync(); //"GBANAY";
+                    hoja.Preparo = "GBANAY"; //await _loginService.GetUserNameAsync();
                     hoja.PreparoFecha = DateTime.Now.ToShortDateString();
                     hoja.FechaDocumento = DateTime.Now;
 
@@ -215,6 +238,13 @@ namespace HojaDeRuta.Controllers
                     //hoja.SocioFirmante = null;
 
                     ModelState.Clear();
+                }
+
+                var estados = await _hojaDeRutaService.GetEstadosByHojaId(hoja.Id);
+
+                if (estados.Count() > 0)
+                {
+                    hoja.HojaEstados = estados;
                 }
 
                 await CargarViewBags(hoja, mode);
@@ -248,6 +278,8 @@ namespace HojaDeRuta.Controllers
                     //TODO: LOGICA DE RECHAZO DE HOJA
                     bool isUpate = await _hojaDeRutaService.UpdateHoja(hoja);
 
+                    await GenerarEstados(hoja, Estado.EsperandoAprobacion);
+
                     return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Update, id = hoja.Id });
                 }
                 else if (mode == ViewMode.Create)
@@ -255,15 +287,18 @@ namespace HojaDeRuta.Controllers
                     if (ModelState.IsValid)
                     {
                         hoja.Id = $"{hoja.Sector}{hoja.Numero}";
-                        hoja.Estado = Estado.Preparada;
+                        hoja.Estado = Estado.EsperandoAprobacion;
                         await _hojaDeRutaService.CreateHoja(hoja);
+
+                        await GenerarEstados(hoja, Estado.EsperandoAprobacion);
+
                         return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
                     }
 
-                    //var errores = ModelState
-                    //.Where(x => x.Value.Errors.Count > 0)
-                    //.SelectMany(x => x.Value.Errors)
-                    //.ToList();
+                    var errores = ModelState
+                    .Where(x => x.Value.Errors.Count > 0)
+                    .SelectMany(x => x.Value.Errors)
+                    .ToList();
 
                     return View(hoja);
                 }
@@ -274,7 +309,50 @@ namespace HojaDeRuta.Controllers
             {
                 return RedirectToAction("Index", "Error", new { message = ex.Message }); ;
             }
+        }
 
+        public async Task GenerarEstados(Hoja hoja, Estado estado)
+        {
+            try
+            {
+                //var EtapasDeRevision = new[]
+                //{
+                //    nameof(Hoja.Reviso),
+                //    nameof(Hoja.RevisionGerente),
+                //    nameof(Hoja.EngagementPartner),
+                //    nameof(Hoja.SocioFirmante)
+                //};
+
+                var hojaType = hoja.GetType();
+
+                foreach (var nombreCampo in EtapasDeRevision)
+                {
+                    var propInfo = hojaType.GetProperty(nombreCampo);
+                    var valorRevisor = propInfo?.GetValue(hoja) as string;
+
+                    if (!string.IsNullOrEmpty(valorRevisor))
+                    {
+                        var estadoExistente = hoja.HojaEstados
+                            .FirstOrDefault(he => he.Etapa.Equals(nombreCampo, StringComparison.OrdinalIgnoreCase));
+
+                        if (estadoExistente == null)
+                        {
+                            HojaEstado hojaEstado = new HojaEstado
+                            {
+                                HojaId = hoja.Id,
+                                Estado = estado.ToString(),
+                                Etapa = nombreCampo
+                            };
+
+                            await _hojaDeRutaService.CreateEstado(hojaEstado);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
 
         public async Task<IActionResult> Rechazar(Hoja hoja, string rechazador, string motivo)
@@ -422,6 +500,7 @@ namespace HojaDeRuta.Controllers
             List<Socios> socios = await _sharedService.GetAllSocios();
             List<SubArea> subAreas = await _sharedService.GetSubAreas();
             List<Revisores> gestores = await _revisorService.GetAllRevisores();
+            List<string> monedas = await _hojaDeRutaService.GetMonedas();
 
             ViewBag.Clientes = clientes.Select(c => new SelectListItem
             {
@@ -435,6 +514,7 @@ namespace HojaDeRuta.Controllers
             {
                 Value = c.NombreGenerico,
                 Text = c.NombreGenerico
+                //Selected = (viewMode != ViewMode.Create && c.NombreGenerico == hoja.NombreGenerico)
             }).ToList();
 
             ViewBag.NombreGenericoFull = tiposDocumento;
@@ -454,10 +534,6 @@ namespace HojaDeRuta.Controllers
             }).ToList();
 
             ViewBag.CampoHabilitado = await GetCampoHabilitado(hoja);
-
-            //TODO: HACER UN VIEWBAG PARA CADA REVISOR
-            //TODO: EN MODO EDICION O VISUALIZACION, SI TIENE VALOR SOLO MANDAR ESE
-
 
             int nivelActual = await GetNivelRevisorActual(hoja);
 
@@ -514,6 +590,12 @@ namespace HojaDeRuta.Controllers
             ViewBag.RevisoresFull = gestores;
 
             ViewBag.ViewMode = viewMode;
+
+            ViewBag.Monedas = monedas.Select(m => new SelectListItem
+            {
+                Value = m,
+                Text = m
+            }).ToList();
         }
 
         private async Task<SelectListItem?> GetRevisorActual(string revisoActual, List<Revisores> revisores)
@@ -531,6 +613,56 @@ namespace HojaDeRuta.Controllers
             }
 
             return null;
+        }
+
+        public async Task<IActionResult> GetAuditoriaById(string IdHoja)
+        {
+            try
+            {
+                Auditoria auditoria = await _hojaDeRutaService.GetAuditoriaById(IdHoja);
+
+                if (auditoria == null)
+                {
+                    return Json(new { exists = false });
+                }
+
+                return Json(new { exists = true, data = auditoria });
+
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task<IActionResult> SaveAuditoria(Auditoria auditoria)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errores = ModelState
+                    .Where(x => x.Value.Errors.Count > 0)
+                    .Select(x => new
+                    {
+                        Campo = x.Key,
+                        Errores = x.Value.Errors.Select(e => e.ErrorMessage).ToArray()
+                    });
+
+                return Json(new { success = false, validationErrors = errores });
+            }
+
+            Auditoria oldAuditoria = await _hojaDeRutaService.GetAuditoriaById(auditoria.HojaId);
+
+            if (oldAuditoria != null)
+            {
+                await _hojaDeRutaService.UpdateAuditoria(auditoria);
+            }
+            else
+            {
+                await _hojaDeRutaService.CreateAuditoria(auditoria);
+            }
+
+            var redirectUrl = Url.Action(nameof(Upsert), new { mode = ViewMode.Update, id = auditoria.HojaId });
+            return Json(new { success = true, redirectUrl });
         }
 
     }

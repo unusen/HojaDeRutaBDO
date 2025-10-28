@@ -8,6 +8,7 @@ using HojaDeRuta.Services.Repository;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 
@@ -84,6 +85,7 @@ builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("SyncS
 builder.Services.Configure<GroupsSettings>(builder.Configuration.GetSection("GroupsSettings"));
 builder.Services.Configure<DBSettings>(builder.Configuration.GetSection("DBSettings"));
 builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
+builder.Services.Configure<MonedasSettings>(builder.Configuration.GetSection("MonedasSettings"));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<CreatioService>();

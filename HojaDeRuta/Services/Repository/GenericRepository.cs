@@ -62,6 +62,18 @@ namespace HojaDeRuta.Services.Repository
             }
         }
 
+        public async Task<T> GetByIdAsync(int id)
+        {
+            try
+            {
+                return await _dbSet.FindAsync(id);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al obtener {typeof(T).Name}. {ex.Message}");
+            }
+        }
+
         public async Task<IEnumerable<T>> GetAllAsync()
         {
             try

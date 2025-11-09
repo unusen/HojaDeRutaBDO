@@ -1,0 +1,52 @@
+﻿@{
+    var mensaje = TempData["MensajeModal"] as string;
+    var tipo = TempData["TipoModal"] as string ?? "success";
+    string iconoClass;
+    string iconoColor;
+
+    switch (tipo)
+    {
+        case "success":
+            iconoClass = "bi bi-check-circle";
+            iconoColor = "text-success";
+            break;
+        case "error":
+            iconoClass = "bi bi-x-circle";
+            iconoColor = "text-danger";
+            break;
+        default:
+            iconoClass = "bi bi-info-circle-fill";
+            iconoColor = "text-secondary";
+            break;
+    }
+}
+
+@if (!string.IsNullOrWhiteSpace(mensaje))
+{
+    <div class="modal fade" id="modalMensaje" tabindex="-1" aria-labelledby="modalMensajeLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0">
+                    <div class="modal-header bg-bdo">
+                    <h5 class="modal-title" id="modalMensajeLabel">                        
+                        @(tipo == "error" ? "Rechazo de hoja" : "Aprobación de hoja") 
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <i class="fs-3 me-2 @iconoClass @iconoColor"></i>
+                    <span class="fs-4 @(tipo == "error" ? "text-danger" : "text-success")"> @mensaje </span>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-bdo" data-bs-dismiss="modal">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var modal = new bootstrap.Modal(document.getElementById('modalMensaje'));
+            modal.show();
+        });
+    </script>
+}

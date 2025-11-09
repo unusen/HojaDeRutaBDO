@@ -99,6 +99,9 @@ namespace HojaDeRuta.Models.DAO
         [Required(ErrorMessage = "Gestor final no puede estar vacío.")]
         public string GestorFinal { get; set; }
 
+        [Column("manejador")]
+        public string? Manejador { get; set; }
+
         [Column("lugar_firma")]
         [Required(ErrorMessage = "Lugar de firma no puede estar vacío.")]
         public string LugarFirma { get; set; }
@@ -119,8 +122,8 @@ namespace HojaDeRuta.Models.DAO
         public string? Observaciones { get; set; }
 
         [Column("estado")]
-        [NotMapped]
-        public Estado Estado { get; set; }
+        //[NotMapped]
+        public int? Estado { get; set; }
 
         public IEnumerable<HojaEstado>? HojaEstados { get; set; } = new List<HojaEstado>();
     }

@@ -4,8 +4,8 @@ namespace HojaDeRuta.Models.Enums
 {
     public enum Estado
     {
-        [Display(Name = "Esperando Aprobacion")]
-        EsperandoAprobacion = 0,
+        [Display(Name = "Pendiente")]
+        Pendiente = 0,
 
         [Display(Name = "Aprobada")]
         Aprobada = 1,

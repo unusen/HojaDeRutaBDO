@@ -1,7 +1,11 @@
 ﻿using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
+using HojaDeRuta.Models.DTO;
+using HojaDeRuta.Models.Enums;
 using HojaDeRuta.Services.Repository;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Graph;
 using System.Linq.Expressions;
 
 namespace HojaDeRuta.Services
@@ -12,25 +16,56 @@ namespace HojaDeRuta.Services
         private readonly IGenericRepository<Auditoria> _auditoriaRepository;
         private readonly IGenericRepository<HojaEstado> _hojaEstadoRepository;
         private readonly DBSettings _dbSettings;
+        private readonly RevisorService _revisorService;
         private readonly GroupsSettings _groupsSettings;
         private readonly MonedasSettings _monedasSettings;
+        private readonly string _userName;
+        private readonly string _userEmail;
+        private readonly string _userArea;
+        private readonly string _userCargo;
+        private readonly IList<GroupConfig> _userRoles;
+
+        private static readonly string[] EtapasDeRevision = new[]
+        {
+            nameof(Hoja.Reviso),
+            nameof(Hoja.RevisionGerente),
+            nameof(Hoja.EngagementPartner),
+            nameof(Hoja.SocioFirmante)
+        };
 
         public HojaDeRutaService(
             IGenericRepository<Hoja> hojaRepository,
             IGenericRepository<Auditoria> auditoriaRepository,
             IGenericRepository<HojaEstado> hojaEstadoRepository,
+            RevisorService revisorService,
             IOptions<GroupsSettings> groupsSettings,
             IOptions<DBSettings> dbSettings,
             IOptions<MonedasSettings> monedasSettings
-
             )
         {
             _hojaRepository = hojaRepository;
             _auditoriaRepository = auditoriaRepository;
             _hojaEstadoRepository = hojaEstadoRepository;
+            _revisorService = revisorService;
             _dbSettings = dbSettings.Value;
             _groupsSettings = groupsSettings.Value;
             _monedasSettings = monedasSettings.Value;
+
+            _userName = "GACEVEDO"; //await _loginService.GetUserNameAsync();
+            _userEmail = "sebastian.katcheroff@gmail.com"; //await _loginService.GetUserEmailAsync();
+            _userArea = "ILEG"; //await _loginService.GetUserAreaAsync();
+            _userCargo = ""; // await _loginService.GetUserCargoAsync();
+
+            GroupConfig groupConfig = new GroupConfig
+            {
+                Name = "",
+                GroupId = "",
+                Nivel = 11
+            };
+            _userRoles = new List<GroupConfig>();
+            _userRoles.Add(groupConfig);
+            //_userRoles = await _loginService.GetUserGroupsAsync();
+
         }
 
         public async Task<List<Hoja>> GetHojas(Dictionary<string, object> parameters)
@@ -55,29 +90,31 @@ namespace HojaDeRuta.Services
             {
                 var spName = _dbSettings.Sp["GetHojasByNivel"].ToString();
 
-                //PARA TEST
-                var parameters = new Dictionary<string, string>
+                var parameters = new Dictionary<string, object>
                 {
                     { "Nivel", "" },
                     { "Sector", "" },
-                    { "Usuario ", "" },
-                    { "Id", id }
+                    { "Usuario", "" },
+                    { "Id", id },
+                    { "Pendientes", 0 }
                 };
 
-
-                //var parameters = new Dictionary<string, string>
-                //{
-                //    { "Id", id }
-                //};
-
                 IEnumerable<Hoja> hojas = await _hojaRepository.ExecuteStoredProcedureAsync(spName, parameters);
+                
+                Hoja hoja = hojas.FirstOrDefault();
 
-                return hojas.FirstOrDefault();
-                //return await hojaRepository.GetByIdAsync(id);
+                IEnumerable<HojaEstado> estados = await GetEstadosByHojaId(hoja.Id);
+
+                if (estados.Count() > 0)
+                {
+                    hoja.HojaEstados = estados;
+                }               
+
+                return hoja;
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                throw new Exception($"Error al buscar la hoja {id}. {ex.Message}");
             }
         }
 
@@ -131,6 +168,66 @@ namespace HojaDeRuta.Services
                 throw new Exception(ex.Message);
             }
         }
+
+        public async Task<bool> UpdateEstado(HojaEstado hojaEstado)
+        {
+            try
+            {
+                return await _hojaEstadoRepository.UpdateAsync(hojaEstado);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task GenerarEstados(Hoja hoja, Estado estado)
+        {
+            try
+            {
+                var hojaType = hoja.GetType();
+
+                foreach (var nombreCampo in EtapasDeRevision)
+                {
+                    var propInfo = hojaType.GetProperty(nombreCampo);
+                    var valorRevisor = propInfo?.GetValue(hoja) as string;
+
+                    if (!string.IsNullOrEmpty(valorRevisor))
+                    {
+                        var estadoExistente = hoja.HojaEstados.FirstOrDefault
+                            (he => he.Etapa.Equals(nombreCampo, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (estadoExistente == null)
+                        {
+                            HojaEstado hojaEstado = new HojaEstado
+                            {
+                                HojaId = hoja.Id,
+                                Estado = (int)estado,
+                                Etapa = nombreCampo,
+                                Revisor = valorRevisor
+                            };
+
+                            await CreateEstado(hojaEstado);
+                        }
+                        else
+                        {
+                            var estadoFirmante = hoja.HojaEstados.Where(h => h.Etapa == "SocioFirmante").FirstOrDefault();
+
+                            if (estadoFirmante.Revisor != hoja.SocioFirmante)
+                            {
+                                estadoFirmante.Revisor = hoja.SocioFirmante;
+                                await UpdateEstado(estadoFirmante);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
 
         public async Task<int> GetProximoNumero()
         {
@@ -202,5 +299,24 @@ namespace HojaDeRuta.Services
                 throw new Exception(ex.Message);
             }
         }
+  
+
+        public async Task<bool> HabilitarBotonFlujo(Hoja hoja)
+        {
+            if (_userName != hoja.Manejador)
+            {
+                return false;
+            }
+
+            var estado = hoja.HojaEstados.
+                Where(e => e.HojaId == hoja.Id && e.Revisor == _userName).FirstOrDefault();
+
+            if (estado != null)
+            {
+                return estado.Estado == (int)Estado.Pendiente;
+            }
+
+            return false;
+        }     
     }
 }

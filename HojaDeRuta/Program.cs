@@ -86,6 +86,7 @@ builder.Services.Configure<GroupsSettings>(builder.Configuration.GetSection("Gro
 builder.Services.Configure<DBSettings>(builder.Configuration.GetSection("DBSettings"));
 builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
 builder.Services.Configure<MonedasSettings>(builder.Configuration.GetSection("MonedasSettings"));
+builder.Services.Configure<PathSetings>(builder.Configuration.GetSection("PathSetings"));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<CreatioService>();
@@ -94,6 +95,7 @@ builder.Services.AddScoped<SharedService>();
 builder.Services.AddScoped<ClienteService>();
 builder.Services.AddScoped<RevisorService>();
 builder.Services.AddScoped<MailService>();
+builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddHostedService<SyncService>();
 builder.Services.AddHttpContextAccessor();

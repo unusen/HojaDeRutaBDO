@@ -7,6 +7,15 @@
 
     <div id="alertContainer" class="mt-2"></div>
 
+    @* <button class="btn btn-success" type="button" asp-controller="Home" asp-action="Upsert" asp-route-mode=0>
+        <i class="bi bi-plus-lg"></i>
+        Crear Hoja
+    </button> *@
+
+    <a class="btn btn-success" asp-controller="Home" asp-action="Upsert" asp-route-mode=0>
+        <i class="bi bi-plus-lg"></i> Crear Hoja
+    </a>
+
     <div class="accordion mt-3 mb-3" id="accordionExample">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingOne">
@@ -137,14 +146,6 @@
 @section Scripts {
 
     <script>
-        debugger;
-        // let mostrarPendientes = true;
-        // const hojasPendientes = @Html.Raw(ViewBag.HojasJson);
-        // const hojasTotales = @Html.Raw(ViewBag.HojasTotalJson);
-
-        // let allHojas = mostrarPendientes ? [...hojasPendientes] : [...hojasTotales];
-        // let filteredHojas = [...allHojas];
-
         const allHojas = @Html.Raw(ViewBag.HojasJson);
         let filteredHojas = [...allHojas];
 
@@ -187,7 +188,7 @@
                 const matchCliente = h.ClienteName.toLowerCase().includes(cliente);
                 const matchEstado = estado === "" || h.Estado == estado;
                 const matchSector = h.Sector.toLowerCase().includes(sector);
-                const matchSocio = h.SocioFirmante.toLowerCase().includes(socio);
+                const matchSocio = h.SocioFirmanteDetalle.toLowerCase().includes(socio);
                 const matchNumero = h.Numero.toLowerCase().includes(numero);
                 const fechaStr = h.FechaDocumento ? h.FechaDocumento.substring(0, 10) : null;
                 const matchDesde = !desde || fechaStr >= desde;
@@ -270,8 +271,10 @@
             const tbody = document.getElementById('hojasBody');
             tbody.innerHTML = '';            
 
-            paged.forEach(h => {
+            paged.forEach(h => {                
                 const id = encodeURIComponent(h.Id);
+                const isDisabled = h.Estado === 2;
+
                 const row = `
                     <tr class="text-nowrap">
                         <td class="text-center align-middle">${h.Numero}</td>
@@ -302,14 +305,16 @@
                                 <i class="bi bi-eye text-success fs-5"></i>
                             </a>
 
-                            <a href="/Home/Upsert?mode=1&id=${id}"
-                                class="me-2 text-decoration-none icon-action" title="Editar">
-                                <i class="bi bi-pencil text-info fs-5"></i>
-                            </a>
-
-                            <a class="text-decoration-none icon-action" title="Imprimir">
-                                <i class="bi bi-printer text-secondary fs-5"></i>
-                            </a>
+                            ${
+                                isDisabled
+                                ? `<span class="me-2 text-muted fs-5" title="Edición no permitida">
+                                       <i class="bi bi-pencil text-black-50 opacity-75"></i>
+                                   </span>`
+                                : `<a href="/Home/Upsert?mode=1&id=${id}"
+                                      class="me-2 text-decoration-none icon-action" title="Editar">
+                                      <i class="bi bi-pencil text-info fs-5"></i>
+                                   </a>`
+                            }
                         </td>
                     </tr>`;
                 tbody.innerHTML += row;
@@ -415,7 +420,7 @@
             if (input && !isNaN(parseInt(input.value))) {
                 pageSize = parseInt(input.value);
             }
-
+            debugger;
             filteredHojas = [...allHojas];
             renderTable();
         };
@@ -468,11 +473,8 @@
             const estadoNum = parseInt(estado);
             switch(estadoNum) {
                 case 0: return "badge bg-warning text-dark";
-                case 1: return "badge bg-secondary";
-                case 2: return "badge bg-info";
-                case 3: return "badge bg-dark";
-                case 4: return "badge bg-success";
-                case 5: return "badge bg-danger";
+                case 1: return "badge bg-success";
+                case 2: return "badge bg-danger";
                 default: return "badge bg-link text-dark";
             }
         }

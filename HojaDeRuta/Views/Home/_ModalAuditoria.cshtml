@@ -1,0 +1,108 @@
+﻿@functions {
+
+    public string DisabledByDetail()
+    {
+        return @ViewBag.Detail ? "disabled" : null;
+    }
+}
+
+<div class="modal fade" id="modalAuditoria" tabindex="-1" aria-labelledby="modalAuditoriaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-bdo text-white">
+                <h5 class="modal-title" id="modalAuditoriaLabel">Datos de Auditoría</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formAuditoria">
+                    <fieldset disabled=@DisabledByDetail()>
+                        <input type="hidden" id="HojaId" name="HojaId" value="@Model.Id" />
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Activo</label>
+                                <input type="number" step="0.01" class="form-control" id="Activo" name="Activo" required />
+                                <span data-valmsg-for="Activo" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Pasivo</label>
+                                <input type="number" step="0.01" class="form-control" id="Pasivo" name="Pasivo" required />
+                                <span data-valmsg-for="Pasivo" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Patrimonio Neto</label>
+                                <input type="number" step="0.01" class="form-control" id="PatrimonioNeto" name="PatrimonioNeto" required />
+                                <span data-valmsg-for="PatrimonioNeto" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            @* <div class="col-md-4">
+                                <label class="form-label">Moneda</label>
+                                <input type="text" class="form-control" id="Moneda" name="Moneda" required />
+                                <span data-valmsg-for="Moneda" class="text-danger small"></span>
+                            </div> *@
+                            <div class="col-md-4">
+                                <label class="form-label">Moneda</label>
+                                <select class="form-select" id="Moneda" name="Moneda" required>
+                                    <option value="">Seleccione una moneda</option>
+                                    @if (ViewBag.Monedas != null)
+                                    {
+                                        foreach (var moneda in ViewBag.Monedas as List<SelectListItem>)
+                                        {
+                                            <option value="@moneda.Value">@moneda.Text</option>
+                                        }
+                                    }
+                                </select>
+                                <span data-valmsg-for="Moneda" class="text-danger small"></span>
+                            </div>
+
+                            @*  <div class="col-md-4">
+                                <label class="form-label">Tipo Numeración</label>
+                                <input type="text" class="form-control" id="TipoNumeracion" name="TipoNumeracion" required />
+                                <span data-valmsg-for="TipoNumeracion" class="text-danger small"></span>
+                            </div> *@
+                            <div class="col-md-4">
+                                <label class="form-label">Tipo Numeración</label>
+                                <select class="form-select" id="TipoNumeracion" name="TipoNumeracion" required>
+                                    <option value="" selected>Seleccione Numeración</option>
+                                    <option value="MILES">MILES</option>
+                                    <option value="MILLONES">MILLONES</option>
+                                </select>
+                                <span data-valmsg-for="TipoNumeracion" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Resultado</label>
+                                <input type="number" step="0.01" class="form-control" id="Resultado" name="Resultado" required />
+                                <span data-valmsg-for="Resultado" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Total Ingresos</label>
+                                <input type="number" step="0.01" class="form-control" id="TotalIngresos" name="TotalIngresos" required />
+                                <span data-valmsg-for="TotalIngresos" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Total Otros Ingresos</label>
+                                <input type="number" step="0.01" class="form-control" id="TotalOtrosIngresos" name="TotalOtrosIngresos" required />
+                                <span data-valmsg-for="TotalOtrosIngresos" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                @if (!@ViewBag.Detail)
+                {
+                    <button type="button" class="btn btn-success" id="btnGuardarAuditoria" onclick="guardarAuditoria()">Guardar</button>
+                }
+            </div>
+        </div>
+    </div>
+</div>

@@ -5,9 +5,11 @@ namespace HojaDeRuta.Models.DAO
     public class HojaEstado
     {
         [Column("ID")]
-        public int Id { get; set; }
+        public int HojaEstadoId { get; set; }
         public string HojaId { get; set; }
         public string Etapa { get; set; }
-        public string Estado { get; set; }
+        public int Estado { get; set; }
+        public string Revisor { get; set; }
+        public string? MotivoDeRechazo { get; set; }
     }
 }

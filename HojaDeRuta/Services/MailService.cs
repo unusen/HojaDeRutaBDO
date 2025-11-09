@@ -1,4 +1,5 @@
 ﻿using HojaDeRuta.Models.Config;
+using HojaDeRuta.Models.DTO;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Net.Mail;
@@ -14,7 +15,7 @@ namespace HojaDeRuta.Services
             _mailSettings = mailSettings.Value;
         }
 
-        public async Task SendMailAsync(string subject, List<string> destinatarios, string body, bool IsBodyHtml)
+        public async Task SendMailAsync(string subject, string destinatario, string body, bool IsBodyHtml)
         {
             using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
             {
@@ -29,22 +30,23 @@ namespace HojaDeRuta.Services
                     IsBodyHtml = IsBodyHtml
                 };
 
-                foreach (var destinatario in destinatarios)
-                {
-                    message.To.Add(destinatario);
-                }
+                message.To.Add(destinatario);
 
                 await client.SendMailAsync(message);
             }
         }
 
-        public async Task<string> GetBodyInformarRevisor(string url, string numero, string destinatario)
+        public async Task<string> GetBodyInformarRevisor(string url, EMailBody eMailBody)
         {
             return $@"
             <html>
               <body style='font-family: Arial, sans-serif; color:#333;'>
-                <h3> Estimado {destinatario}:</h3>
-                <h3> Ud. fue asignado como revisor para la hoja de Ruta Nº {numero}.<h3>
+                <p> Hola {eMailBody.Revisor.Detalle}:<p>
+                <p>Se le ha asignado la Hoja de Ruta <strong> Nº {eMailBody.NumeroHoja} </strong> para su revisión.</p>
+                <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>
+                <p> <strong>Ruta de papeles:</strong> {eMailBody.RutaPapeles} </p>
+                <p> <strong>Ruta del doc.:</strong> {eMailBody.RutaDoc} </p>
+                
                 <p style='margin-top:20px;'>
                   <a href='{url}' 
                      style='background-color:#354997;color:#fff;padding:10px 15px;
@@ -56,19 +58,22 @@ namespace HojaDeRuta.Services
             </html>";
         }
 
-        public async Task<string> GetBodyInformarRechazo(
-            string url, string numero, string rechazador, string motivo)
+        public async Task<string> GetBodyInformarRechazo(string url, EMailBody eMailBody, string rechazador)
         {
             return $@"
             <html>
               <body style='font-family: Arial, sans-serif; color:#333;'>
-                <h3> Estimado revisor:</h3>
-                <h3> La hoja de Ruta Nº {numero} fue rechazada por {rechazador}.<h3>
-                {
-                    (!String.IsNullOrWhiteSpace(motivo)
-                        ? $"<p> Motivo: {motivo} </p>"
-                        : "")
-                }
+                <p> Hola {eMailBody.Revisor.Detalle}:<p>
+                <p>La hoja de Ruta <strong> Nº {eMailBody.NumeroHoja} </strong> fue rechazada por <strong>{rechazador}.</strong></p>
+
+                {(!String.IsNullOrWhiteSpace(eMailBody.MotivoDeRechazo)
+                        ? $"<p> <strong> Motivo de rechazo: </strong> {eMailBody.MotivoDeRechazo} </p>"
+                        : "")}
+
+                <p> <strong> Sector: </strong> {eMailBody.Sector} - <strong> Número: </strong> {eMailBody.NumeroHoja} </p>
+                <p> <strong> Ruta de papeles: </strong> {eMailBody.RutaPapeles} </p>
+                <p> <strong> Ruta del doc.: </strong> {eMailBody.RutaDoc} </p>
+
                 <p style='margin-top:20px;'>
                   <a href='{url}' 
                      style='background-color:#354997;color:#fff;padding:10px 15px;

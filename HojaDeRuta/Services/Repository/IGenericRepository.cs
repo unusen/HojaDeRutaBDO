@@ -7,6 +7,7 @@ namespace HojaDeRuta.Services.Repository
         public Task AddAsync(T entity);
         Task AddRangeAsync(List<T> entities);
         public Task<T> GetByIdAsync(string id);
+        public Task<T> GetByIdAsync(int id);
         public Task<IEnumerable<T>> GetAllAsync();
         public Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate);
         Task<T> GetFirstOrLastAsync(Expression<Func<T, bool>> filter, Expression<Func<T, object>> orderBy, bool getLast);

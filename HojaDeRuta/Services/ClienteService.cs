@@ -25,6 +25,19 @@ namespace HojaDeRuta.Services
             }
         }
 
+        public async Task<Clientes> GetClienteById(int Id)
+        {
+            try
+            {
+                //string IdCliente = Id.ToString();
+                return await _clientesRepository.GetByIdAsync(Id);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
         public async Task CreateCliente(Clientes cliente)
         {
             try

@@ -1,10 +1,14 @@
-﻿@using HojaDeRuta.Models.Enums
+﻿@using HojaDeRuta.Models.DAO
+@using HojaDeRuta.Models.Enums
 @model HojaDeRuta.Models.DAO.Hoja
 
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = @ViewData["Title"];
 
+    bool botonesHabilitados = (bool)(ViewBag.HabilitarBotones ?? false);
+    var estadosDeHoja = Model.HojaEstados.ToList();
+    string rechazo = (ViewBag.Rechazo ?? "");
 }
 
 @functions {
@@ -40,6 +44,7 @@
             <fieldset disabled=@DisabledByDetail()>
                 <div class="row">
                     <input type="hidden" asp-for="Id" />
+                    <input type="hidden" id="Manejador" asp-for="Manejador" />
 
                     @if (Model.HojaEstados != null)
                     {
@@ -47,17 +52,12 @@
                         {
                             var estado = Model.HojaEstados.ElementAt(i);
 
-                            <input type="hidden"
-                                   name="HojaEstados[@i].HojaId"
-                                   value="@estado.HojaId" />
-
-                            <input type="hidden"
-                                   name="HojaEstados[@i].Etapa"
-                                   value="@estado.Etapa" />
-
-                            <input type="hidden"
-                                   name="HojaEstados[@i].Estado"
-                                   value="@estado.Estado" />
+                            <input type="hidden" name="HojaEstados[@i].HojaEstadoId" value="@estado.HojaEstadoId" />
+                            <input type="hidden" name="HojaEstados[@i].HojaId" value="@estado.HojaId" />
+                            <input type="hidden" name="HojaEstados[@i].Etapa" value="@estado.Etapa" />
+                            <input type="hidden" name="HojaEstados[@i].Estado" value="@estado.Estado" />
+                            <input type="hidden" name="HojaEstados[@i].Revisor" value="@estado.Revisor" />
+                            <input type="hidden" name="HojaEstados[@i].MotivoDeRechazo" value="@estado.MotivoDeRechazo" />
                         }
                     }
 
@@ -187,7 +187,7 @@
                             <div class="col-md-2">
                                 <label for="Reviso" class="form-label fs-6">Revisó:</label>
                             </div>
-                            <div class="col-md-7">
+                            <div class="col-md-5">
                                 <select asp-for="Reviso" asp-items="@ViewBag.Revisores" id="reviso" class="form-select form-select-sm"
                                         data-placeholder="Seleccione Revisor"
                                         data-value="@Model.Reviso">
@@ -198,13 +198,16 @@
                             <div class="col-md-3">
                                 <input asp-for="RevisoFecha" type="text" id="revisoFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
                             </div>
+                            <div class="col-md-2 text-center">
+                                <estado-badge etapa="Reviso" estados="@(estadosDeHoja)"></estado-badge>
+                            </div>
                         </div>
 
                         <div class="row mt-3">
                             <div class="col-md-2">
                                 <label for="RevisionGerente" class="form-label fs-6">Gerente/Dir.:</label>
                             </div>
-                            <div class="col-md-7">
+                            <div class="col-md-5">
                                 <select asp-for="RevisionGerente" asp-items="@ViewBag.Revisores" id="revisoGerente" class="form-select form-select-sm"
                                         data-placeholder="Seleccione Revisor Gerente"
                                         data-value="@Model.RevisionGerente" disabled>
@@ -215,13 +218,16 @@
                             <div class="col-md-3">
                                 <input asp-for="RevisionGerenteFecha" type="text" id="revisoGerenteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
                             </div>
+                            <div class="col-md-2 text-center">
+                                <estado-badge etapa="RevisionGerente" estados="@(estadosDeHoja)"></estado-badge>
+                            </div>
                         </div>
 
                         <div class="row mt-3">
                             <div class="col-md-2">
                                 <label for="EngagementPartner" class="form-label">Eng. Partner:</label>
                             </div>
-                            <div class="col-md-7">
+                            <div class="col-md-5">
                                 <select asp-for="EngagementPartner" asp-items="@ViewBag.Revisores" id="revisoEngagement" class="form-select form-select-sm"
                                         data-placeholder="Seleccione Engagement Partner"
                                         data-value="@Model.EngagementPartner"
@@ -233,15 +239,19 @@
                             <div class="col-md-3">
                                 <input asp-for="EngagementPartnerFecha" type="text" id="revisoEngagementFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
                             </div>
+                            <div class="col-md-2 text-center">
+                                <estado-badge etapa="EngagementPartner" estados="@(estadosDeHoja)"></estado-badge>
+                            </div>
                         </div>
 
                         <div class="row mt-3">
                             <div class="col-md-2">
                                 <label for="SocioFirmante" class="form-label">Socio firmante:</label>
                             </div>
-                            <div class="col-md-7">
+                            <div class="col-md-5">
                                 <select asp-for="SocioFirmante" asp-items="@ViewBag.Socios"
                                         id="revisoSocioFirmante" class="form-select form-select-sm"
+                                        onfocus="onSocioFirmanteFocus(this)"
                                         onchange="onSocioFirmanteChange(this)">
                                     <option value="">Seleccione Socio Firmante</option>
                                 </select>
@@ -250,6 +260,9 @@
                             </div>
                             <div class="col-md-3">
                                 <input asp-for="SocioFirmanteFecha" type="text" id="revisoSocioFirmanteFecha" class="form-control form-control-sm" placeholder="Fecha" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                            </div>
+                            <div class="col-md-2 text-center">
+                                <estado-badge etapa="SocioFirmante" estados="@(estadosDeHoja)"></estado-badge>
                             </div>
                         </div>
 
@@ -362,174 +375,114 @@
                 </div>
             </fieldset>
 
-            <div class="col-md-12 mt-3">
-                <button type="submit" asp-action="Index" class="btn bg-bdo"> <i class="bi bi-arrow-90deg-left"></i> Volver al Inicio </button>
+            <div class="row mt-3 align-items-center">
+                <div class="col-md-7 d-flex flex-wrap align-items-center gap-2">
+                    <button type="submit" asp-action="Index" class="btn bg-bdo me-1"> <i class="bi bi-arrow-90deg-left"></i> Volver al Inicio </button>
 
-                @if (@String.IsNullOrEmpty(Model.Id))
-                {
-                    <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
-                            type="submit" class="btn btn-success me-2">
-                        <i class="bi bi-file-earmark-plus me-1"></i>
-                        Crear hoja
-                    </button>
-                }
-                else
-                {
-                    @if (!@ViewBag.Detail)
+                    @if (@String.IsNullOrEmpty(Model.Id))
                     {
-                        <button id="btnVer" type="submit" class="btn btn-info"> <i class="bi bi-file-earmark-bar-graph"></i> Ver Documentos </button>
-
-                        <button id="btnAprobar" asp-action="Aprobar" type="submit" class="btn btn-success"> <i class="bi bi-check-lg"></i> Aprobar </button>
-                        <button id="btnRechazar" asp-action="Rechazar" type="submit" class="btn btn-danger me-2"><i class="bi bi-x-lg"></i> Rechazar</button>
-                        <button id="btnModificar" asp-route-mode="Update" type="submit" asp-controller="Home" class="btn btn-secondary me-2"><i class="bi bi-floppy"></i> Guardar Cambios </button>
+                        <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
+                                type="submit" class="btn btn-success me-2">
+                            <i class="bi bi-file-earmark-plus me-1"></i>
+                            Crear hoja
+                        </button>
                     }
                     else
                     {
-                        @* <button id="btnEditar" asp-route-mode="Update" asp-route-id="@Model.Id"
-                                type="submit" class="btn btn-secondary me-2">
-                            <i class="bi bi-pencil fs-5"></i>
-                            Modificar
-                        </button> *@
-                        <a id="btnModificar" asp-controller="Home" asp-action="Upsert"
-                           asp-route-mode="Update" class="btn btn-secondary me-2" role="button">
-                            <i class="bi bi-pencil fs-5"></i>
-                            <span class="ms-1">Modificar</span>
-                        </a>
+                        @if (!@ViewBag.Detail)
+                        {
+                            @* <button id="btnVer" type="submit" class="btn btn-info"> <i class="bi bi-file-earmark-bar-graph"></i> Ver Documentos </button> *@
+
+                            <button id="btnModificar" asp-route-mode="Update" type="submit" asp-controller="Home" class="btn btn-secondary me-1"><i class="bi bi-floppy"></i> Guardar Cambios </button>
+
+                            @if (botonesHabilitados)
+                            {
+                                <button id="btnFirmar" asp-action="FirmarDoc" type="button"
+                                        class="btn btn-success me-1
+                                                    @(Model.SocioFirmante != Model.Manejador ? "d-none" : "")">
+                                    <i class="bi bi-pencil-fill"></i>
+                                    Firmar Documento
+                                </button>
+
+                                <button id="btnAprobar" asp-action="RevisarEtapa" type="button"
+                                        class="btn btn-success me-1
+                                                    @(Model.SocioFirmante == Model.Manejador ? "d-none" : "")">
+                                    <i class="bi bi-check-lg"></i>
+                                    Aprobar
+                                </button>
+
+                                @* <button id="btnAprobar" asp-action="RevisarEtapa" type="button" class="btn btn-success me-1"><i class="bi bi-check-lg"></i> Aprobar </button> *@
+
+                                <button id="btnRechazar" asp-action="RevisarEtapa" type="button" class="btn btn-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                            }
+                        }
+                        else
+                        {
+                            @if (@Model.Estado != 2)
+                            {
+                                <a id="btnModificar" asp-controller="Home" asp-action="Upsert"
+                                   asp-route-mode="Update" asp-route-id="@Model.Id" class="btn btn-secondary me-2" role="button">
+                                    <i class="bi bi-pencil fs-5"></i>
+                                    <span class="ms-1">Modificar</span>
+                                </a>
+                            }
+                        }
                     }
-                }
 
-                @*  <button id="btnAuditoria" type="button"
-                        class="btn btn-info me-2 invisible"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalAuditoria">
-                    <i class="bi bi-list-task"></i>
-                    Abrir Ventana Auditoria
-                </button> *@
+                    <button id="btnAuditoria" type="button" class="btn btn-info me-2 invisible"
+                            onclick="abrirModalAuditoria()">
+                        <i class="bi bi-list-task"></i>
+                        Abrir Auditoria
+                    </button>
+                </div>
 
-                <button id="btnAuditoria" type="button" class="btn btn-info me-2 invisible"
-                        onclick="abrirModalAuditoria()">
-                    <i class="bi bi-list-task"></i>
-                    Abrir Ventana Auditoria
-                </button>
-
-            </div>
         </form>
-    </div>
-</div>
 
-<!-- Modal Auditoria -->
-<div class="modal fade" id="modalAuditoria" tabindex="-1" aria-labelledby="modalAuditoriaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-bdo text-white">
-                <h5 class="modal-title" id="modalAuditoriaLabel">Datos de Auditoría</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
+        <div class="col-md-5 d-flex justify-content-end">
+            @if (!string.IsNullOrWhiteSpace(rechazo))
+            {
+                <p class="text-danger"><strong>Motivo de rechazo: </strong> @rechazo</p>
+            }
+            else if (Model.Estado == (int)Estado.Aprobada)
+            {
+                <form id="formDescargarHoja" asp-controller="Home" asp-action="GenerarArchivoHoja" method="post"
+                      class="btn-download-form d-inline-flex align-items-baseline gap-2 flex-nowrap">
 
-            <div class="modal-body">
-                <form id="formAuditoria">
-                    <fieldset disabled=@DisabledByDetail()>
-                        <input type="hidden" id="HojaId" name="HojaId" value="@Model.Id" />
+                    <input type="hidden" name="hojaId" value="@Model.Id" />
 
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Activo</label>
-                                <input type="number" step="0.01" class="form-control" id="Activo" name="Activo" required />
-                                <span data-valmsg-for="Activo" class="text-danger small"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Pasivo</label>
-                                <input type="number" step="0.01" class="form-control" id="Pasivo" name="Pasivo" required />
-                                <span data-valmsg-for="Pasivo" class="text-danger small"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Patrimonio Neto</label>
-                                <input type="number" step="0.01" class="form-control" id="PatrimonioNeto" name="PatrimonioNeto" required />
-                                <span data-valmsg-for="PatrimonioNeto" class="text-danger small"></span>
-                            </div>
-                        </div>
+                    <label for="formato" class="mb-0 me-2 pt-1">Descargar Hoja:</label>
 
-                        <div class="row mb-3">
-                            @* <div class="col-md-4">
-                                <label class="form-label">Moneda</label>
-                                <input type="text" class="form-control" id="Moneda" name="Moneda" required />
-                                <span data-valmsg-for="Moneda" class="text-danger small"></span>
-                            </div> *@
-                            <div class="col-md-4">
-                                <label class="form-label">Moneda</label>
-                                <select class="form-select" id="Moneda" name="Moneda" required>
-                                    <option value="">Seleccione una moneda</option>
-                                    @if (ViewBag.Monedas != null)
-                                    {
-                                        foreach (var moneda in ViewBag.Monedas as List<SelectListItem>)
-                                        {
-                                            <option value="@moneda.Value">@moneda.Text</option>
-                                        }
-                                    }
-                                </select>
-                                <span data-valmsg-for="Moneda" class="text-danger small"></span>
-                            </div>
+                    <select id="formato" name="formato"
+                            class="form-select form-select-sm w-auto me-2" required>
+                        <option value="">Seleccione...</option>
+                        <option value="pdf">PDF</option>
+                        <option value="word">Word (.docx)</option>
+                    </select>
 
-                            @*  <div class="col-md-4">
-                                <label class="form-label">Tipo Numeración</label>
-                                <input type="text" class="form-control" id="TipoNumeracion" name="TipoNumeracion" required />
-                                <span data-valmsg-for="TipoNumeracion" class="text-danger small"></span>
-                            </div> *@
-                            <div class="col-md-4">
-                                <label class="form-label">Tipo Numeración</label>
-                                <select class="form-select" id="TipoNumeracion" name="TipoNumeracion" required>
-                                    <option value="" selected>Seleccione Numeración</option>
-                                    <option value="MILES">MILES</option>
-                                    <option value="MILLONES">MILLONES</option>
-                                </select>
-                                <span data-valmsg-for="TipoNumeracion" class="text-danger small"></span>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Resultado</label>
-                                <input type="number" step="0.01" class="form-control" id="Resultado" name="Resultado" required />
-                                <span data-valmsg-for="Resultado" class="text-danger small"></span>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Total Ingresos</label>
-                                <input type="number" step="0.01" class="form-control" id="TotalIngresos" name="TotalIngresos" required />
-                                <span data-valmsg-for="TotalIngresos" class="text-danger small"></span>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Total Otros Ingresos</label>
-                                <input type="number" step="0.01" class="form-control" id="TotalOtrosIngresos" name="TotalOtrosIngresos" required />
-                                <span data-valmsg-for="TotalOtrosIngresos" class="text-danger small"></span>
-                            </div>
-                        </div>
-                    </fieldset>
+                    <button type="submit" class="btn bg-bdo btn-sm ms-1 d-flex align-items-center" title="Descargar Hoja">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                        <i class="bi bi-download"></i>
+                    </button>
                 </form>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                @if (!@ViewBag.Detail)
-                {
-                    <button type="button" class="btn btn-success" id="btnGuardarAuditoria" onclick="guardarAuditoria()">Guardar</button>
-                }
-            </div>
+            }
         </div>
     </div>
 </div>
 
 
+@await Html.PartialAsync("_ModalAprobacion")
+@await Html.PartialAsync("_ModalConfirmacion", Model)
+@await Html.PartialAsync("_ModalAuditoria", Model)
 
 
 @section Scripts {    
 
     <script>
-
         const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
         var codClientePlataforma = "";
         const idHoja = document.getElementById("Id");
         let isInitialLoad = true;
+        let oldSocioFirmante = null;
 
         document.addEventListener("DOMContentLoaded", function () {
             addClassToLabels('fs-7');
@@ -538,9 +491,57 @@
             validateModel();
             inicializarRevisores();
             inicializarNombreGenerico();
-
+            inicializarModalConfirmacion();
+            inicializarSpinnerDescarga();
             isInitialLoad = false;
         })
+
+        function inicializarModalConfirmacion() {
+            const modalElement = document.getElementById("confirmModal");
+            const confirmText = document.getElementById("confirmText");
+            const accionInput = document.getElementById("accion");
+            const motivoContainer = document.getElementById("motivoContainer");
+
+            if (!modalElement || !accionInput || !confirmText || !motivoContainer) {
+                console.warn("[ModalConfirm] Elementos esenciales no encontrados.");
+                return;
+            }
+
+            const modal = new bootstrap.Modal(modalElement);
+
+            function configurarModal(texto, accion, mostrarMotivo) {
+                confirmText.textContent = texto;
+                accionInput.value = accion;
+                motivoContainer.style.display = mostrarMotivo ? "block" : "none";
+                modal.show();
+            }
+
+            const btnAprobar = document.getElementById("btnAprobar");
+            if (btnAprobar) {
+                btnAprobar.addEventListener("click", e => {
+                    e.preventDefault();
+                    configurarModal("¿Desea aprobar la hoja?", "APROBAR", false);
+                });
+            }
+
+            const btnRechazar = document.getElementById("btnRechazar");
+            if (btnRechazar) {
+                btnRechazar.addEventListener("click", e => {
+                    e.preventDefault();
+                    configurarModal("¿Desea rechazar la hoja?", "RECHAZAR", true);
+                });
+            }
+
+            const btnFirmar = document.getElementById("btnFirmar");
+            if (btnFirmar) {
+                btnFirmar.addEventListener("click", e => {
+                    e.preventDefault();
+                    configurarModal("¿Desea firmar la hoja?", "FIRMAR", false);
+                });
+            }
+
+            console.log("[ModalConfirm] Inicializado correctamente.");
+        }
 
         function inicializarRevisores() {
             const revisoresFull = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
@@ -549,7 +550,8 @@
             const selects = [
                 { id: "reviso", next: "revisoGerente", fecha: "revisoFecha" },
                 { id: "revisoGerente", next: "revisoEngagement", fecha: "revisoGerenteFecha" },
-                { id: "revisoEngagement", next: null, fecha: "revisoEngagementFecha" }
+                { id: "revisoEngagement", next:"revisoSocioFirmante", fecha: "revisoEngagementFecha" },
+                { id: "revisoSocioFirmante", next: null, fecha: "revisoSocioFirmanteFecha" }
             ];
 
             const preparoInput = document.getElementById("Preparo");
@@ -632,7 +634,6 @@
             const selectedOpt = current.selectedOptions[0];
             const cargoActual = selectedOpt ? parseInt(selectedOpt.dataset.cargo || 0, 10) : null;
 
-            // 🔹 Limpiar solo inferiores con cargo menor o igual al actual
             if (cargoActual !== null) {
                 for (let i = index + 1; i < selects.length; i++) {
                     const inferior = document.getElementById(selects[i].id);
@@ -647,7 +648,6 @@
                     const cargoInf = parseInt(revInf.Cargo || 0, 10);
                     if (isNaN(cargoInf)) continue;
 
-                    // ✅ Solo limpiar si el cargo del inferior es menor o igual al actual
                     if (cargoInf <= cargoActual) {
                         inferior.value = "";
                         inferior.dataset.value = "";
@@ -660,14 +660,19 @@
                 }
             }
 
-            // 🔹 Rellenar siguiente select según jerarquía
-            if (cargoActual > 0 && nextElem) {
-                // obtiene valor existente ya sea del dataset (carga inicial) o del value (selección del usuario)
-                const valorExistenteSiguiente = getExistingSelectValue(nextElem);
-                llenarSelect(sel.next, cargoActual, valorExistenteSiguiente, revisoresFull);
-        }
+            // if (cargoActual > 0 && nextElem) {
+            //     const valorExistenteSiguiente = getExistingSelectValue(nextElem);
+            //     llenarSelect(sel.next, cargoActual, valorExistenteSiguiente, revisoresFull);
 
-            // 🔹 Actualizar fecha del actual
+            if (cargoActual > 0 && nextElem) {
+                const valorExistenteSiguiente = getExistingSelectValue(nextElem);
+
+                if (nextElem.id != "revisoSocioFirmante")
+                {
+                    llenarSelect(sel.next, cargoActual, valorExistenteSiguiente, revisoresFull);
+                }
+            }
+
             setFechaActual(sel.fecha);
             current.classList.remove("readonly");
             marcarSiguientePendiente(selects);
@@ -704,56 +709,46 @@
         }
 
         function llenarSelect(selectId, cargoBase, valorExistente, revisoresFull) {
+            debugger;
             const selectElem = document.getElementById(selectId);
             if (!selectElem) return;
 
-            // 1️⃣ Guardar selección actual antes de limpiar
             const seleccionActual = valorExistente || selectElem.value || null;
-
-            // 2️⃣ Filtrar revisores con cargo mayor
             const filtrados = revisoresFull.filter(r => r.Cargo > cargoBase);
 
-            // 3️⃣ Reiniciar el select, pero conservar el placeholder
             const placeholder = selectElem.getAttribute('data-placeholder') || '-- Seleccione --';
             selectElem.innerHTML = `<option value="">${placeholder}</option>`;
 
-            // 4️⃣ Si existía una selección válida (aunque no cumpla filtro), agregarla
             if (seleccionActual) {
+                debugger;
                 const existe = revisoresFull.find(r => r.Empleado === seleccionActual);
-                // Condición de retención: Si existe Y NO está en la lista filtrada de opciones válidas
                 if (existe && !filtrados.some(f => f.Empleado === seleccionActual)) {
                     const optExist = document.createElement("option");
                     optExist.value = existe.Empleado;
-                    optExist.textContent = `${existe.Detalle} (${existe.Area || ''}) (Retenido)`; // Opcional: marca como retenido
+                    //optExist.textContent = `${existe.Detalle} (${existe.Area || ''}) (Retenido)`;
+                    optExist.textContent = `${existe.Detalle}`;
                     optExist.dataset.cargo = existe.Cargo;
                     selectElem.appendChild(optExist);
                 }
             }
 
-            // 5️⃣ Agregar todos los filtrados (¡AHORA SIN CONDICIÓN DE EXCLUSIÓN!)
             filtrados.forEach(r => {
-                // La opción es elegible y DEBE ser agregada.
-                // Si ya fue agregada en 4, fue porque NO estaba en 'filtrados', así que no hay riesgo de duplicación.
-
-                // Eliminamos el if (!seleccionActual || r.Empleado !== seleccionActual)
-
                 const opt = document.createElement("option");
                 opt.value = r.Empleado;
                 opt.textContent = `${r.Detalle} (${r.Area || ''})`;
                 opt.dataset.cargo = r.Cargo;
                 selectElem.appendChild(opt);
-
             });
 
-            // 6️⃣ Restaurar la selección previa (funcionará porque la opción ya fue agregada en 4 o 5)
             if (seleccionActual) {
+                debugger;
                 selectElem.value = seleccionActual;
                 selectElem.dataset.value = seleccionActual; // sincroniza con dataset
             }
 
-            // 7️⃣ Asegurarse de que quede habilitado
             selectElem.disabled = false;
         }
+
         function limpiarSelectsDesde(startIndex, selects) {
             for (let i = startIndex; i < selects.length; i++) {
                 const s = document.getElementById(selects[i].id);
@@ -773,15 +768,28 @@
 
             const idValue = idHoja.value?.trim();
             return idValue !== "" && idValue !== null && idValue !== undefined;
-            //return !!(idHoja && idHoja.value && idHoja.value.trim() !== "");
+        }
+
+        function onSocioFirmanteFocus(selectElement)
+        {
+            oldSocioFirmante = selectElement.value;
         }
 
         function onSocioFirmanteChange(selectElement) {
+            debugger;
             const fechaInput = document.getElementById("revisoSocioFirmanteFecha");
             if (selectElement.value) {
                 setFechaActual("revisoSocioFirmanteFecha");
             } else {
                 fechaInput.value = "";
+            }
+
+            const oldValue = oldSocioFirmante;
+            const manejador = document.getElementById("Manejador");
+
+            if (oldValue == manejador.value && oldValue != selectElement.value)
+            {
+                manejador.value = selectElement.value;
             }
         }
 
@@ -796,7 +804,6 @@
             if (!selectElem) return null;
             const ds = (selectElem.dataset && selectElem.dataset.value) ? selectElem.dataset.value.trim() : "";
             const val = (selectElem.value) ? selectElem.value.trim() : "";
-            // Preferimos dataset.value si vino del server; sino usamos value actual del control
             return ds || val || null;
         }
 
@@ -885,25 +892,32 @@
             var subareaSelect = document.getElementById("subarea");
 
             subareaSelect.innerHTML = '<option value="">Seleccione SubArea</option>';
+            subareaSelect.disabled = false;
+            subareaSelect.required = true;
 
             if (sector) {
-                var filtradas = subareas.filter(s => s.Sector == sector);
+                var filtradas = subareas.filter(s => s.Sector === sector);
+
+                if (filtradas.length === 0) {
+                    subareaSelect.innerHTML = '<option value="No aplica" selected>No aplica</option>';
+                    return;
+                }
 
                 filtradas.forEach(function (s) {
                     var option = document.createElement("option");
                     option.value = s.Nombre;
                     option.text = s.Nombre;
 
-                    // if (selectedSubareaId && selectedSubareaId == s.Id) {
-                    //     option.selected = true;
-                    // }
                     if (selectedSubareaName && selectedSubareaName === s.Nombre) {
                         option.selected = true;
                     }
+
                     subareaSelect.appendChild(option);
                 });
             }
         }
+
+
 
         function inicializarSindico() {
             const isSindicoSelect = document.getElementById("IsSindico");
@@ -1211,6 +1225,42 @@
                     alert("Error al cargar los datos de auditoría.");
                 });
         }
+
+        function inicializarSpinnerDescarga() {
+            debugger;
+            const form = document.getElementById("formDescargarHoja");
+            if (!form) return;
+
+            form.addEventListener("submit", function (e) {
+                const submitBtn = form.querySelector("button[type='submit']");
+                if (!submitBtn) return;
+
+                submitBtn.disabled = true;
+
+                const originalHtml = submitBtn.innerHTML;
+
+                submitBtn.innerHTML = `
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Generando...
+                `;
+
+                const cookieName = "archivoDescargado";
+
+                document.cookie = cookieName + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+
+                const checkInterval = setInterval(() => {
+                    if (document.cookie.includes(cookieName + "=1")) {
+                        clearInterval(checkInterval);
+
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalHtml;
+
+                        document.cookie = cookieName + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                    }
+                }, 1000);
+            });
+        }
+
     </script>
 
 }

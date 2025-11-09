@@ -100,6 +100,9 @@ namespace HojaDeRuta.Models.ViewModels
         [Required(ErrorMessage = "Gestor final no puede estar vacío.")]
         public string GestorFinal { get; set; }
 
+        [Column("manejador")]
+        public string? Manejador { get; set; }
+
         [Column("lugar_firma")]
         [Required(ErrorMessage = "Lugar de firma no puede estar vacío.")]
         public string LugarFirma { get; set; }

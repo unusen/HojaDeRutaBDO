@@ -14,6 +14,7 @@ namespace HojaDeRuta.Services.Repository
         Task<bool> UpdateAsync(T entity);
         public Task DeleteAsync(int id);
         Task<IEnumerable<T>> ExecuteStoredProcedureAsync<TValue>(string spName, Dictionary<string, TValue> parameters);
+        Task<IEnumerable<dynamic>> ExecuteStoredProcedureDynamicAsync(string spName, Dictionary<string, object> parameters);
         Task<TResult> GetMaxValueAsync<TResult>(Expression<Func<T, TResult>> prop);
     }
 }

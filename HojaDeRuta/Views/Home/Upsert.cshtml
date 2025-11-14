@@ -251,6 +251,7 @@
                             <div class="col-md-5">
                                 <select asp-for="SocioFirmante" asp-items="@ViewBag.Socios"
                                         id="revisoSocioFirmante" class="form-select form-select-sm"
+                                        data-placeholder="Seleccione Socio Firmante"
                                         onfocus="onSocioFirmanteFocus(this)"
                                         onchange="onSocioFirmanteChange(this)">
                                     <option value="">Seleccione Socio Firmante</option>
@@ -383,7 +384,7 @@
                     {
                         <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
                                 type="submit" class="btn btn-success me-2">
-                            <i class="bi bi-file-earmark-plus me-1"></i>
+                            <i class="bi bi-plus-lg"></i>
                             Crear hoja
                         </button>
                     }
@@ -639,6 +640,8 @@
                     const inferior = document.getElementById(selects[i].id);
                     if (!inferior) continue;
 
+                    if (inferior.id === "revisoSocioFirmante") continue;
+
                     const valorInf = (inferior.dataset.value || inferior.value || "").trim();
                     if (!valorInf) continue;
 
@@ -752,6 +755,11 @@
         function limpiarSelectsDesde(startIndex, selects) {
             for (let i = startIndex; i < selects.length; i++) {
                 const s = document.getElementById(selects[i].id);
+
+                if (s && s.id === "revisoSocioFirmante") {
+                    continue;
+                }
+
                 const placeholder = s.getAttribute('data-placeholder') || '-- Seleccione --';
                 s.innerHTML = `<option value="">${placeholder}</option>`;
                 s.value = "";
@@ -916,8 +924,6 @@
                 });
             }
         }
-
-
 
         function inicializarSindico() {
             const isSindicoSelect = document.getElementById("IsSindico");

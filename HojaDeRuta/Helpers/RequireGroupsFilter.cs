@@ -22,7 +22,7 @@
                 return; 
             }
 
-            var name = await _loginService.GetUserNameAsync();
+            var name =  _loginService.GetUserName();
             var groups = await _loginService.GetUserGroupsAsync();
 
             if (!groups.Any())

@@ -12,5 +12,8 @@ namespace HojaDeRuta.Models.DAO
 
         [Column("mail")]
         public string Mail { get; set; }
+
+        [Column("liderDeArea")]
+        public bool LiderDeArea { get; set; }
     }
 }

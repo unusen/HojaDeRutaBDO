@@ -1,0 +1,193 @@
+﻿@{
+    ViewData["Title"] = @ViewData["Title"];
+}
+
+
+
+<div class="container my-4">
+    <h3 class="mb-2 fs-3 text-center color-bdo">@ViewData["Title"]</h3>
+
+    <!-- Filtros y columnas -->
+    <div class="accordion mb-3" id="accordionExample">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+                <button class="accordion-button bg-bdo text-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                    <i class="bi bi-filter me-2"></i> Filtrar y ordenar columnas
+                </button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                <div class="accordion-body">
+                    <div class="card mb-2 border-0">
+                        <form id="formReporte" asp-action="Reportes">
+                            <div class="row p-2 border rounded">
+                                <!-- Filtros -->
+                                <div class="col-md-3">
+                                    <label for="socio" class="form-label">Socio</label>
+                                    <select id="socio" name="socio" class="form-select">
+                                        <option value="">Seleccione Socio</option>
+                                        @foreach (var socio in ViewBag.Socios)
+                                        {
+                                            <option value="@socio.Value">@socio.Text</option>
+                                        }
+                                    </select>
+                                    <span id="validateSocio" class="text-danger small"></span>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label for="fechaDesde" class="form-label">Fecha Desde</label>
+                                    <input type="date" id="fechaDesde" name="fechaDesde" class="form-control" placeholder="Fecha desde" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label for="fechaHasta" class="form-label">Fecha Hasta</label>
+                                    <input type="date" id="fechaHasta" name="fechaHasta" class="form-control" placeholder="Fecha hasta" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" />
+                                </div>
+
+                                @*   <div class="col-md-3">
+                                    <label for="formato" class="form-label">Formato</label>
+                                    <select id="formato" name="formato"
+                                            class="form-select" required>
+                                        <option value="">Seleccione Formato</option>
+                                        <option value="pdf">Excel</option>
+                                        <option value="word">PDF</option>
+                                    </select>
+                                </div> *@
+                            </div>
+
+                            <h5 class="m-3 fs-5 text-start color-bdo">Seleccione columnas y orden</h5>
+
+                            <div class="form-check ms-10 mb-2">
+                                <input class="form-check-input" type="checkbox" value="true"
+                                    id="checkAuditoria" name="checkAuditoria">
+                                <label class="form-check-label" for="checkAuditoria">
+                                    Incluir datos de auditoría
+                                </label>
+                            </div>
+
+                            <!-- Selección de columnas -->
+                            <div id="columnasContainer" class="g-0 d-flex flex-wrap gap-2 border rounded p-2">
+                            </div>
+
+                            <input type="hidden" id="columnasSeleccionadas" name="columnasSeleccionadas" value="" />
+
+                            <div class="row mt-2">
+                                <div class="col-md-8"> </div>
+                                <div class="col-md-4 text-end">
+                                    <button id="btnModificar" asp-route-mode="Update"
+                                            type="submit" asp-controller="Home"
+                                            class="btn btn-info me-1">
+                                        <i class="bi bi-search"></i>
+                                        Consultar
+                                    </button>
+
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-bar-chart-fill"> </i>
+                                        Generar reporte
+                                    </button>
+
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Tabla resultados -->
+
+</div>
+
+@section Scripts {
+
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+            inicializarSeleccionColumnas();
+            validateSocio();
+        });
+
+        function validateSocio()
+        {
+            debugger;
+
+            const form = document.getElementById("formReporte");
+            const socioSelect = document.getElementById("socio");
+            const errorSpan = document.getElementById("validateSocio");
+
+            function validarSocio(e) {
+                let valido = true;
+
+                if (!socioSelect.value.trim()) {
+                    errorSpan.textContent = "Debe seleccionar un socio para generar el reporte";
+                    socioSelect.classList.add("is-invalid");
+                    valido = false;
+                } else {
+                    errorSpan.textContent = "";
+                    socioSelect.classList.remove("is-invalid");
+                    socioSelect.classList.add("is-valid");
+                }
+
+                if (!valido && e) {
+                    e.preventDefault();
+                }
+
+                return valido;
+            }
+
+            form.addEventListener("submit", validarSocio);
+            socioSelect.addEventListener("change", validarSocio);
+        }
+
+
+        async function inicializarSeleccionColumnas() {
+            const contenedor = document.getElementById("columnasContainer");
+            const res = await fetch("@Url.Action("ObtenerColumnasReporte")");
+            const columnas = await res.json();
+
+            columnas.forEach(col => {
+                const item = document.createElement("div");
+                item.className = "columna-item d-flex align-items-center gap-2";
+                item.innerHTML = `
+                    <input class="me-1" type="checkbox" value="${col.column}" id="${col.propiedad}">
+                    <label for="${col.propiedad}" class="flex-grow-1 mb-0">${col.nombre}</label>
+                    <i class="bi bi-grip-vertical text-muted ms-auto"></i>
+                `;
+                contenedor.appendChild(item);
+            });
+
+            Sortable.create(contenedor, { animation: 150, handle: ".bi-grip-vertical" });
+
+            inicializarEstiloSeleccionColumnas(contenedor);
+
+            document.getElementById("formReporte").addEventListener("submit", function () {
+                const seleccionadas = [];
+                contenedor.querySelectorAll("input[type=checkbox]:checked")
+                    .forEach(cb => seleccionadas.push(cb.value));
+                document.getElementById("columnasSeleccionadas").value = seleccionadas.join(",");
+            });
+        }
+
+        function inicializarEstiloSeleccionColumnas(contenedor) {
+            const items = contenedor.querySelectorAll(".columna-item");
+
+            items.forEach(item => {
+                const checkbox = item.querySelector("input[type='checkbox']");
+
+                if (checkbox.checked) item.classList.add("selected");
+
+                item.addEventListener("click", (e) => {
+                    if (e.target.tagName === "INPUT" || e.target.tagName === "I") return;
+
+                    checkbox.checked = !checkbox.checked;
+                    item.classList.toggle("selected", checkbox.checked);
+                });
+
+                checkbox.addEventListener("change", () => {
+                    item.classList.toggle("selected", checkbox.checked);
+                });
+            });
+        }
+    </script>
+}

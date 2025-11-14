@@ -1,6 +1,7 @@
 ﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
@@ -13,6 +14,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using A = DocumentFormat.OpenXml.Drawing;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
+using Border = DocumentFormat.OpenXml.Spreadsheet.Border;
+using Color = DocumentFormat.OpenXml.Spreadsheet.Color;
+using Font = DocumentFormat.OpenXml.Spreadsheet.Font;
+using Fonts = DocumentFormat.OpenXml.Spreadsheet.Fonts;
 using FontSize = DocumentFormat.OpenXml.Wordprocessing.FontSize;
 using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
 using ParagraphProperties = DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties;
@@ -38,8 +43,6 @@ namespace HojaDeRuta.Services
 
         public async Task<byte[]> GetPdfFromHtml(string html)
         {
-            //var html = GenerarHtmlDesdeDatos(data);
-
             var browserFetcher = new BrowserFetcher();
             await browserFetcher.DownloadAsync();
 
@@ -50,18 +53,32 @@ namespace HojaDeRuta.Services
             });
 
             using var page = await browser.NewPageAsync();
-            await page.SetContentAsync(html);
 
+            // Establecemos el contenido HTML
+            await page.SetContentAsync(html, new NavigationOptions
+            {
+                WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
+            });
+
+            // Ajustes para permitir scroll horizontal en caso de muchas columnas
+            await page.EvaluateExpressionAsync(@"
+        document.body.style.overflowX = 'auto';
+        document.body.style.width = 'max-content';
+    ");
+
+            // Opciones de PDF mejoradas
             var pdfBytes = await page.PdfDataAsync(new PdfOptions
             {
-                Format = PaperFormat.A4,
-                PrintBackground = true,
+                PrintBackground = true,  // Mantiene los colores de fondo
+                Scale = 0.8m,            // Escala para ajustar más contenido en la página
+                Landscape = true,        // Usa orientación horizontal
+                PreferCSSPageSize = true,
                 MarginOptions = new PuppeteerSharp.Media.MarginOptions
                 {
-                    Top = "1cm",
-                    Bottom = "1cm",
-                    Left = "1cm",
-                    Right = "1cm"
+                    Top = "0.8cm",
+                    Bottom = "0.8cm",
+                    Left = "0.8cm",
+                    Right = "0.8cm"
                 }
             });
 
@@ -88,7 +105,7 @@ namespace HojaDeRuta.Services
                         new RunProperties(
                             new Bold(),
                             new FontSize() { Val = "28" },
-                            new Color() { Val = "354997" }
+                            new DocumentFormat.OpenXml.Office2013.Word.Color() { Val = "354997" }
                             ),
                         titleText
                     )
@@ -118,7 +135,7 @@ namespace HojaDeRuta.Services
                     nameText.Space = SpaceProcessingModeValues.Preserve;
 
                     var runName = new Run(
-                        new RunProperties(new Bold(), new Color() { Val = "354997" }),                        
+                        new RunProperties(new Bold(), new DocumentFormat.OpenXml.Office2013.Word.Color() { Val = "354997" }),                        
                         nameText
                     );
 
@@ -183,6 +200,210 @@ namespace HojaDeRuta.Services
             return sb.ToString();
         }
 
+        //METODO PARA GUARDAR LOS REPORTES EN PDF, POR AHORA NO USADO
+        public string GetHtmlFromDynamic(IEnumerable<dynamic> data)
+        {
+            if (data == null || !data.Any())
+                return "<html><body><h4>No hay datos para mostrar</h4></body></html>";
+
+            var sb = new StringBuilder();
+
+            sb.AppendLine("<html>");
+            sb.AppendLine("<head>");
+            sb.AppendLine("<meta charset='UTF-8'>");
+            sb.AppendLine("<style>");
+            sb.AppendLine(@"
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            margin: 10px;
+        }
+
+        h3 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto; /* 🔹 Evita recorte horizontal */
+        }
+
+        table {
+            border-collapse: collapse;
+            min-width: 150%; /* 🔹 Permite más ancho que la página */
+            white-space: nowrap; /* 🔹 Mantiene columnas en una línea */
+            font-size: 9px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 4px 6px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+    ");
+            sb.AppendLine("</style>");
+            sb.AppendLine("</head>");
+            sb.AppendLine("<body>");
+            sb.AppendLine("<h3>Reporte de Hojas</h3>");
+            sb.AppendLine("<div class='table-container'>");
+            sb.AppendLine("<table>");
+
+            // Tomar las columnas del primer registro
+            var firstRow = (IDictionary<string, object>)data.First();
+            var columns = firstRow.Keys.ToList();
+
+            // Cabecera
+            sb.AppendLine("<thead><tr>");
+            foreach (var col in columns)
+                sb.AppendLine($"<th>{System.Net.WebUtility.HtmlEncode(col.ToUpper())}</th>");
+            sb.AppendLine("</tr></thead>");
+            sb.AppendLine("<tbody>");
+
+            // Filas
+            foreach (var item in data)
+            {
+                var dict = (IDictionary<string, object>)item;
+                sb.AppendLine("<tr>");
+                foreach (var col in columns)
+                {
+                    var value = dict[col]?.ToString() ?? "";
+                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(value)}</td>");
+                }
+                sb.AppendLine("</tr>");
+            }
+
+            sb.AppendLine("</tbody>");
+            sb.AppendLine("</table>");
+            sb.AppendLine("</div>");
+            sb.AppendLine("</body>");
+            sb.AppendLine("</html>");
+
+            return sb.ToString();
+        }
+
+        public byte[] GetExcelFromDynamic(IEnumerable<dynamic> data, string titulo)
+        {
+            if (data == null || !data.Any())
+                return Array.Empty<byte>();
+
+            using var ms = new MemoryStream();
+
+            using (var document = SpreadsheetDocument.Create(ms, SpreadsheetDocumentType.Workbook))
+            {
+                var workbookPart = document.AddWorkbookPart();
+                workbookPart.Workbook = new Workbook();
+
+                var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                var sheetData = new SheetData();
+                worksheetPart.Worksheet = new Worksheet(sheetData);
+
+                // Crear hoja
+                var sheets = document.WorkbookPart.Workbook.AppendChild(new Sheets());
+                sheets.Append(new Sheet
+                {
+                    Id = document.WorkbookPart.GetIdOfPart(worksheetPart),
+                    SheetId = 1,
+                    Name = "Reporte"
+                });
+
+                // Obtener columnas
+                var firstRow = (IDictionary<string, object>)data.First();
+                var columns = firstRow.Keys.ToList();
+
+                var stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
+                stylesPart.Stylesheet = CreateStylesheet();
+                stylesPart.Stylesheet.Save();
+                var titleRow = new Row();
+                var titleCell = new Cell
+                {
+                    DataType = CellValues.String,
+                    CellValue = new CellValue(titulo),
+                    StyleIndex = 1 
+                };
+                titleRow.Append(titleCell);
+                sheetData.Append(titleRow);
+
+                sheetData.Append(new Row());
+
+                var headerRow = new Row();
+                foreach (var col in columns)
+                {
+                    var headerCell = new Cell
+                    {
+                        DataType = CellValues.String,
+                        CellValue = new CellValue(col.ToUpper()),
+                        StyleIndex = 2 // estilo de encabezado azul/blanco
+                    };
+                    headerRow.Append(headerCell);
+                }
+                sheetData.Append(headerRow);
+
+                foreach (var item in data)
+                {
+                    var dict = (IDictionary<string, object>)item;
+                    var row = new Row();
+
+                    foreach (var col in columns)
+                    {
+                        var value = dict[col]?.ToString() ?? "";
+                        row.Append(CreateCell(value, CellValues.String));
+                    }
+
+                    sheetData.Append(row);
+                }
+
+                workbookPart.Workbook.Save();
+            }
+
+            return ms.ToArray();
+        }
+
+        private Cell CreateCell(string text, CellValues dataType, bool bold = false)
+        {
+            var cell = new Cell
+            {
+                DataType = new EnumValue<CellValues>(dataType),
+                CellValue = new CellValue(text)
+            };
+            return cell;
+        }
+
+        private Stylesheet CreateStylesheet()
+        {
+            return new Stylesheet(
+                new Fonts(
+                    new Font(), // 0 - normal
+                    new Font(new Bold(), new FontSize() { Val = new StringValue("18D") }), // 1 - título
+                    new Font(new Bold(), new Color() { Rgb = "FFFFFFFF" }) // 2 - encabezado blanco
+                ),
+                new Fills(
+                    new Fill(new PatternFill() { PatternType = PatternValues.None }), // 0
+                    new Fill(new PatternFill() { PatternType = PatternValues.Gray125 }), // 1
+                    new Fill(new PatternFill(new ForegroundColor() { Rgb = "354997" }) { PatternType = PatternValues.Solid }) // 2 - azul
+                ),
+                new Borders(new Border()), // sin bordes por ahora
+                new CellFormats(
+                    new CellFormat(), // 0 - default
+                    new CellFormat() { FontId = 1, ApplyFont = true }, // 1 - título
+                    new CellFormat() { FontId = 2, FillId = 2, ApplyFont = true, ApplyFill = true } // 2 - encabezado
+                )
+            );
+        }
+
+
+
+
+
         public async Task SavePDF(string html, string fileName)
         {
             try
@@ -208,7 +429,6 @@ namespace HojaDeRuta.Services
                 throw new Exception(
                     $"Error al guardar el PDF en la ruta de sistemas. {ex.Message}");
             }
-
         }
     }
 }

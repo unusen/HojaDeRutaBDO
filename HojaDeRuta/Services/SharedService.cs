@@ -1,9 +1,13 @@
-﻿using HojaDeRuta.Models.Config;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
+using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Services.Repository;
 using Microsoft.Extensions.Options;
 using NuGet.Common;
+using System.Dynamic;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace HojaDeRuta.Services
 {
@@ -12,25 +16,27 @@ namespace HojaDeRuta.Services
         private readonly IGenericRepository<TipoDocumento> tipoDocRepository;
         private readonly IGenericRepository<Sector> sectorRepository;
         private readonly IGenericRepository<SubArea> subAreaRepository;
-        private readonly IGenericRepository<Socios> socioslRepository;
+        private readonly IGenericRepository<Socios> sociosRepository;
         private readonly IGenericRepository<Contratos> contratosRepository;
-        private readonly IGenericRepository<SyncControl> syncControlRepository;
+
+        private readonly DBSettings dbSettings;
 
         public SharedService(
             IGenericRepository<TipoDocumento> tipoDocRepository,
             IGenericRepository<Sector> sectorRepository,
             IGenericRepository<SubArea> subAreaRepository,
-            IGenericRepository<Socios> socioslRepository,
+            IGenericRepository<Socios> sociosRepository,
             IGenericRepository<Contratos> contratosRepository,
-            IGenericRepository<SyncControl> syncControlRepository
+
+            IOptions<DBSettings> dbSettings
             )
         {
             this.tipoDocRepository = tipoDocRepository;
             this.sectorRepository = sectorRepository;
             this.subAreaRepository = subAreaRepository;
-            this.socioslRepository = socioslRepository;
+            this.sociosRepository = sociosRepository;
             this.contratosRepository = contratosRepository;
-            this.syncControlRepository = syncControlRepository;
+            this.dbSettings = dbSettings.Value;
         }
 
         public async Task<List<TipoDocumento>> GetTipoDocumentos()
@@ -43,6 +49,21 @@ namespace HojaDeRuta.Services
             catch (Exception ex)
             {
                 throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task<bool> RequiereAuditoria(string nombreGenerico)
+        {
+            try
+            {
+                var tiposDoc = await GetTipoDocumentos();
+                TipoDocumento tipoDoc = tiposDoc.Where(t => t.NombreGenerico == nombreGenerico).FirstOrDefault();
+
+                return tipoDoc.Categoria == "Auditoria";
+            }
+            catch (Exception ex)
+            {
+                return false;
             }
         }
 
@@ -78,7 +99,7 @@ namespace HojaDeRuta.Services
             //TODO: LOGICA DE ACTUALIZACION DE USUARIOS EN GENERAL CON CADA LOGIN
             try
             {
-                IEnumerable<Socios> socios = await socioslRepository.GetAllAsync();
+                IEnumerable<Socios> socios = await sociosRepository.GetAllAsync();
                 return socios.OrderBy(r => r.Detalle).ToList();
             }
             catch (Exception ex)
@@ -94,7 +115,7 @@ namespace HojaDeRuta.Services
                 Expression<Func<Socios, bool>> entityName = s => s.Socio == CodSocio;
                 Expression<Func<Socios, Object>> order = s => s.Socio;
 
-                return await socioslRepository.GetFirstOrLastAsync(entityName, order, false);
+                return await sociosRepository.GetFirstOrLastAsync(entityName, order, false);
             }
             catch (Exception ex)
             {
@@ -102,7 +123,35 @@ namespace HojaDeRuta.Services
             }
         }
 
-        public async Task<List<Contratos>> GetContratos(string? CodigoPlataforma)
+        public async Task<Socios> GetSocioLiderByArea(Dictionary<string, string> parameters)
+        {
+            try
+            {
+                var spName = dbSettings.Sp["GetSocioLiderDeArea"].ToString();
+
+                IEnumerable<Socios> socios = await sociosRepository.ExecuteStoredProcedureAsync(spName, parameters);
+                return socios.FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task<List<Contratos>> GetContratos()
+        {
+            try
+            {
+                IEnumerable<Contratos> contratos = await contratosRepository.GetAllAsync();
+                return contratos.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task<List<Contratos>> GetContratosByCodigoPlataforma(string? CodigoPlataforma)
         {
             try
             {
@@ -117,7 +166,7 @@ namespace HojaDeRuta.Services
                 {
                     contratos = await contratosRepository.GetAllAsync();
                 }
-                    
+
                 return contratos.ToList();
             }
             catch (Exception ex)
@@ -126,17 +175,11 @@ namespace HojaDeRuta.Services
             }
         }
 
-
-        public async Task<DateTime?> GetLastSync(string EntityName)
+        public async Task CreateContratosRange(List<Contratos> contratos)
         {
             try
             {
-                Expression<Func<SyncControl, bool>> entityName = s => s.EntityName == EntityName;
-                Expression<Func<SyncControl, Object>> lastSync = s => s.LastSyncDate;
-
-                var sync = await syncControlRepository.GetFirstOrLastAsync(entityName, lastSync, false);
-
-                return sync?.LastSyncDate ?? DateTime.MinValue;
+                await contratosRepository.AddRangeAsync(contratos);
             }
             catch (Exception ex)
             {
@@ -144,11 +187,11 @@ namespace HojaDeRuta.Services
             }
         }
 
-        public async Task CreateSyncControl(SyncControl syncControl)
+        public async Task CreateContrato(Contratos contrato)
         {
             try
             {
-                await syncControlRepository.AddAsync(syncControl);
+                await contratosRepository.AddAsync(contrato);
             }
             catch (Exception ex)
             {

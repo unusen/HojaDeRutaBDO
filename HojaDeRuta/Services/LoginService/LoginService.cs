@@ -30,17 +30,29 @@
             _httpContextAccessor = httpContextAccessor;
             _clienteRepository = clienteRepository;
             _groupsSettings = groupsSettings.Value;
-        }
+        }       
 
-        public async Task<string> GetUserNameAsync()
+        public string GetUserName()
         {
             var user = _httpContextAccessor.HttpContext?.User;
+
             return user?.Claims.FirstOrDefault(c => c.Type == "name")?.Value
                    ?? user?.Identity?.Name
                    ?? string.Empty;
         }
 
-        public async Task<string> GetUserEmailAsync()
+        public string GetUserId()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+
+            string type = "http://schemas.microsoft.com/identity/claims/objectidentifier";
+
+            return user?.Claims.FirstOrDefault(c => c.Type == type)?.Value
+                   ?? user?.Identity?.Name
+                   ?? string.Empty;
+        }
+
+        public string GetUserEmail()
         {
             return _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? string.Empty;
         }
@@ -48,13 +60,11 @@
         public async Task<string> GetUserAreaAsync()
         {
             try
-            {            
-
+            {
                 var user = await _graphClient.Me
                                          .Request()
-                                         .Select(u => new {u.Department})
+                                         .Select(u => new { u.Department })
                                          .GetAsync();
-
                 return user.Department;
             }
             catch (MicrosoftIdentityWebChallengeUserException ex)
@@ -67,7 +77,7 @@
         {
             var user = await _graphClient.Me
                                          .Request()
-                                         .Select(u => new {u.JobTitle })
+                                         .Select(u => new { u.JobTitle })
                                          .GetAsync();
             return user.JobTitle;
         }
@@ -77,11 +87,7 @@
             var user = _httpContextAccessor.HttpContext?.User;
             if (user == null) return new List<GroupConfig>();
 
-            //string[] scopes = { "User.Read", "Group.Read.All" };
-            //var accessToken = await _tokenAcquisition.GetAccessTokenForUserAsync(scopes);
-
             var groups = await _graphClient.Me.MemberOf.Request().GetAsync();
-
             
             var userRoles = new List<GroupConfig>();
             foreach (var group in groups)

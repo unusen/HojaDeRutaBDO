@@ -2,6 +2,8 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Data;
+using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -207,6 +209,59 @@ namespace HojaDeRuta.Services.Repository
                 throw new Exception($"Error al consultar el SP {spName}. {ex.Message}");
             }
         }
+
+        public async Task<IEnumerable<dynamic>> ExecuteStoredProcedureDynamicAsync(
+             string spName, Dictionary<string, object> parameters)
+        {
+            try
+            {
+                using (var connection = _context.Database.GetDbConnection())
+                {
+                    await connection.OpenAsync();
+
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = spName;
+                        command.CommandType = CommandType.StoredProcedure;
+
+                        if (parameters != null)
+                        {
+                            foreach (var param in parameters)
+                            {
+                                var sqlParam = command.CreateParameter();
+                                sqlParam.ParameterName = "@" + param.Key.Trim();
+                                sqlParam.Value = param.Value ?? DBNull.Value;
+                                command.Parameters.Add(sqlParam);
+                            }
+                        }
+
+                        var result = new List<ExpandoObject>();
+
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                var row = new ExpandoObject() as IDictionary<string, object>;
+
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {                                   
+                                    row.Add(reader.GetName(i), reader.IsDBNull(i) ? null : reader.GetValue(i));
+                                }
+
+                                result.Add((ExpandoObject)row);
+                            }
+                        }
+
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al consultar el SP {spName}. {ex.Message}", ex);
+            }
+        }
+
 
         public async Task<TResult> GetMaxValueAsync<TResult>(
             Expression<Func<T, TResult>> prop)

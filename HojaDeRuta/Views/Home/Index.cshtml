@@ -16,6 +16,10 @@
         <i class="bi bi-plus-lg"></i> Crear Hoja
     </a>
 
+    <a class="btn btn-info ms-2" asp-controller="Home" asp-action="Reportes">
+        <i class="bi bi-bar-chart-fill"></i> Generar Reportes
+    </a>
+
     <div class="accordion mt-3 mb-3" id="accordionExample">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingOne">
@@ -273,7 +277,7 @@
 
             paged.forEach(h => {                
                 const id = encodeURIComponent(h.Id);
-                const isDisabled = h.Estado === 2;
+                const isDisabled = h.Estado === 1 || h.Estado === 2 ;
 
                 const row = `
                     <tr class="text-nowrap">

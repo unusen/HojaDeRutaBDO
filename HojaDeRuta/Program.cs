@@ -9,8 +9,10 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Graph;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using System.Security.Claims;
 
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,19 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
             builder.Configuration.Bind("AzureAd", options);
             //options.ResponseType = "code";
             //options.Prompt = "consent";
+
+            options.Events.OnTokenValidated = async context =>
+            {
+                var _loginService = context.HttpContext.RequestServices.
+                    GetRequiredService<ILoginService>();
+
+                var _userService = context.HttpContext.RequestServices
+                    .GetRequiredService<UserService>();
+
+                var userName = _loginService.GetUserName();
+
+                await _userService.ValidateUserAsync(userName);
+            };
         })
     .EnableTokenAcquisitionToCallDownstreamApi()
     .AddMicrosoftGraph(builder.Configuration.GetSection("MicrosoftGraph"))
@@ -97,6 +112,7 @@ builder.Services.AddScoped<RevisorService>();
 builder.Services.AddScoped<MailService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<UserService>();
 builder.Services.AddHostedService<SyncService>();
 builder.Services.AddHttpContextAccessor();
 
@@ -121,7 +137,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-
+//app.UseMiddleware<UserContextMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 

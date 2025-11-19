@@ -35,9 +35,6 @@ public abstract class BaseController : Controller, IAsyncActionFilter
             return;
         }
 
-        var oid = _loginService.GetUserId();
-        var userGr = _loginService.GetGraphUserByOid(oid);
-
         CurrentUser = new UserContext
         {
             UserName = _loginService.GetUserName(),

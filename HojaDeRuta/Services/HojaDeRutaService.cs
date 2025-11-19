@@ -12,6 +12,7 @@ namespace HojaDeRuta.Services
 {
     public class HojaDeRutaService
     {
+        private readonly ILogger<HojaDeRutaService> _logger;
         private readonly HojasDbContext _context;
         private readonly IGenericRepository<Hoja> _hojaRepository;
         private readonly IGenericRepository<Auditoria> _auditoriaRepository;
@@ -19,16 +20,8 @@ namespace HojaDeRuta.Services
         private readonly DBSettings _dbSettings;
         private readonly MonedasSettings _monedasSettings;
 
-
-        private static readonly string[] EtapasDeRevision = new[]
-        {
-            nameof(Hoja.Reviso),
-            nameof(Hoja.RevisionGerente),
-            nameof(Hoja.EngagementPartner),
-            nameof(Hoja.SocioFirmante)
-        };
-
         public HojaDeRutaService(
+            ILogger<HojaDeRutaService> logger,
             HojasDbContext context,
             IGenericRepository<Hoja> hojaRepository,
             IGenericRepository<Auditoria> auditoriaRepository,
@@ -37,6 +30,7 @@ namespace HojaDeRuta.Services
             IOptions<MonedasSettings> monedasSettings
             )
         {
+            _logger = logger;
             _context = context;
             _hojaRepository = hojaRepository;
             _auditoriaRepository = auditoriaRepository;
@@ -180,6 +174,14 @@ namespace HojaDeRuta.Services
         {
             try
             {
+                var EtapasDeRevision = new[]
+                {
+                    nameof(Hoja.Reviso),
+                    nameof(Hoja.RevisionGerente),
+                    nameof(Hoja.EngagementPartner),
+                    nameof(Hoja.SocioFirmante)
+                };
+
                 var hojaType = hoja.GetType();
 
                 foreach (var nombreCampo in EtapasDeRevision)
@@ -239,7 +241,7 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                throw new Exception($"Error al encontrar el próximo número {ex.Message}");
             }
         }
 
@@ -297,18 +299,31 @@ namespace HojaDeRuta.Services
 
         public async Task<bool> HabilitarBotonFlujo(Hoja hoja, string usuarioActual)
         {
+            _logger.LogInformation($"Validar la habilitación de botones de la hoja {hoja.Id} para el usuario {usuarioActual} ");
+
             if (usuarioActual != hoja.Manejador)
             {
+                _logger.LogError($"El usuario {usuarioActual} no puede ser diferente" +
+                    $" al manejador {hoja.Manejador} de la hoja {hoja.Id}");
+
                 return false;
             }
+
+            _logger.LogInformation($"Validar los estados de la hoja {hoja.Id}");
 
             var estado = hoja.HojaEstados.
                 Where(e => e.HojaId == hoja.Id && e.Revisor == usuarioActual).FirstOrDefault();
 
             if (estado != null)
             {
+                _logger.LogInformation($"El usuario {usuarioActual} es revisor válido" +
+                    $" de la hoja {hoja.Id}");
+
                 return estado.Estado == (int)Estado.Pendiente;
             }
+
+            _logger.LogError($"El usuario {usuarioActual} no posee estados vinculados" +
+                $" a la hoja {hoja.Id}");
 
             return false;
         }

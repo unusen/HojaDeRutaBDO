@@ -1,6 +1,9 @@
-﻿using HojaDeRuta.DBContext;
+﻿using DocumentFormat.OpenXml.Office2010.Excel;
+using HojaDeRuta.DBContext;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Graph;
+using Newtonsoft.Json;
 using System;
 using System.Data;
 using System.Dynamic;
@@ -11,23 +14,33 @@ namespace HojaDeRuta.Services.Repository
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
+        private readonly ILogger<GenericRepository<T>> _logger;
         private readonly HojasDbContext _context;
         private readonly DbSet<T> _dbSet;
 
-        public GenericRepository(HojasDbContext context)
+        public GenericRepository(HojasDbContext context, ILogger<GenericRepository<T>> logger)
         {
+            _logger = logger;
             _context = context;
             _dbSet = _context.Set<T>();
         }
 
         public async Task AddAsync(T entity)
         {
-            if (entity == null) throw new ArgumentNullException(nameof(entity));
+            _logger.LogInformation($"Creación de la entidad {typeof(T).Name}." +
+                $" Datos recibidos: {JsonConvert.SerializeObject(entity)}");
+
+            if (entity == null)
+            {
+                throw new ArgumentNullException(nameof(entity));
+            }
 
             try
             {
                 await _dbSet.AddAsync(entity);
                 await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"La entidad {typeof(T).Name} se creó correctamente");
             }
             catch (Exception ex)
             {
@@ -37,10 +50,16 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task AddRangeAsync(List<T> entities)
         {
+            _logger.LogInformation($"Creación masiva de la entidad {typeof(T).Name}." +
+                $" Datos recibidos: {JsonConvert.SerializeObject(entities)}");
+
             try
             {
                 _context.Set<T>().AddRangeAsync(entities);
                 await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Se crearon {entities.Count} de la entidad {typeof(T).Name}");
+
             }
             catch (DbUpdateException ex)
             {
@@ -54,6 +73,7 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task<T> GetByIdAsync(string id)
         {
+            _logger.LogInformation($"Búsqueda de la entidad {typeof(T).Name} con el id {id}");
             try
             {
                 return await _dbSet.FindAsync(id);
@@ -66,6 +86,8 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task<T> GetByIdAsync(int id)
         {
+            _logger.LogInformation($"Búsqueda de la entidad {typeof(T).Name} con el id {id}");
+
             try
             {
                 return await _dbSet.FindAsync(id);
@@ -78,6 +100,8 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task<IEnumerable<T>> GetAllAsync()
         {
+            _logger.LogInformation($"Obtener todos los registros de la entidad {typeof(T).Name}");
+
             try
             {
                 return await _dbSet.ToListAsync();
@@ -90,14 +114,20 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
         {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            _logger.LogInformation($"Find para la entidad {typeof(T).Name} con el predicado {predicate.Body}");
+            
+
+            if (predicate == null)
+            {
+                throw new ArgumentNullException(nameof(predicate));
+            }
             try
             {
                 return await _dbSet.Where(predicate).ToListAsync();
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al buscar {typeof(T).Name}. {ex.Message}");
+                throw new Exception($"Error en el find de  {typeof(T).Name}. {ex.Message}");
             }
         }
 
@@ -116,6 +146,8 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task<bool> UpdateAsync(T entity)
         {
+            _logger.LogInformation($"Acutalización de la entidad {typeof(T).Name}. Datos recibidos: {JsonConvert.SerializeObject(entity)}");
+
             try
             {
                 var entityType = _context.Model.FindEntityType(typeof(T));
@@ -129,8 +161,13 @@ namespace HojaDeRuta.Services.Repository
                 {
                     _context.Entry(existingEntity).CurrentValues.SetValues(entity);
                     await _context.SaveChangesAsync();
+
+                    _logger.LogInformation($"Se actualizó la entidad {typeof(T).Name} con id {idValue}");
+
                     return true;
                 }
+
+                _logger.LogError($"No se encontró la entidad {typeof(T).Name} con id {idValue} para poder actualizar");
 
                 return false;
             }
@@ -138,8 +175,6 @@ namespace HojaDeRuta.Services.Repository
             {
                 throw new Exception($"Error al actualizar {typeof(T).Name}. {ex.Message}");
             }
-            
-           
         }
 
 
@@ -189,6 +224,8 @@ namespace HojaDeRuta.Services.Repository
         public async Task<IEnumerable<T>> ExecuteStoredProcedureAsync<TValue>(
             string spName, Dictionary<string, TValue> parameters)
         {
+            _logger.LogInformation($"Ejecución del SP {spName}." +
+                $" con los parametros {JsonConvert.SerializeObject(parameters)}");
             try
             {
                 var sqlParams = parameters?
@@ -213,6 +250,8 @@ namespace HojaDeRuta.Services.Repository
         public async Task<IEnumerable<dynamic>> ExecuteStoredProcedureDynamicAsync(
              string spName, Dictionary<string, object> parameters)
         {
+            _logger.LogInformation($"Ejecución del SP dynamic {spName}." +
+                $" con los parametros {JsonConvert.SerializeObject(parameters)}");
             try
             {
                 using (var connection = _context.Database.GetDbConnection())
@@ -244,7 +283,7 @@ namespace HojaDeRuta.Services.Repository
                                 var row = new ExpandoObject() as IDictionary<string, object>;
 
                                 for (int i = 0; i < reader.FieldCount; i++)
-                                {                                   
+                                {
                                     row.Add(reader.GetName(i), reader.IsDBNull(i) ? null : reader.GetValue(i));
                                 }
 
@@ -268,7 +307,5 @@ namespace HojaDeRuta.Services.Repository
         {
             return await _context.Set<T>().MaxAsync(prop);
         }
-
-
     }
 }

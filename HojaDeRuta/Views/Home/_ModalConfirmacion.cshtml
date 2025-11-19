@@ -1,6 +1,15 @@
 ﻿<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content rounded-3 shadow">
+            <!-- Overlay de carga - AGREGAR ESTO -->
+            <div id="modalOverlay" class="modal-overlay d-none">
+                <div class="d-flex justify-content-center align-items-center h-100">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Procesando...</span>
+                    </div>
+                    <span id="modalOverlayText" class="ms-2">Procesando...</span>
+                </div>
+            </div>
             <form id="confirmForm" method="post" asp-controller="Home" asp-action="RevisarEtapa">
                 <div class="modal-header bg-bdo">
                     <h5 class="modal-title" id="confirmModalLabel">Confirmar acción</h5>
@@ -24,10 +33,10 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-sm btn-success" id="btnConfirmar">
                         <i class="bi bi-check-lg"></i> Confirmar
                     </button>
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-sm btn-danger" data-bs-dismiss="modal" id="btnCancelar">
                         <i class="bi bi-x-lg"></i> Cancelar
                     </button>
                 </div>

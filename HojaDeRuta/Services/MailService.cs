@@ -3,6 +3,7 @@ using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Models.Enums;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using System.Net;
 using System.Net.Mail;
 
@@ -10,21 +11,29 @@ namespace HojaDeRuta.Services
 {
     public class MailService
     {
+        private readonly ILogger<MailService> _logger;
         private readonly MailSettings _mailSettings;
         private readonly SharedService _sharedService;
 
-        public MailService(IOptions<MailSettings> mailSettings, SharedService sharedService)
+        public MailService(
+            IOptions<MailSettings> mailSettings,
+            SharedService sharedService,
+            ILogger<MailService> logger)
         {
             _mailSettings = mailSettings.Value;
             _sharedService = sharedService;
+            _logger = logger;
         }
 
         public async Task NotificarAprobacion(EMailBody eMailBody, string urlRedireccion)
         {
+            _logger.LogInformation($"Notificación de aprobación de etapa" +
+                $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
+
             try
             {
                 string subject = $"La hoja de ruta {eMailBody.NumeroHoja}" +
-                    $" para el cliente {eMailBody.Cliente} requiere su evaluación";    
+                    $" para el cliente {eMailBody.Cliente} requiere su evaluación";
 
                 string body = await GetBodyInformarRevisor(urlRedireccion, eMailBody);
 
@@ -44,6 +53,9 @@ namespace HojaDeRuta.Services
 
         public async Task NotificarRechazo(EMailBody eMailBody, string rechazador, string urlRedireccion)
         {
+            _logger.LogInformation($"Notificación de rechazo de etapa" +
+                $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
+
             try
             {
                 string subject = $"La hoja de ruta {eMailBody.NumeroHoja}" +
@@ -65,14 +77,16 @@ namespace HojaDeRuta.Services
             }
         }
 
-        public async Task NotificarFirma(EMailBody eMailBody, string urlRedireccion)
+        public async Task NotificarFirma(EMailBody eMailBody, string firmante, string urlRedireccion)
         {
+            _logger.LogInformation($"Notificación de firma de hoja" +
+               $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
             try
             {
                 string subject = $"La hoja de ruta {eMailBody.NumeroHoja}" +
                     $" fue aprobada";
 
-                string body = await GetBodyInformarGestorFinal(urlRedireccion, eMailBody);
+                string body = await GetBodyInformarGestorFinal(urlRedireccion, eMailBody, firmante);
 
                 List<string> destinatarios = new List<string>
                 {
@@ -90,6 +104,9 @@ namespace HojaDeRuta.Services
 
         public async Task NotificarAccesoCruzado(Hoja hoja, string urlRedireccion)
         {
+            _logger.LogInformation($"Notificación de accesos cruzados" +
+               $" para la hoja {hoja.Id}");
+
             try
             {
                 string mailIT = _mailSettings.Mail_IT;
@@ -122,43 +139,56 @@ namespace HojaDeRuta.Services
 
         public async Task SendMailAsync(string subject, List<string> destinatarios, string body, bool IsBodyHtml)
         {
-            //TODO: HABILITAR EN PROD
-            //string dominio = _mailSettings.Dominio;
+            _logger.LogInformation($"Envio de email para {subject}." +
+               $" Destinatarios {String.Join('-', destinatarios)}" +
+               $" Body: {body}");
 
-            //TODO: TEST
-            destinatarios = new List<string>()
+            try
             {
-                "sebastian.katcheroff@gmail.com"
-            };
+                //TODO: HABILITAR EN PROD
+                //string dominio = _mailSettings.Dominio;
 
-            using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
-            {
-                client.EnableSsl = true;
-                client.Credentials = new NetworkCredential(_mailSettings.From, _mailSettings.Pass);
-
-                var message = new MailMessage
+                //TODO: TEST
+                destinatarios = new List<string>()
                 {
-                    From = new MailAddress(_mailSettings.From),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = IsBodyHtml
+                    "sebastian.katcheroff@gmail.com"
                 };
 
-                foreach (var destinatario in destinatarios)
+                using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
                 {
-                    if (!string.IsNullOrWhiteSpace(destinatario))
+                    client.EnableSsl = true;
+                    client.Credentials = new NetworkCredential(_mailSettings.From, _mailSettings.Pass);
+
+                    var message = new MailMessage
                     {
-                        //TODO: HABILITAR EN PROD
-                        //message.To.Add($"{destinatario}{dominio}");
-                        message.To.Add(destinatario);
+                        From = new MailAddress(_mailSettings.From),
+                        Subject = subject,
+                        Body = body,
+                        IsBodyHtml = IsBodyHtml
+                    };
+
+                    foreach (var destinatario in destinatarios)
+                    {
+                        if (!string.IsNullOrWhiteSpace(destinatario))
+                        {
+                            //TODO: HABILITAR EN PROD
+                            //message.To.Add($"{destinatario}{dominio}");
+                            message.To.Add(destinatario);
+                        }
                     }
+
+                    //TODO: HABILITAR EN PROD
+                    //message.To.Add($"{destinatario}{dominio}");
+                    //message.To.Add(destinatario);
+
+                    await client.SendMailAsync(message);
+
+                    _logger.LogInformation("Mail enviado exitosamente");
                 }
-
-                //TODO: HABILITAR EN PROD
-                //message.To.Add($"{destinatario}{dominio}");
-                //message.To.Add(destinatario);
-
-                await client.SendMailAsync(message);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error al enviar mail {ex.Message}");
             }
         }
 
@@ -184,13 +214,13 @@ namespace HojaDeRuta.Services
             </html>";
         }
 
-        public async Task<string> GetBodyInformarGestorFinal(string url, EMailBody eMailBody)
+        public async Task<string> GetBodyInformarGestorFinal(string url, EMailBody eMailBody, string firmante)
         {
             return $@"
             <html>
               <body style='font-family: Arial, sans-serif; color:#333;'>
                 <p> Hola {eMailBody.Revisor.Detalle}:<p>
-                <p>El socio {eMailBody.Revisor.Detalle} aprobó su Hoja de Ruta</p>
+                <p>El socio {firmante} aprobó su Hoja de Ruta</p>
                 <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>
                 <p> <strong>Ruta de papeles:</strong> {eMailBody.RutaPapeles} </p>
                 <p> <strong>Ruta del doc.:</strong> {eMailBody.RutaDoc} </p>

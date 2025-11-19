@@ -1,0 +1,57 @@
+services:
+
+  web:
+    build:
+      context: .
+      dockerfile: HojaDeRuta/Dockerfile
+    container_name: hoja_web
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_URLS: "http://0.0.0.0:8080"
+      ConnectionStrings__hojaDB: "Server=hoja_sql;Database=hojas_ruta_1;User=sa;Password=Pass123!;TrustServerCertificate=True;Encrypt=False;"
+      ConnectionStrings__vistaContratos: "Server=hoja_sql;Database=Contratos;User=sa;Password=Pass123!;TrustServerCertificate=True;Encrypt=False;"
+    ports:
+      - "8080:8080"
+    networks:
+      - hoja_network
+
+  nginx:
+    image: nginx:latest
+    container_name: hoja_nginx
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - hoja_network
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: hoja_sql
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Pass123!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+      - ./db:/docker-entrypoint-initdb.d
+    networks:
+      - hoja_network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/1433"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+networks:
+  hoja_network:
+
+volumes:
+  sql_data:

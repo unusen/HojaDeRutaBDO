@@ -12,13 +12,15 @@
         Crear Hoja
     </button> *@
 
-    <a class="btn btn-success" asp-controller="Home" asp-action="Upsert" asp-route-mode=0>
-        <i class="bi bi-plus-lg"></i> Crear Hoja
-    </a>
+    <div class="mt-3">
+        <a class="btn btn-sm btn-success" asp-controller="Home" asp-action="Upsert" asp-route-mode=0>
+            <i class="bi bi-plus-lg"></i> Crear Hoja
+        </a>
 
-    <a class="btn btn-info ms-2" asp-controller="Home" asp-action="Reportes">
-        <i class="bi bi-bar-chart-fill"></i> Generar Reportes
-    </a>
+        <a class="btn btn-sm btn-info ms-2" asp-controller="Home" asp-action="Reportes">
+            <i class="bi bi-bar-chart-fill"></i> Generar Reportes
+        </a>
+    </div>  
 
     <div class="accordion mt-3 mb-3" id="accordionExample">
         <div class="accordion-item">
@@ -33,13 +35,13 @@
                         <div class="card-body py-1">
                             <!-- Filtros dinamicos -->
                             <div class="row mb-3">
-                                <div class="col-md-1">
+                                <div class="col-md-1 mb-2">
                                     <input type="text" id="filtroNumero" class="form-control" placeholder="N° HR" oninput="applyFilters()" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 mb-2">
                                     <input type="text" id="filtroCliente" class="form-control" placeholder="Cliente" oninput="applyFilters()" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 mb-2">
                                     <select id="filtroEstado" class="form-control" onchange="applyFilters()">
                                         <option value="">Todos los Estados</option>
                                         @foreach (var estado in ViewBag.Estados)
@@ -48,23 +50,23 @@
                                         }
                                     </select>
                                 </div>
-                                <div class="col-md-1">
+                                <div class="col-md-1 mb-2">
                                     <input type="text" id="filtroSector" class="form-control" placeholder="Sector" oninput="applyFilters()" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 mb-2">
                                     <input type="text" id="filtroSocio" class="form-control" placeholder="Socio" oninput="applyFilters()" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 mb-2">
                                     <input type="date" id="filtroDesde" class="form-control" placeholder="Fecha desde" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 mb-2">
                                     <input type="date" id="filtroHasta" class="form-control" placeholder="Fecha hasta" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
                                 </div>
                             </div>
                             <!-- Filtros paginacion -->
                             <div class="row mb-3">
                                 <!-- Cantidad por pagina -->
-                                <div class="col-md-1">
+                                <div class="col-md-1 mb-2">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text" data-bs-toggle="tooltip" title="Registros por página">
                                             <i class="bi bi-list-nested"></i>
@@ -73,7 +75,7 @@
                                     </div>
                                 </div>
                                 <!-- Ir a pagina -->
-                                <div class="col-md-1">
+                                <div class="col-md-1 mb-2">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text" data-bs-toggle="tooltip" title="Ir a página Nro">
                                             <i class="bi bi-box-arrow-in-right"></i>
@@ -81,13 +83,13 @@
                                         <input type="number" min="1" class="form-control" id="inputGoToPage" value="1" oninput="goToInputPage()" />
                                     </div>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 mb-2">
                                     <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
                                         <i class="bi bi-trash3 me-2"></i>
                                         Limpiar Filtros
                                     </button>
                                 </div>
-                                <div class="col-md-2">                                
+                                <div class="col-md-2 mb-2">
                                     <button id="btnTogglePendientes"
                                             class="btn btn-success btn-sm"
                                             onclick="togglePendientes()">

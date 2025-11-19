@@ -23,6 +23,7 @@ using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
 using ParagraphProperties = DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties;
 using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
 using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
+using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
 
 
 
@@ -89,85 +90,160 @@ namespace HojaDeRuta.Services
         {
             using var ms = new MemoryStream();
 
-            using (var wordDoc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document, true))
+            using (var wordDoc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
             {
                 var mainPart = wordDoc.AddMainDocumentPart();
                 mainPart.Document = new Document(new Body());
                 var body = mainPart.Document.Body;
 
-                var titleText = new DocumentFormat.OpenXml.Wordprocessing.Text($"Hoja de Ruta Nº {hoja.Id}");
-                titleText.Space = SpaceProcessingModeValues.Preserve;
-
+                // ---- Título ----
                 var title = new Paragraph(
-                    new ParagraphProperties(
-                        new Justification() { Val = JustificationValues.Center }),
+                    new ParagraphProperties(new Justification() { Val = JustificationValues.Center }),
                     new Run(
                         new RunProperties(
                             new Bold(),
                             new FontSize() { Val = "28" },
-                            new DocumentFormat.OpenXml.Office2013.Word.Color() { Val = "354997" }
-                            ),
-                        titleText
+                            new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "354997" }
+                        ),
+                        new Text($"Hoja de Ruta Nº {hoja.Id}") { Space = SpaceProcessingModeValues.Preserve }
                     )
                 );
                 body.Append(title);
 
-                var emptyText = new DocumentFormat.OpenXml.Wordprocessing.Text(" ");
-                emptyText.Space = SpaceProcessingModeValues.Preserve;
-                body.Append(new Paragraph(new Run(emptyText)));
+                body.Append(new Paragraph(new Run(new Text(" ")))); // Espacio
 
+                // ---- Propiedades ----
                 var props = hoja.GetType().GetProperties();
 
                 foreach (var prop in props)
                 {
                     var displayAttr = prop.GetCustomAttributes(typeof(DisplayAttribute), false)
-                    .FirstOrDefault() as DisplayAttribute;                   
+                                          .FirstOrDefault() as DisplayAttribute;
 
-                    //var name = prop.Name;
                     var name = displayAttr?.Name ?? prop.Name;
 
                     var rawValue = prop.GetValue(hoja)?.ToString() ?? "";
-                    var value = Regex.Replace(rawValue, @"[\u0000-\u0008\u000B\u000C\u000E-\u001F]", string.Empty);
+                    var value = Regex.Replace(rawValue, @"[\u0000-\u0008\u000B\u000C\u000E-\u001F]", "");
 
                     var paragraph = new Paragraph();
 
-                    var nameText = new DocumentFormat.OpenXml.Wordprocessing.Text($"{name}: ");
-                    nameText.Space = SpaceProcessingModeValues.Preserve;
-
                     var runName = new Run(
-                        new RunProperties(new Bold(), new DocumentFormat.OpenXml.Office2013.Word.Color() { Val = "354997" }),                        
-                        nameText
+                        new RunProperties(new Bold(), new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "354997" }),
+                        new Text($"{name}: ") { Space = SpaceProcessingModeValues.Preserve }
                     );
 
-                    var valueText = new DocumentFormat.OpenXml.Wordprocessing.Text(value);
-                    valueText.Space = SpaceProcessingModeValues.Preserve;
-
-                    var runValue = new Run(valueText);
+                    var runValue = new Run(
+                        new Text(value) { Space = SpaceProcessingModeValues.Preserve }
+                    );
 
                     paragraph.Append(runName);
                     paragraph.Append(runValue);
 
                     body.Append(paragraph);
-
-                    var sectionProps = new SectionProperties(
-                        new PageSize() { Width = 11906, Height = 16838 }, // A4
-                        new PageMargin()
-                        {
-                            Top = 567, // 1 cm
-                            Bottom = 567,
-                            Left = 567,
-                            Right = 567
-                        }
-                    );
-
-                    body.Append(sectionProps);
                 }
+
+                // ---- SectionProperties (solo uno!) ----
+                body.Append(new SectionProperties(
+                    new PageSize() { Width = 11906, Height = 16838 },
+                    new PageMargin()
+                    {
+                        Top = 567,
+                        Bottom = 567,
+                        Left = 567,
+                        Right = 567
+                    }
+                ));
 
                 mainPart.Document.Save();
             }
 
             return ms.ToArray();
         }
+
+
+        //public byte[] GetWordFromHoja(HojaFile hoja)
+        //{
+        //    using var ms = new MemoryStream();
+
+        //    using (var wordDoc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document, true))
+        //    {
+        //        var mainPart = wordDoc.AddMainDocumentPart();
+        //        mainPart.Document = new Document(new Body());
+        //        var body = mainPart.Document.Body;
+
+        //        var titleText = new DocumentFormat.OpenXml.Wordprocessing.Text($"Hoja de Ruta Nº {hoja.Id}");
+        //        titleText.Space = SpaceProcessingModeValues.Preserve;
+
+        //        var title = new Paragraph(
+        //            new ParagraphProperties(
+        //                new Justification() { Val = JustificationValues.Center }),
+        //            new Run(
+        //                new RunProperties(
+        //                    new Bold(),
+        //                    new FontSize() { Val = "28" },
+        //                    new DocumentFormat.OpenXml.Office2013.Word.Color() { Val = "354997" }
+        //                    ),
+        //                titleText
+        //            )
+        //        );
+        //        body.Append(title);
+
+        //        var emptyText = new DocumentFormat.OpenXml.Wordprocessing.Text(" ");
+        //        emptyText.Space = SpaceProcessingModeValues.Preserve;
+        //        body.Append(new Paragraph(new Run(emptyText)));
+
+        //        var props = hoja.GetType().GetProperties();
+
+        //        foreach (var prop in props)
+        //        {
+        //            var displayAttr = prop.GetCustomAttributes(typeof(DisplayAttribute), false)
+        //            .FirstOrDefault() as DisplayAttribute;                   
+
+        //            //var name = prop.Name;
+        //            var name = displayAttr?.Name ?? prop.Name;
+
+        //            var rawValue = prop.GetValue(hoja)?.ToString() ?? "";
+        //            var value = Regex.Replace(rawValue, @"[\u0000-\u0008\u000B\u000C\u000E-\u001F]", string.Empty);
+
+        //            var paragraph = new Paragraph();
+
+        //            var nameText = new DocumentFormat.OpenXml.Wordprocessing.Text($"{name}: ");
+        //            nameText.Space = SpaceProcessingModeValues.Preserve;
+
+        //            var runName = new Run(
+        //                new RunProperties(new Bold(), new DocumentFormat.OpenXml.Office2013.Word.Color() { Val = "354997" }),                        
+        //                nameText
+        //            );
+
+        //            var valueText = new DocumentFormat.OpenXml.Wordprocessing.Text(value);
+        //            valueText.Space = SpaceProcessingModeValues.Preserve;
+
+        //            var runValue = new Run(valueText);
+
+        //            paragraph.Append(runName);
+        //            paragraph.Append(runValue);
+
+        //            body.Append(paragraph);
+
+        //            var sectionProps = new SectionProperties(
+        //                new PageSize() { Width = 11906, Height = 16838 }, // A4
+        //                new PageMargin()
+        //                {
+        //                    Top = 567, // 1 cm
+        //                    Bottom = 567,
+        //                    Left = 567,
+        //                    Right = 567
+        //                }
+        //            );
+
+        //            body.Append(sectionProps);
+        //        }
+
+        //        mainPart.Document.Save();
+        //    }
+
+        //    return ms.ToArray();
+        //}
 
         public string GetHtmlFromHoja(HojaFile hoja)
         {
@@ -404,7 +480,7 @@ namespace HojaDeRuta.Services
 
 
 
-        public async Task SavePDF(string html, string fileName)
+        public async Task SavePDF(string html, string folder, string fileName)
         {
             try
             {
@@ -413,7 +489,8 @@ namespace HojaDeRuta.Services
                 byte[] pdfBytes = await GetPdfFromHtml(html);
                 _logger.LogInformation($"Bytes PDF generados correctamente");
 
-                string pdfFolderPath = _pathSettings.PathBase;
+                string pathBase = _pathSettings.PathBase;
+                string pdfFolderPath = Path.Combine(pathBase, folder);
                 _logger.LogInformation($"Carpeta destino: {pdfFolderPath}");
 
                 Directory.CreateDirectory(pdfFolderPath);

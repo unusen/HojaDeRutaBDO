@@ -1,5 +1,4 @@
 ﻿using HojaDeRuta.DBContext;
-using HojaDeRuta.Helpers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Services;
 using HojaDeRuta.Services.AutoMapper;
@@ -7,17 +6,28 @@ using HojaDeRuta.Services.LoginService;
 using HojaDeRuta.Services.Repository;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using Microsoft.Graph;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
-using System.Security.Claims;
 
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
+//builder.Services.AddDbContext<HojasDbContext>(options =>
+//    options.UseSqlServer(builder.Configuration.GetConnectionString("hojaDB")));
 builder.Services.AddDbContext<HojasDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("hojaDB")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("hojaDB"),
+        sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorNumbersToAdd: null
+            );
+        }
+));
+
+
+
 
 builder.Services.AddDistributedSqlServerCache(options =>
 {
@@ -120,6 +130,9 @@ builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddProfile<MappingProfile>();
 });
+
+//TODO: QUITAR EN PROD
+builder.Logging.AddConsole();
 
 
 var app = builder.Build();

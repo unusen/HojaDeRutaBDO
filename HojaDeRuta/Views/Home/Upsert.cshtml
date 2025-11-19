@@ -378,14 +378,13 @@
 
             <div class="row mt-3 align-items-center">
                 <div class="col-md-7 d-flex flex-wrap align-items-center gap-2">
-                    <button type="submit" asp-action="Index" class="btn bg-bdo me-1"> <i class="bi bi-arrow-90deg-left"></i> Volver al Inicio </button>
+                    <button type="submit" asp-action="Index" class="btn btn-sm bg-bdo me-1"> <i class="bi bi-arrow-90deg-left"></i> Volver al Inicio </button>
 
                     @if (@String.IsNullOrEmpty(Model.Id))
                     {
                         <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
-                                type="submit" class="btn btn-success me-2">
-                            <i class="bi bi-plus-lg"></i>
-                            Crear hoja
+                                type="submit" class="btn btn-sm btn-success me-2">
+                                <i class="bi bi-plus-lg"></i> Crear hoja
                         </button>
                     }
                     else
@@ -394,35 +393,46 @@
                         {
                             @* <button id="btnVer" type="submit" class="btn btn-info"> <i class="bi bi-file-earmark-bar-graph"></i> Ver Documentos </button> *@
 
-                            <button id="btnModificar" asp-route-mode="Update" type="submit" asp-controller="Home" class="btn btn-secondary me-1"><i class="bi bi-floppy"></i> Guardar Cambios </button>
+                            @if (@Model.Estado == 0)
+                            {
+                                <button id="btnModificar" asp-route-mode="Update"
+                                    type="submit" asp-controller="Home"
+                                    class="btn btn-sm btn-secondary me-1">
+                                    <i class="bi bi-floppy"></i> Guardar Cambios
+                                </button>
+                            }
 
                             @if (botonesHabilitados)
                             {
                                 <button id="btnFirmar" asp-action="FirmarDoc" type="button"
-                                        class="btn btn-success me-1
+                                        class="btn btn-sm btn-success me-1
                                                     @(Model.SocioFirmante != Model.Manejador ? "d-none" : "")">
                                     <i class="bi bi-pencil-fill"></i>
                                     Firmar Documento
                                 </button>
 
                                 <button id="btnAprobar" asp-action="RevisarEtapa" type="button"
-                                        class="btn btn-success me-1
-                                                    @(Model.SocioFirmante == Model.Manejador ? "d-none" : "")">
+                                        class="btn btn-sm btn-success me-1
+                                        @(Model.SocioFirmante == Model.Manejador ? "d-none" : "")">
                                     <i class="bi bi-check-lg"></i>
                                     Aprobar
                                 </button>
 
                                 @* <button id="btnAprobar" asp-action="RevisarEtapa" type="button" class="btn btn-success me-1"><i class="bi bi-check-lg"></i> Aprobar </button> *@
 
-                                <button id="btnRechazar" asp-action="RevisarEtapa" type="button" class="btn btn-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                                <button id="btnRechazar" asp-action="RevisarEtapa" type="button"
+                                        class="btn btn-sm btn-danger">
+                                <i class="bi bi-x-lg"></i> Rechazar
+                            </button>
                             }
                         }
                         else
                         {
-                            @if (@Model.Estado != 2)
+                            @if (@Model.Estado == 0)
                             {
                                 <a id="btnModificar" asp-controller="Home" asp-action="Upsert"
-                                   asp-route-mode="Update" asp-route-id="@Model.Id" class="btn btn-secondary me-2" role="button">
+                                   asp-route-mode="Update" asp-route-id="@Model.Id"
+                                   class="btn btn-sm btn-secondary me-2" role="button">
                                     <i class="bi bi-pencil fs-5"></i>
                                     <span class="ms-1">Modificar</span>
                                 </a>
@@ -430,10 +440,10 @@
                         }
                     }
 
-                    <button id="btnAuditoria" type="button" class="btn btn-info me-2 invisible"
-                            onclick="abrirModalAuditoria()">
-                        <i class="bi bi-list-task"></i>
-                        Abrir Auditoria
+                    <button id="btnAuditoria" type="button"
+                        class="btn btn-sm btn-info me-2 invisible"
+                        onclick="abrirModalAuditoria()">
+                        <i class="bi bi-list-task"></i> Abrir Auditoria
                     </button>
                 </div>
 
@@ -460,7 +470,7 @@
                         <option value="word">Word (.docx)</option>
                     </select>
 
-                    <button type="submit" class="btn bg-bdo btn-sm ms-1 d-flex align-items-center" title="Descargar Hoja">
+                    <button type="submit" class="btn btn-sm bg-bdo btn-sm ms-1 d-flex align-items-center" title="Descargar Hoja">
                         <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
                         <i class="bi bi-download"></i>
                     </button>
@@ -476,7 +486,7 @@
 @await Html.PartialAsync("_ModalAuditoria", Model)
 
 
-@section Scripts {    
+@section Scripts {
 
     <script>
         const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
@@ -493,30 +503,160 @@
             inicializarRevisores();
             inicializarNombreGenerico();
             inicializarModalConfirmacion();
+            //inicializarBloqueoFormularioConfirmacion();
             inicializarSpinnerDescarga();
             isInitialLoad = false;
         })
 
         function inicializarModalConfirmacion() {
+            debugger;
             const modalElement = document.getElementById("confirmModal");
             const confirmText = document.getElementById("confirmText");
             const accionInput = document.getElementById("accion");
             const motivoContainer = document.getElementById("motivoContainer");
+            const confirmForm = document.getElementById("confirmForm");
 
-            if (!modalElement || !accionInput || !confirmText || !motivoContainer) {
+            if (!modalElement || !accionInput || !confirmText || !motivoContainer || !confirmForm) {
                 console.warn("[ModalConfirm] Elementos esenciales no encontrados.");
                 return;
             }
 
             const modal = new bootstrap.Modal(modalElement);
 
+            // Variables para el texto dinámico
+            let currentAction = '';
+            const actionTexts = {
+                'APROBAR': 'Hoja en proceso de Aprobación de etapa. Aguarde por favor.',
+                'RECHAZAR': 'Hoja en proceso de Rechazo de etapa. Aguarde por favor.',
+                'FIRMAR': 'Hoja en proceso de Aprobación Final. Aguarde por favor.'
+            };
+
+            // Crear elementos dinámicamente si no existen
+            let modalOverlay = document.getElementById("modalOverlay");
+            let modalOverlayText = document.getElementById("modalOverlayText");
+            let btnConfirmar = document.getElementById("btnConfirmar");
+            let btnCancelar = document.getElementById("btnCancelar");
+
+            // Si el overlay no existe, lo creamos
+            if (!modalOverlay) {
+                console.warn("[ModalConfirm] Overlay no encontrado, creando dinámicamente...");
+                modalOverlay = document.createElement('div');
+                modalOverlay.id = 'modalOverlay';
+                modalOverlay.className = 'position-absolute top-0 start-0 w-100 h-100 d-none';
+                modalOverlay.style.cssText = 'background: rgba(33, 150, 243, 0.1); backdrop-filter: blur(2px); z-index: 1055; border-radius: 0.3rem;';
+                modalOverlay.innerHTML = `
+                    <div class="d-flex justify-content-center align-items-center h-100 flex-column">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Procesando...</span>
+                        </div>
+                        <span class="mt-2 fw-semibold text-primary" id="modalOverlayText">Procesando...</span>
+                    </div>
+                `;
+                modalElement.querySelector('.modal-content').insertBefore(modalOverlay, confirmForm);
+                modalOverlayText = document.getElementById("modalOverlayText");
+            }
+
+            // Si los botones no tienen ID, se los asignamos
+            if (!btnConfirmar) {
+                const submitBtn = confirmForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.id = 'btnConfirmar';
+                    btnConfirmar = submitBtn;
+                }
+            }
+
+            if (!btnCancelar) {
+                const cancelBtn = confirmForm.querySelector('button[data-bs-dismiss="modal"]');
+                if (cancelBtn) {
+                    cancelBtn.id = 'btnCancelar';
+                    btnCancelar = cancelBtn;
+                }
+            }
+
             function configurarModal(texto, accion, mostrarMotivo) {
                 confirmText.textContent = texto;
                 accionInput.value = accion;
+                currentAction = accion; // Guardar la acción actual
                 motivoContainer.style.display = mostrarMotivo ? "block" : "none";
+
+                // Resetear estado cada vez que se abre el modal
+                modalOverlay.classList.add('d-none');
+                if (btnConfirmar) btnConfirmar.disabled = false;
+                if (btnCancelar) btnCancelar.disabled = false;
+                if (btnConfirmar) btnConfirmar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
+
                 modal.show();
             }
 
+            function setOverlayText(accion) {
+                console.log("[ModalConfirm] Configurando texto para acción:", accion);
+                const text = actionTexts[accion] || 'Procesando...';
+
+                // Actualizar texto del overlay
+                if (modalOverlayText) {
+                    modalOverlayText.textContent = text;
+                    console.log("[ModalConfirm] Texto del overlay actualizado:", text);
+                } else {
+                    console.warn("[ModalConfirm] modalOverlayText no encontrado");
+                }
+
+                // // Actualizar texto del botón (opcional, si lo quieres mantener)
+                // if (btnConfirmar) {
+                //     btnConfirmar.innerHTML = `<i class="bi bi-hourglass-split"></i> ${text}`;
+                // }
+            }
+
+            // Configurar evento submit del formulario
+            confirmForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                console.log("[ModalConfirm] Enviando formulario... Acción:", currentAction);
+
+                // Configurar texto dinámico
+                setOverlayText(currentAction);
+
+                // Mostrar overlay de carga
+                modalOverlay.classList.remove('d-none');
+
+                // Deshabilitar botones
+                if (btnConfirmar) btnConfirmar.disabled = true;
+                if (btnCancelar) btnCancelar.disabled = true;
+
+                // Cambiar texto del botón de confirmar
+                // if (btnConfirmar) {
+                //     const buttonText = actionTexts[currentAction] || 'Procesando...';
+                //     btnConfirmar.innerHTML = `<i class="bi bi-hourglass-split"></i> ${buttonText}`;
+                // }
+
+                // Realizar el submit del formulario
+                setTimeout(() => {
+                    try {
+                        this.submit();
+                    } catch (error) {
+                        console.error("[ModalConfirm] Error al enviar formulario:", error);
+                        // Restaurar estado en caso de error
+                        modalOverlay.classList.add('d-none');
+                        if (btnConfirmar) btnConfirmar.disabled = false;
+                        if (btnCancelar) btnCancelar.disabled = false;
+                        if (btnConfirmar) btnConfirmar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
+                    }
+                }, 100);
+            });
+
+            // Reiniciar estado del modal cuando se cierra
+            modalElement.addEventListener('hidden.bs.modal', function () {
+                modalOverlay.classList.add('d-none');
+                if (btnConfirmar) btnConfirmar.disabled = false;
+                if (btnCancelar) btnCancelar.disabled = false;
+                if (btnConfirmar) btnConfirmar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
+                // Limpiar textarea de motivo
+                const motivoRechazo = document.getElementById("motivoRechazo");
+                if (motivoRechazo) motivoRechazo.value = "";
+
+                currentAction = ''; // Resetear acción actual
+            });
+
+            // Configurar botones de acción
             const btnAprobar = document.getElementById("btnAprobar");
             if (btnAprobar) {
                 btnAprobar.addEventListener("click", e => {

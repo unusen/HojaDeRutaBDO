@@ -158,7 +158,7 @@ namespace HojaDeRuta.Services
 
                 if (indexActual == -1)
                 {
-                    _logger.LogWarning($"No se encontró el revisor actual ({revisorActual}) en los pasos de flujo de la hoja {hoja.Id}.");
+                    _logger.LogError($"No se encontró el revisor actual ({revisorActual}) en los pasos de flujo de la hoja {hoja.Id}.");
                     return resultado;
                 }
 
@@ -166,29 +166,53 @@ namespace HojaDeRuta.Services
 
                 if (buscarAnterior)
                 {
+                    _logger.LogInformation($"Se buscarán los revisores anteriores");
+
                     revisoresRelacionados = pasosFlujo
                         .Take(indexActual)
                         .Where(p => !string.IsNullOrEmpty(p.Valor))
                         .Reverse()
                         .ToList();
+
+                    string revisoresConcatenados = string.Join("-", revisoresRelacionados.Select(p => p.Valor));
+
+                    string revisoresLogText = revisoresRelacionados.Count() > 0
+                        ? $"Se obtuvieron los siguientes revisores relacionados: {revisoresConcatenados}" +
+                                $"para la hoja {hoja.Id}"
+                        : $"No se obtuvieron revisores relacionados para la hoja {hoja.Id}";
+
+                    _logger.LogInformation(revisoresLogText);
                 }
                 else
                 {
+                    _logger.LogInformation($"Se buscarán los revisores anteriores");
+
                     var siguiente = pasosFlujo.Skip(indexActual + 1)
                         .FirstOrDefault(p => !string.IsNullOrEmpty(p.Valor));
 
                     revisoresRelacionados = string.IsNullOrEmpty(siguiente.Valor)
                         ? Enumerable.Empty<(string, string)>()
                         : new[] { siguiente };
+
+                    string revisoresConcatenados = string.Join("-", revisoresRelacionados.Select(p => p.Valor));
+
+                    string revisoresLogText = revisoresRelacionados.Count() > 0
+                        ? $"Se obtuvieron los siguientes revisores relacionados: {revisoresConcatenados}" +
+                                $"para la hoja {hoja.Id}"
+                        : $"No se obtuvieron revisores relacionados para la hoja {hoja.Id}";
+
+                    _logger.LogInformation(revisoresLogText);
                 }
 
                 foreach (var (nombre, valor) in revisoresRelacionados)
                 {
+                    _logger.LogInformation($"Búsqueda de revisor relacionado {nombre} para la hoja {hoja.Id}");
+
                     var revisor = await GetRevisorByName(valor);
                     if (revisor != null)
                     {
                         resultado.Add(revisor);
-                        _logger.LogInformation($"Etapa encontrada: {nombre}. Revisor: {valor}");
+                        _logger.LogInformation($"Etapa encontrada para la hoja {hoja.Id}: Etapa: {nombre}. Revisor: {valor}");
                     }
                 }
 

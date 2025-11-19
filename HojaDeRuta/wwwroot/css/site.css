@@ -28,20 +28,20 @@ body {
     padding-bottom: 0;
 }
 
-.navbar-brand.text-white:hover {
-    color: #c9c9c9 !important;
-    text-decoration: none;
-}
+    .navbar-brand.text-white:hover {
+        color: #c9c9c9 !important;
+        text-decoration: none;
+    }
 
 .nav-link {
     color: #ffffff !important;
     transition: color 0.3s ease;
 }
 
-.nav-link:hover {
-    color: #c9c9c9 !important;
-    text-decoration: none;
-}
+    .nav-link:hover {
+        color: #c9c9c9 !important;
+        text-decoration: none;
+    }
 
 /*#endregion */
 
@@ -62,6 +62,117 @@ body {
 
 
 /*#endregion */
+
+/*#region modal */
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(108, 117, 125, 0.5) !important;
+    backdrop-filter: blur(2px);
+    z-index: 1055;
+    border-radius: 0.3rem;
+    color: #000000 !important;
+    font-weight: 600;
+}
+
+/* Opcional: para el texto del overlay */
+/*.modal-overlay-text {
+    font-weight: 600;
+    color: #000000 !important; 
+    margin-top: 0.5rem;
+}*/
+
+/* Spinner más grande para el overlay */
+.modal-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.global-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: none;
+}
+
+.global-overlay-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+    text-align: center;
+    min-width: 300px;
+}
+
+.global-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.3em;
+}
+
+.global-overlay-text {
+    font-weight: 600;
+    color: #0d6efd;
+    margin-top: 1rem;
+    font-size: 1.2rem;
+}
+
+/*#endregion */
+
+/*#region Reportes */
+
+#columnasContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.columna-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    min-width: 150px;
+}
+
+    .columna-item:hover {
+        background-color: #f1f5ff;
+        border-color: #0d6efd;
+        transform: scale(1.03);
+    }
+
+    .columna-item input[type="checkbox"] {
+        cursor: pointer;
+    }
+
+    .columna-item label {
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .columna-item.selected {
+        background-color: #d1f7d1;
+        border-color: #198754; /* verde Bootstrap */
+    }
+/*#endregion */
+
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
     box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
@@ -104,9 +215,9 @@ body {
 }
 
 
-.sortable:hover {
-    color: grey;
-}
+    .sortable:hover {
+        color: grey;
+    }
 
 .campoHabilitado:not([disabled]) {
     border-color: #28a745;
@@ -114,10 +225,10 @@ body {
     padding-right: 0.75rem;
 }
 
-.campoHabilitado:not([disabled]):focus {
-    border-color: #28a745;
-    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
-}
+    .campoHabilitado:not([disabled]):focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
+    }
 
 .select-pendiente {
     background-color: #fff !important;
@@ -128,44 +239,4 @@ body {
     -moz-appearance: auto !important;
 }
 
-/*#region Reportes */
-
-#columnasContainer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.columna-item {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.4rem 0.6rem;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    min-width: 150px;
-}
-
-.columna-item:hover {
-    background-color: #f1f5ff;
-    border-color: #0d6efd;
-    transform: scale(1.03);
-}
-
-.columna-item input[type="checkbox"] {
-    cursor: pointer;
-}
-
-.columna-item label {
-    cursor: pointer;
-    margin: 0;
-}
-
-.columna-item.selected {
-    background-color: #d1f7d1;
-    border-color: #198754; /* verde Bootstrap */
-}
-/*#endregion */
 

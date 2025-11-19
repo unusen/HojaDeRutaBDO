@@ -34,6 +34,7 @@
 
         public string GetUserName()
         {
+            //ÙSER PRINCIPAL NAME: EMAIL: CHEQUEAR CON USER DE PRUEBA
             var user = _httpContextAccessor.HttpContext?.User;
 
             return user?.Claims.FirstOrDefault(c => c.Type == "name")?.Value
@@ -60,7 +61,7 @@
         public async Task<string> GetUserAreaAsync()
         {
             try
-            {
+            { //IMPUESTOS
                 var user = await _graphClient.Me
                                          .Request()
                                          .Select(u => new { u.Department })
@@ -75,6 +76,7 @@
 
         public async Task<string> GetUserCargoAsync()
         {
+            //DIRECTORA
             var user = await _graphClient.Me
                                          .Request()
                                          .Select(u => new { u.JobTitle })

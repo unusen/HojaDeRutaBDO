@@ -5,6 +5,7 @@ using HojaDeRuta.Services.AutoMapper;
 using HojaDeRuta.Services.LoginService;
 using HojaDeRuta.Services.Repository;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
@@ -26,9 +27,6 @@ builder.Services.AddDbContext<HojasDbContext>(options =>
         }
 ));
 
-
-
-
 builder.Services.AddDistributedSqlServerCache(options =>
 {
     options.ConnectionString = builder.Configuration.GetConnectionString("hojaDB");
@@ -37,32 +35,80 @@ builder.Services.AddDistributedSqlServerCache(options =>
 });
 
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-        .AddMicrosoftIdentityWebApp(options =>
+    .AddMicrosoftIdentityWebApp(options =>
+    {
+        builder.Configuration.Bind("AzureAd", options);
+
+        // ⚠ IMPORTANTE PARA DOCKER DETRÁS DE NGINX
+        options.RequireHttpsMetadata = false;
+        options.CallbackPath = "/signin-oidc";
+
+        options.Events.OnRedirectToIdentityProvider = context =>
         {
-            builder.Configuration.Bind("AzureAd", options);
-            //options.ResponseType = "code";
-            //options.Prompt = "consent";
+            // Respeta el protocolo HTTPS que viene desde NGINX
+            var proto = context.Request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(proto))
+                context.ProtocolMessage.RedirectUri = $"{proto}://{context.Request.Host}{options.CallbackPath}";
 
-            options.Events.OnTokenValidated = async context =>
-            {
-                var _loginService = context.HttpContext.RequestServices.
-                    GetRequiredService<ILoginService>();
+            return Task.CompletedTask;
+        };
 
-                var _userService = context.HttpContext.RequestServices
-                    .GetRequiredService<UserService>();
+        options.Events.OnTokenValidated = async context =>
+        {
+            var _loginService = context.HttpContext.RequestServices.
+                GetRequiredService<ILoginService>();
 
-                var userName = _loginService.GetUserName();
+            var _userService = context.HttpContext.RequestServices
+                .GetRequiredService<UserService>();
 
-                await _userService.ValidateUserAsync(userName);
-            };
-        })
+            var userName = _loginService.GetUserName();
+
+            await _userService.ValidateUserAsync(userName);
+        };
+    })
     .EnableTokenAcquisitionToCallDownstreamApi()
     .AddMicrosoftGraph(builder.Configuration.GetSection("MicrosoftGraph"))
     .AddDistributedTokenCaches();
-//.AddInMemoryTokenCaches();
+
+
+//builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+//        .AddMicrosoftIdentityWebApp(options =>
+//        {
+//            builder.Configuration.Bind("AzureAd", options);
+//            //options.ResponseType = "code";
+//            //options.Prompt = "consent";
+
+//            options.Events.OnTokenValidated = async context =>
+//            {
+//                var _loginService = context.HttpContext.RequestServices.
+//                    GetRequiredService<ILoginService>();
+
+//                var _userService = context.HttpContext.RequestServices
+//                    .GetRequiredService<UserService>();
+
+//                var userName = _loginService.GetUserName();
+
+//                await _userService.ValidateUserAsync(userName);
+//            };
+//        })
+//    .EnableTokenAcquisitionToCallDownstreamApi()
+//    .AddMicrosoftGraph(builder.Configuration.GetSection("MicrosoftGraph"))
+//    .AddDistributedTokenCaches();
+////.AddInMemoryTokenCaches();
 
 
 var cookieSettings = builder.Configuration.GetSection("CookieSettings");
+
+//builder.Services.ConfigureApplicationCookie(options =>
+//{
+//    options.Cookie.Name = cookieSettings.GetValue<string>("Name");
+//    options.ExpireTimeSpan = TimeSpan.FromHours(cookieSettings.GetValue<int>("ExpireHours"));
+//    options.SlidingExpiration = cookieSettings.GetValue<bool>("SlidingExpiration");
+
+//    options.Cookie.HttpOnly = true;
+//    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+//    options.Cookie.SameSite = SameSiteMode.Strict;
+//});
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = cookieSettings.GetValue<string>("Name");
@@ -71,8 +117,10 @@ builder.Services.ConfigureApplicationCookie(options =>
 
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Strict;
+
+    options.Cookie.SameSite = SameSiteMode.None;
 });
+
 
 //builder.Services.AddMicrosoftIdentityWebAppAuthentication(builder.Configuration);
 
@@ -134,8 +182,20 @@ builder.Services.AddAutoMapper(cfg =>
 //TODO: QUITAR EN PROD
 builder.Logging.AddConsole();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();  // Permite cualquier proxy
+    options.KnownProxies.Clear();
+});
+
+builder.Configuration.AddEnvironmentVariables();
+
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -145,7 +205,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+//TODO: SOLO DESACTIVADO PARA EL CONTENEDOR, ACTIVAR LOCALMENTE
+//app.UseHttpsRedirection();
+
 app.UseStaticFiles();
 
 app.UseRouting();

@@ -1,4 +1,5 @@
 ﻿using HojaDeRuta.DBContext;
+using HojaDeRuta.Helpers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Services;
 using HojaDeRuta.Services.AutoMapper;
@@ -39,7 +40,7 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     {
         builder.Configuration.Bind("AzureAd", options);
 
-        // ⚠ IMPORTANTE PARA DOCKER DETRÁS DE NGINX
+        //IMPORTANTE PARA DOCKER DETRÁS DE NGINX
         options.RequireHttpsMetadata = false;
         options.CallbackPath = "/signin-oidc";
 
@@ -151,7 +152,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddControllersWithViews(options =>
 {
     //TODO: ACTIVAR FILTRO DE GRUPO REQUERIDO (DE ACUERDO A GESTION DE GRUPOS)
-    //options.Filters.Add<RequireGroupsFilter>();
+    options.Filters.Add<RequireGroupsFilter>();
 }).AddMicrosoftIdentityUI();
 
 builder.Services.Configure<SyncSettings>(builder.Configuration.GetSection("SyncSettings"));
@@ -180,7 +181,7 @@ builder.Services.AddAutoMapper(cfg =>
 });
 
 //TODO: QUITAR EN PROD
-builder.Logging.AddConsole();
+//builder.Logging.AddConsole();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -200,10 +201,12 @@ app.UseForwardedHeaders();
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    //app.UseExceptionHandler("/Error/Index");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+
+app.UseExceptionHandler("/Error");
 
 //TODO: SOLO DESACTIVADO PARA EL CONTENEDOR, ACTIVAR LOCALMENTE
 //app.UseHttpsRedirection();

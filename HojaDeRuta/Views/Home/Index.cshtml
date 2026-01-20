@@ -191,11 +191,20 @@
             const hasta = document.getElementById('filtroHasta').value;
 
             filteredHojas = allHojas.filter(h => {
-                const matchCliente = h.ClienteName.toLowerCase().includes(cliente);
+                //const matchCliente = h.ClienteName.toLowerCase().includes(cliente);
+                const matchCliente = (h.ClienteName || "").toLowerCase().includes(cliente);
+
                 const matchEstado = estado === "" || h.Estado == estado;
-                const matchSector = h.Sector.toLowerCase().includes(sector);
-                const matchSocio = h.SocioFirmanteDetalle.toLowerCase().includes(socio);
-                const matchNumero = h.Numero.toLowerCase().includes(numero);
+
+                //const matchSector = h.Sector.toLowerCase().includes(sector);
+                const matchSector = (h.Sector || "").toLowerCase().includes(sector);
+
+                //const matchSocio = h.SocioFirmanteDetalle.toLowerCase().includes(socio);
+                const matchSocio = (h.SocioFirmanteDetalle || "").toLowerCase().includes(socio);
+
+                //const matchNumero = h.Numero.toLowerCase().includes(numero);
+                const matchNumero = (h.Numero || "").toLowerCase().includes(numero);
+
                 const fechaStr = h.FechaDocumento ? h.FechaDocumento.substring(0, 10) : null;
                 const matchDesde = !desde || fechaStr >= desde;
                 const matchHasta = !hasta || fechaStr <= hasta;

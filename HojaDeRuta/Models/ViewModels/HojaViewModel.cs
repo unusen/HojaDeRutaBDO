@@ -97,8 +97,7 @@ namespace HojaDeRuta.Models.ViewModels
         public string? FechaLimite { get; set; }
 
         [Column("manejador_final")]
-        [Required(ErrorMessage = "Gestor final no puede estar vacío.")]
-        public string GestorFinal { get; set; }
+        public string? GestorFinal { get; set; }
 
         [Column("manejador")]
         public string? Manejador { get; set; }

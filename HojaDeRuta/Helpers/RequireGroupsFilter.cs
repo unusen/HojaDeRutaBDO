@@ -32,13 +32,14 @@
                 );
             }
 
-            if (groups.Count > 1)
-            {
-                context.Result = new RedirectToActionResult("AccessDenied", "Error",
-                    new { message = $"Solo es posible un permiso por usuario." +
-                    $"El usuario {name} tiene {groups.Count} permisos para Hoja de Ruta." }
-                );
-            }
+            //TODO: QUITAR VALIDACION DE MAS DE UN PERMISO POR USUARIO
+            //if (groups.Count > 1)
+            //{
+            //    context.Result = new RedirectToActionResult("AccessDenied", "Error",
+            //        new { message = $"Solo es posible un permiso por usuario." +
+            //        $"El usuario {name} tiene {groups.Count} permisos para Hoja de Ruta." }
+            //    );
+            //}
         }
     }
 

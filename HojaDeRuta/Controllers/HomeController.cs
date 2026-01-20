@@ -1,6 +1,5 @@
 using AutoMapper;
 using HojaDeRuta.Models;
-using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Models.Enums;
@@ -16,7 +15,6 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Newtonsoft.Json;
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
@@ -80,25 +78,25 @@ namespace HojaDeRuta.Controllers
             //{
             //    Name = "HDR_Socio_líder_de_area",
             //    GroupId = "aa52727f-e60f-45bb-b4bf-84a3874c532a",
-            //    Nivel = 9
+            //    Nivel = 10
             //};
             //IList<GroupConfig> roles = new List<GroupConfig>
             // {
             //     groupConfig
             // };
 
-            //TODO: PARA TEST LOGIN, ELIMINAR EN PROD
+            ////TODO: PARA TEST LOGIN, ELIMINAR EN PROD
             //CurrentUser = new UserContext
             //{
-            //    UserName = "LUISROMERO",
+            //    UserName = "HDR_Testing",
             //    Email = "",
-            //    Area = "AUDI",
+            //    Area = "BANK",
             //    Cargo = "",
             //    Roles = roles
             //};
         }
 
-        [HttpPost]
+        //[HttpPost]
         public async Task<IActionResult> SignOut()
         {
             await HttpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
@@ -109,21 +107,34 @@ namespace HojaDeRuta.Controllers
 
         public async Task<IActionResult> Index(int pageNumber = 1, int pageSize = 10, string sortOrder = "Numero", string sortDirection = "asc", bool pendientes = true)
         {
+
+            //TODO: VER QUE SOLO HAGA LOG CON LOS LOGS ESCRITOS, NO CON TODOS LOS DE SISTEMA
             try
             {
+                if (!String.IsNullOrWhiteSpace(UserError))
+                {
+                    throw new Exception(UserError);
+                }
+
                 ViewBag.CurrentSection = "Home";
 
                 string nivel = CurrentUser.Roles.FirstOrDefault().Nivel.ToString();
 
-                _logger.LogInformation($"Ingreso al metodo Index {CurrentUser.UserName}." +
-                    $" Nivel de acceso {nivel}");
+                _logger.LogInformation($"Ingreso al metodo Index {CurrentUser.UserName}");
+
+                _logger.LogInformation($"Datos del usuario:" +
+                    $" Nombre: {CurrentUser.UserName}. " +
+                    $" Nivel de acceso {nivel}. " +
+                    $" Mail: {CurrentUser.Email}." +
+                    $" Area: {CurrentUser.Area}." +
+                    $" Roles: {CurrentUser.Roles.Count}");
 
                 //Parametros para busqueda de hojas pendientes
                 var parameters = new Dictionary<string, object>
                 {
                     { "Nivel", nivel },
                     { "Sector", CurrentUser.Area },
-                    { "Usuario", CurrentUser.UserName },
+                    { "Usuario", CurrentUser.Empleado },
                     { "Id", null },
                     { "Pendientes", 1 }
                 };
@@ -203,12 +214,21 @@ namespace HojaDeRuta.Controllers
         {
             try
             {
+                if (!String.IsNullOrWhiteSpace(UserError))
+                {
+                    throw new Exception(UserError);
+                }
+
                 _logger.LogInformation($"Ingreso al metodo Upsert. Modo: {mode.ToString()}." +
                     $" IdHoja: {id}");
 
                 Hoja hoja = _mapper.Map<Hoja>(hojaViewModel);
 
                 _logger.LogInformation($"Mapeo de la hoja view model a la entidad hoja");
+
+                //string usuarioConectado = CurrentUser.Email.Split('@')[0];
+
+                _logger.LogInformation($"El nombre de usuario conectado es {CurrentUser.Empleado}");
 
                 if (!String.IsNullOrWhiteSpace(id))
                 {
@@ -220,7 +240,8 @@ namespace HojaDeRuta.Controllers
                     }
 
                     _logger.LogInformation($"Validar si el revisor {CurrentUser.UserName} esta autorizado a ver la hoja {id}");
-                    bool auth = await _revisorService.IsRevisorAuthorized(hoja, CurrentUser.UserName);
+
+                    bool auth = await _revisorService.IsRevisorAuthorized(hoja, CurrentUser.Empleado);
 
                     if (!auth)
                     {
@@ -259,7 +280,7 @@ namespace HojaDeRuta.Controllers
 
                     ModelState.Clear();
 
-                    hoja.Preparo = CurrentUser.UserName;
+                    hoja.Preparo = CurrentUser.Empleado;
                     hoja.PreparoFecha = DateTime.Now.ToShortDateString();
                     hoja.FechaDocumento = DateTime.Now;
 
@@ -286,7 +307,7 @@ namespace HojaDeRuta.Controllers
                         return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
                     }
 
-                    ViewBag.HabilitarBotones = await _hojaDeRutaService.HabilitarBotonFlujo(hoja, CurrentUser.UserName);
+                    ViewBag.HabilitarBotones = await _hojaDeRutaService.HabilitarBotonFlujo(hoja, CurrentUser.Empleado);
                 }
 
                 await CargarViewBags(hoja, mode);
@@ -407,6 +428,8 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError($"Error en metodo Upsert. {ex.Message}");
+
                 return RedirectToAction("Index", "Error", new { message = ex.Message });
             }
         }
@@ -438,7 +461,7 @@ namespace HojaDeRuta.Controllers
                 _logger.LogError(mensaje);
                 return RedirectToAction("Index", "Error", new { message = mensaje });
             }
-            
+
         }
 
         [HttpPost]
@@ -456,13 +479,17 @@ namespace HojaDeRuta.Controllers
                     throw new Exception("El campo socio no puede estar vacio para generar el reporte");
                 }
 
+                int nivel = CurrentUser.Roles.FirstOrDefault().Nivel;
+                string area = CurrentUser.Area;
+                string user = CurrentUser.Empleado;
+
                 int auditoria = checkAuditoria ? 1 : 0;
 
                 var hojas = await _hojaDeRutaService.GetHojasForReporte(
                    columnasSeleccionadas, socio,
                    fechaDesde?.ToString("yyyy-MM-dd"),
                    fechaHasta?.ToString("yyyy-MM-dd"),
-                   auditoria);
+                   auditoria, nivel, area, user);
 
                 string titulo = $"Reportes de hojas para el socio {socio}";
                 titulo += fechaDesde.HasValue ? $" desde {fechaDesde?.ToString("dd-MM-yyyy")}" : "";
@@ -518,7 +545,7 @@ namespace HojaDeRuta.Controllers
                     error = $"No se pudo encontrar la hoja {Id}";
                 }
 
-                if (hoja.SocioFirmante != CurrentUser.UserName)
+                if (hoja.SocioFirmante != CurrentUser.Empleado)
                 {
                     _logger.LogError($"Solo puede firmar la hoja el Socio Firmante." +
                         $"Hoja: {Id}. Socio Firmante: {hoja.SocioFirmante}" +
@@ -697,7 +724,7 @@ namespace HojaDeRuta.Controllers
                             break;
                         case "RECHAZAR":
                             eMailBody.MotivoDeRechazo = motivoRechazo;
-                            await _mailService.NotificarRechazo(eMailBody, CurrentUser.UserName, url);
+                            await _mailService.NotificarRechazo(eMailBody, CurrentUser.Empleado, url);
                             break;
                         default:
                             break;
@@ -708,7 +735,7 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
-                string mensaje= $"Error al revisar etapa para la hoja {Id}." +
+                string mensaje = $"Error al revisar etapa para la hoja {Id}." +
                     $" Revisor: {CurrentUser.UserName}, Acción: {accion}. {ex.Message}";
 
                 _logger.LogError(mensaje);
@@ -743,7 +770,7 @@ namespace HojaDeRuta.Controllers
                 }
                 else
                 {
-                    var aprobador = CurrentUser.UserName;
+                    var aprobador = CurrentUser.Empleado;
 
                     if (aprobador != hoja.Manejador)
                     {
@@ -827,7 +854,7 @@ namespace HojaDeRuta.Controllers
             });
 
             return File(bytes, contentType, fileName);
-        }   
+        }
 
         public async Task<List<string>> GetContratosByCodigo(string codigoPlataforma)
         {
@@ -853,6 +880,7 @@ namespace HojaDeRuta.Controllers
             List<SubArea> subAreas = await _sharedService.GetSubAreas();
             List<Revisores> gestores = await _revisorService.GetAllRevisores();
             List<string> monedas = await _hojaDeRutaService.GetMonedas();
+            List<Jurisdiccion> jurisdicciones = await _sharedService.GetJurisdicciones();
 
             ViewBag.Clientes = clientes.Select(c => new SelectListItem
             {
@@ -883,6 +911,12 @@ namespace HojaDeRuta.Controllers
             {
                 Value = c.Mail,
                 Text = c.Detalle
+            }).ToList();
+
+            ViewBag.Jurisdicciones = jurisdicciones.Select(c => new SelectListItem
+            {
+                Value = c.Name,
+                Text = c.Name
             }).ToList();
 
             ViewBag.CampoHabilitado = await _revisorService.GetCampoHabilitado(hoja);

@@ -140,24 +140,26 @@ namespace HojaDeRuta.Services
         public async Task SendMailAsync(string subject, List<string> destinatarios, string body, bool IsBodyHtml)
         {
             _logger.LogInformation($"Envio de email para {subject}." +
-               $" Destinatarios {String.Join('-', destinatarios)}" +
+               $" Destinatarios {String.Join('-', destinatarios)}." +
                $" Body: {body}");
 
             try
             {
-                //TODO: HABILITAR EN PROD
-                //string dominio = _mailSettings.Dominio;
+                string dominio = _mailSettings.Dominio;
 
                 //TODO: TEST
-                destinatarios = new List<string>()
-                {
-                    "sebastian.katcheroff@gmail.com"
-                };
+                //destinatarios = new List<string>()
+                //{
+                //    "sebastian.katcheroff@gmail.com"
+                //};
 
                 using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
                 {
-                    client.EnableSsl = true;
-                    client.Credentials = new NetworkCredential(_mailSettings.From, _mailSettings.Pass);
+                    client.EnableSsl = _mailSettings.EnableSsl;
+                    client.UseDefaultCredentials = false;
+                    client.Credentials = null; // new NetworkCredential(_mailSettings.From, _mailSettings.Pass);
+
+                    _logger.LogInformation($"Obtencion de credenciales");
 
                     var message = new MailMessage
                     {
@@ -167,19 +169,23 @@ namespace HojaDeRuta.Services
                         IsBodyHtml = IsBodyHtml
                     };
 
+                    _logger.LogInformation($"Armado de MailMessage");
+
                     foreach (var destinatario in destinatarios)
                     {
                         if (!string.IsNullOrWhiteSpace(destinatario))
                         {
                             //TODO: HABILITAR EN PROD
-                            //message.To.Add($"{destinatario}{dominio}");
-                            message.To.Add(destinatario);
+                            message.To.Add($"{destinatario}{dominio}");
+                            //message.To.Add(destinatario);
                         }
                     }
 
-                    //TODO: HABILITAR EN PROD
+                    //TODO: HABILITAR EN PROD (VER? POR AHORA NO!)
                     //message.To.Add($"{destinatario}{dominio}");
                     //message.To.Add(destinatario);
+
+                    _logger.LogInformation($"Inicio de envio de Email");
 
                     await client.SendMailAsync(message);
 
@@ -188,7 +194,9 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al enviar mail {ex.Message}");
+                var error = $"Error al enviar mail. {ex.Message}.";
+                error += ex.InnerException != null ? ex.InnerException.Message : "";
+                throw new Exception(error);
             }
         }
 

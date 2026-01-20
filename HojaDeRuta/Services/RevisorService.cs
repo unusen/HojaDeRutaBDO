@@ -41,6 +41,9 @@ namespace HojaDeRuta.Services
 
         public async Task<Revisores> GetRevisorByName(string name)
         {
+            _logger.LogInformation($"Armado del predicado para GetRevisorByName " +
+                $"para el empleado {name}");
+
             Expression<Func<Revisores, bool>> revisor = s => s.Empleado == name;
 
             var revisores = await revisoresRepository.FindAsync(revisor);
@@ -249,13 +252,23 @@ namespace HojaDeRuta.Services
 
         public async Task<bool> IsRevisorAuthorized(Hoja hoja, string revisorActual)
         {
+            _logger.LogInformation($"Busqueda de autorizacion de revisor: {revisorActual}" +
+                $" para la hoja {hoja.Id}");
+
             if (hoja == null || string.IsNullOrEmpty(revisorActual))
             {
+                _logger.LogError($"El metodo no recibio el revisor o la hoja");
                 return false;
             }
 
             bool result = false;
             Revisores revisor = await GetRevisorByName(revisorActual);
+
+            if (revisor != null)
+            {
+                _logger.LogInformation($"El revisor {revisorActual} fue encontrado. " +
+                    $" con el cargo {revisor.Cargo}");
+            }
 
             var pasosFlujo = new List<string?>
             {
@@ -263,7 +276,8 @@ namespace HojaDeRuta.Services
                 hoja.Reviso,
                 hoja.RevisionGerente,
                 hoja.EngagementPartner,
-                hoja.SocioFirmante
+                hoja.SocioFirmante,
+                hoja.GestorFinal
             };
 
             switch (revisor.Cargo)

@@ -22,6 +22,7 @@ namespace HojaDeRuta.DBContext
         public DbSet<SyncControl> SyncControl { get; set; }
         public DbSet<Auditoria> AUDITORIAS { get; set; }
         public DbSet<HojaEstado> Hoja_Estado { get; set; }
+        public DbSet<Jurisdiccion> Jurisdiccion { get; set; }
 
 
 
@@ -41,6 +42,7 @@ namespace HojaDeRuta.DBContext
             modelBuilder.Entity<SubArea>().HasNoKey();
             modelBuilder.Entity<Revisores>().HasNoKey();
             modelBuilder.Entity<Socios>().HasNoKey();
+            modelBuilder.Entity<Jurisdiccion>().HasNoKey();
         }
     }
 

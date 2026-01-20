@@ -89,7 +89,8 @@ namespace HojaDeRuta.Services
         }
 
         public async Task<List<dynamic>> GetHojasForReporte(string? columnasSeleccionadas,
-            string? socio, string? fechaDesde, string? fechaHasta, int auditoria)
+            string? socio, string? fechaDesde, string? fechaHasta, int auditoria,
+            int nivel, string area, string user)
         {
             var spName = _dbSettings.Sp["GetHojasForReporte"].ToString();
 
@@ -99,7 +100,10 @@ namespace HojaDeRuta.Services
                     { "FechaDesde ", fechaDesde },
                     { "FechaHasta", fechaHasta },
                     { "ColumnasSeleccionadas", columnasSeleccionadas},
-                    { "Auditoria", auditoria}
+                    { "Auditoria", auditoria},
+                    { "Nivel", nivel},
+                    { "Sector", area},
+                    { "Usuario", user}
                 };
 
             var hojas = await _hojaRepository.ExecuteStoredProcedureDynamicAsync(spName, parameters);

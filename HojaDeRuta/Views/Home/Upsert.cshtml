@@ -45,6 +45,7 @@
                 <div class="row">
                     <input type="hidden" asp-for="Id" />
                     <input type="hidden" id="Manejador" asp-for="Manejador" />
+                    <input type="hidden" id="Estado" asp-for="Estado" />
 
                     @if (Model.HojaEstados != null)
                     {
@@ -62,7 +63,7 @@
                     }
 
                     <div class="col-auto">
-                        <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cliente</label>
+                        <label asp-for="Cliente" class="form-label form-label-sm mb-0">Cliente <span class="text-danger">*</span></label>
                     </div>
                     <div class="col-md-4">
                         <select asp-for="Cliente" asp-items="@ViewBag.Clientes" id="Cliente"
@@ -74,7 +75,7 @@
                     </div>
 
                     <div class="col-auto">
-                        <label asp-for="Sector" class="form-label form-label-sm mb-0">Sector</label>
+                        <label asp-for="Sector" class="form-label form-label-sm mb-0">Sector <span class="text-danger">*</span></label>
                     </div>
                     <div class="col">
                         <select asp-for="Sector" asp-items="@ViewBag.Sectores" id="Sector" disabled=@DisabledByDetail()
@@ -84,7 +85,7 @@
                     </div>
 
                     <div class="col-auto">
-                        <label asp-for="Subarea" class="form-label form-label-sm mb-0">Subarea</label>
+                        <label asp-for="Subarea" class="form-label form-label-sm mb-0">Subarea <span class="text-danger">*</span></label>
                     </div>
                     <div class="col">
                         <select asp-for="Subarea" id="subarea" disabled=@DisabledByDetail() class="form-select form-select-sm">
@@ -104,7 +105,7 @@
 
                 <div class="row mt-3">
                     <div class="col-auto">
-                        <label for="nombreGenerico" class="form-label small">Nombre generico:</label>
+                        <label for="nombreGenerico" class="form-label small">Nombre generico: <span class="text-danger">*</span></label>
                     </div>
                     <div class="col-md-3">
                         <select asp-for="NombreGenerico" asp-items="@ViewBag.NombreGenerico" id="NombreGenerico" class="form-select form-select-sm">
@@ -113,9 +114,9 @@
                         <span asp-validation-for="NombreGenerico" class="text-danger small"></span>
                     </div>
                     <div class="col-auto">
-                        <label for="Descripcion" class="form-label small">Descripción:</label>
+                        <label for="Descripcion" class="form-label small">Descripción: <span class="text-danger">*</span></label>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <input asp-for="Descripcion" type="text" class="form-control form-control-sm" id="descripcion" placeholder="Descripcion">
                         <span asp-validation-for="Descripcion" class="text-danger small"></span>
                     </div>
@@ -141,7 +142,7 @@
                     <div class="col-auto">
                         <label asp-for="Sindico" class="form-label form-label-sm mb-0">Síndico</label>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <select asp-for="Sindico" asp-items="@ViewBag.Sindicos" id="Sindico" class="form-select form-select-sm" disabled>
                             <option value="">Seleccione Sindico</option>
                         </select>
@@ -157,7 +158,7 @@
                     </div>
 
                     <div class="col-auto">
-                        <label asp-for="ContratoPlataforma" class="form-label form-label-sm mb-0">Contrato Plataforma</label>
+                        <label asp-for="ContratoPlataforma" class="form-label form-label-sm mb-0">Contrato Plataforma <span class="text-danger">*</span></label>
                     </div>
                     <div class="col-md-3">
                         <select asp-for="ContratoPlataforma" id="ContratoPlataforma" class="form-select form-select-sm">
@@ -246,7 +247,7 @@
 
                         <div class="row mt-3">
                             <div class="col-md-2">
-                                <label for="SocioFirmante" class="form-label">Socio firmante:</label>
+                                <label for="SocioFirmante" class="form-label">Socio firmante: <span class="text-danger">*</span></label>
                             </div>
                             <div class="col-md-5">
                                 <select asp-for="SocioFirmante" asp-items="@ViewBag.Socios"
@@ -290,10 +291,12 @@
                             <div class="col" id="lugarFirmaDiv">
                                 <div class="row">
                                     <div class="col-md-5">
-                                        <label for="lugarFirmaDoc" class="form-label">Lugar de firma:</label>
+                                        <label for="lugarFirmaDoc" class="form-label">Lugar de firma: <span class="text-danger">*</span></label>
                                     </div>
                                     <div class="col-md-7">
-                                        <input asp-for="LugarFirma" type="text" class="form-control form-control-sm" id="lugarFirmaDoc" placeholder="Lugar de firma del doc.">
+                                        <select asp-for="LugarFirma" asp-items="@ViewBag.Jurisdicciones" id="lugarFirmaDoc" class="form-select form-select-sm">
+                                            <option value="">Seleccione lugar de firma</option>
+                                        </select>
                                         <span asp-validation-for="LugarFirma" class="text-danger small"></span>
                                     </div>
                                 </div>
@@ -315,7 +318,7 @@
                     <div class="col-md-5">
                         <div class="row">
                             <div class="col-md-3">
-                                <label for="RutaPapeles" class="form-label">Ruta papeles:</label>
+                                <label for="RutaPapeles" class="form-label">Ruta papeles: <span class="text-danger">*</span></label>
                             </div>
                             @* <div class="col-md-9">
                                 <label for="archivo" class="btn btn-primary">
@@ -338,7 +341,7 @@
                         </div>
                         <div class="row mt-3">
                             <div class="col-md-3">
-                                <label for="RutaDoc" class="form-label">Ruta doc.:</label>
+                                <label for="RutaDoc" class="form-label">Ruta doc.: <span class="text-danger">*</span></label>
                             </div>
                             @* <div class="col-md-9">
                                 <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
@@ -384,7 +387,7 @@
                     {
                         <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
                                 type="submit" class="btn btn-sm btn-success me-2">
-                                <i class="bi bi-plus-lg"></i> Crear hoja
+                            <i class="bi bi-plus-lg"></i> Crear hoja
                         </button>
                     }
                     else
@@ -396,8 +399,8 @@
                             @if (@Model.Estado == 0)
                             {
                                 <button id="btnModificar" asp-route-mode="Update"
-                                    type="submit" asp-controller="Home"
-                                    class="btn btn-sm btn-secondary me-1">
+                                        type="submit" asp-controller="Home"
+                                        class="btn btn-sm btn-secondary me-1">
                                     <i class="bi bi-floppy"></i> Guardar Cambios
                                 </button>
                             }
@@ -406,14 +409,14 @@
                             {
                                 <button id="btnFirmar" asp-action="FirmarDoc" type="button"
                                         class="btn btn-sm btn-success me-1
-                                                    @(Model.SocioFirmante != Model.Manejador ? "d-none" : "")">
+                                                                @(Model.SocioFirmante != Model.Manejador ? "d-none" : "")">
                                     <i class="bi bi-pencil-fill"></i>
                                     Firmar Documento
                                 </button>
 
                                 <button id="btnAprobar" asp-action="RevisarEtapa" type="button"
                                         class="btn btn-sm btn-success me-1
-                                        @(Model.SocioFirmante == Model.Manejador ? "d-none" : "")">
+                                                    @(Model.SocioFirmante == Model.Manejador ? "d-none" : "")">
                                     <i class="bi bi-check-lg"></i>
                                     Aprobar
                                 </button>
@@ -422,8 +425,8 @@
 
                                 <button id="btnRechazar" asp-action="RevisarEtapa" type="button"
                                         class="btn btn-sm btn-danger">
-                                <i class="bi bi-x-lg"></i> Rechazar
-                            </button>
+                                    <i class="bi bi-x-lg"></i> Rechazar
+                                </button>
                             }
                         }
                         else
@@ -441,8 +444,8 @@
                     }
 
                     <button id="btnAuditoria" type="button"
-                        class="btn btn-sm btn-info me-2 invisible"
-                        onclick="abrirModalAuditoria()">
+                            class="btn btn-sm btn-info me-2 invisible"
+                            onclick="abrirModalAuditoria()">
                         <i class="bi bi-list-task"></i> Abrir Auditoria
                     </button>
                 </div>
@@ -506,6 +509,7 @@
             //inicializarBloqueoFormularioConfirmacion();
             inicializarSpinnerDescarga();
             isInitialLoad = false;
+            validarGestorFinal();
         })
 
         function inicializarModalConfirmacion() {
@@ -682,6 +686,29 @@
             }
 
             console.log("[ModalConfirm] Inicializado correctamente.");
+        }
+
+        function validarGestorFinal() {
+
+            const btnCrear = document.getElementById("btnCrear");
+            const gestorFinal = document.getElementById("gestorFinal");
+
+            if (!btnCrear || !gestorFinal) return;
+
+            btnCrear.addEventListener("click", function (e) {
+
+                if (gestorFinal.value && gestorFinal.value.trim() !== "") {
+                    return;
+                }
+
+                const continuar = confirm(
+                    "No seleccionó Gestor Final. ¿Desea continuar?"
+                );
+
+                if (!continuar) {
+                    e.preventDefault(); // cancela el submit
+                }
+            });
         }
 
         function inicializarRevisores() {

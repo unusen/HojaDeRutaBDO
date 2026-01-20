@@ -4,6 +4,7 @@ using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Services.Repository;
 using Microsoft.Extensions.Options;
+using Microsoft.Graph;
 using NuGet.Common;
 using System.Dynamic;
 using System.Linq.Expressions;
@@ -18,7 +19,7 @@ namespace HojaDeRuta.Services
         private readonly IGenericRepository<SubArea> subAreaRepository;
         private readonly IGenericRepository<Socios> sociosRepository;
         private readonly IGenericRepository<Contratos> contratosRepository;
-
+        private readonly IGenericRepository<Jurisdiccion> jurisdiccionRepository;
         private readonly DBSettings dbSettings;
 
         public SharedService(
@@ -27,7 +28,7 @@ namespace HojaDeRuta.Services
             IGenericRepository<SubArea> subAreaRepository,
             IGenericRepository<Socios> sociosRepository,
             IGenericRepository<Contratos> contratosRepository,
-
+            IGenericRepository<Jurisdiccion> jurisdiccionRepository,
             IOptions<DBSettings> dbSettings
             )
         {
@@ -36,6 +37,7 @@ namespace HojaDeRuta.Services
             this.subAreaRepository = subAreaRepository;
             this.sociosRepository = sociosRepository;
             this.contratosRepository = contratosRepository;
+            this.jurisdiccionRepository = jurisdiccionRepository;
             this.dbSettings = dbSettings.Value;
         }
 
@@ -80,6 +82,21 @@ namespace HojaDeRuta.Services
             }
         }
 
+        public async Task<Sector> GetSectorByDetalle(string sectorDetalle)
+        {
+            try
+            {                
+                Expression<Func<Sector, bool>> entityName = s => s.Detalle == sectorDetalle;
+                Expression<Func<Sector, Object>> order = s => s.Nombre;
+
+                return await sectorRepository.GetFirstOrLastAsync(entityName, order, false);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
         public async Task<List<SubArea>> GetSubAreas()
         {
             try
@@ -93,10 +110,21 @@ namespace HojaDeRuta.Services
             }
         }
 
+        public async Task<List<Jurisdiccion>> GetJurisdicciones()
+        {
+            try
+            {
+                IEnumerable<Jurisdiccion> jurisdicciones = await jurisdiccionRepository.GetAllAsync();
+                return jurisdicciones.OrderBy(s => s.Name).ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
         public async Task<List<Socios>> GetAllSocios()
         {
-            //TODO: LOGICA DE ACTUALIZACION DE SOCIOS A PARTIR DEL LOGIN
-            //TODO: LOGICA DE ACTUALIZACION DE USUARIOS EN GENERAL CON CADA LOGIN
             try
             {
                 IEnumerable<Socios> socios = await sociosRepository.GetAllAsync();

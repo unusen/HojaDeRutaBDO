@@ -1,9 +1,10 @@
 services:
 
   web:
-    build:
-      context: .
-      dockerfile: HojaDeRuta/Dockerfile
+    #build:
+      #context: .
+      #dockerfile: HojaDeRuta/Dockerfile
+    image: hoja_web
     container_name: hoja_web
     depends_on:
       sqlserver:

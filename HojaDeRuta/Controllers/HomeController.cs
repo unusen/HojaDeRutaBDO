@@ -1,5 +1,6 @@
 using AutoMapper;
 using HojaDeRuta.Models;
+using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Models.Enums;
@@ -123,8 +124,9 @@ namespace HojaDeRuta.Controllers
                 _logger.LogInformation($"Ingreso al metodo Index {CurrentUser.UserName}");
 
                 _logger.LogInformation($"Datos del usuario:" +
-                    $" Nombre: {CurrentUser.UserName}. " +
-                    $" Nivel de acceso {nivel}. " +
+                    $" Nombre: {CurrentUser.UserName}." +
+                    $" Empleado: {CurrentUser.Empleado}." +
+                    $" Nivel de acceso: {nivel}." +
                     $" Mail: {CurrentUser.Email}." +
                     $" Area: {CurrentUser.Area}." +
                     $" Roles: {CurrentUser.Roles.Count}");
@@ -335,6 +337,16 @@ namespace HojaDeRuta.Controllers
 
                 await CargarViewBags(hoja, mode);
 
+                //hoja.RutaDoc = "O:\\Certificaciones Contables Tax\\GUERBET ARGENTINA LIMITED\\Certificacion copiado de libros\\2024\\WP\\LEGALIZAR";
+                string letraRutaDoc = hoja.RutaDoc.Substring(0, 1);
+                var urlBaseRutaDoc = await _sharedService.GetRutaByLetra(letraRutaDoc);
+                hoja.RutaDoc = urlBaseRutaDoc.Ruta + hoja.RutaDoc.Substring(2);
+
+                //hoja.RutaPapeles = "O:\\Certificaciones Contables Tax\\GUERBET ARGENTINA LIMITED\\Certificacion copiado de libros\\2024\\WP";
+                string letraRutaPapeles = hoja.RutaPapeles.Substring(0, 1);
+                var urlBaseRutaPapeles = await _sharedService.GetRutaByLetra(letraRutaPapeles);
+                hoja.RutaPapeles = urlBaseRutaPapeles.Ruta + hoja.RutaPapeles.Substring(2);
+
                 if (mode == ViewMode.Update)
                 {
                     _logger.LogInformation($"El usuario {CurrentUser.UserName} ingresó al modo Update");
@@ -398,10 +410,9 @@ namespace HojaDeRuta.Controllers
                             Cliente = cliente.RazonSocial,
                             Revisor = revisorActual
                         };
-
-                        var url = Url.Action(nameof(Upsert), "Home",
+                        var url = $"{Url.Action(nameof(Upsert), "Home",
                                 new { mode = ViewMode.Update, id = eMailBody.HojaId },
-                                    protocol: Request.Scheme);
+                                    protocol: Request.Scheme)}";
 
                         await _mailService.NotificarAprobacion(eMailBody, url);
 

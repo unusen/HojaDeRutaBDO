@@ -20,6 +20,7 @@ namespace HojaDeRuta.Services
         private readonly IGenericRepository<Socios> sociosRepository;
         private readonly IGenericRepository<Contratos> contratosRepository;
         private readonly IGenericRepository<Jurisdiccion> jurisdiccionRepository;
+        private readonly IGenericRepository<Rutas> rutasRepository;
         private readonly DBSettings dbSettings;
 
         public SharedService(
@@ -29,6 +30,7 @@ namespace HojaDeRuta.Services
             IGenericRepository<Socios> sociosRepository,
             IGenericRepository<Contratos> contratosRepository,
             IGenericRepository<Jurisdiccion> jurisdiccionRepository,
+            IGenericRepository<Rutas> rutasRepository,
             IOptions<DBSettings> dbSettings
             )
         {
@@ -38,6 +40,7 @@ namespace HojaDeRuta.Services
             this.sociosRepository = sociosRepository;
             this.contratosRepository = contratosRepository;
             this.jurisdiccionRepository = jurisdiccionRepository;
+            this.rutasRepository = rutasRepository;
             this.dbSettings = dbSettings.Value;
         }
 
@@ -220,6 +223,21 @@ namespace HojaDeRuta.Services
             try
             {
                 await contratosRepository.AddAsync(contrato);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        public async Task<Rutas> GetRutaByLetra(string letra)
+        {
+            try
+            {
+                Expression<Func<Rutas, bool>> entityName = s => s.Letra == letra;
+                Expression<Func<Rutas, Object>> order = s => s.Area;
+
+                return await rutasRepository.GetFirstOrLastAsync(entityName, order, false);
             }
             catch (Exception ex)
             {

@@ -23,6 +23,7 @@ namespace HojaDeRuta.DBContext
         public DbSet<Auditoria> AUDITORIAS { get; set; }
         public DbSet<HojaEstado> Hoja_Estado { get; set; }
         public DbSet<Jurisdiccion> Jurisdiccion { get; set; }
+        public DbSet<Rutas> RUTAS { get; set; }
 
 
 
@@ -43,6 +44,7 @@ namespace HojaDeRuta.DBContext
             modelBuilder.Entity<Revisores>().HasNoKey();
             modelBuilder.Entity<Socios>().HasNoKey();
             modelBuilder.Entity<Jurisdiccion>().HasNoKey();
+            modelBuilder.Entity<Rutas>().HasNoKey();
         }
     }
 

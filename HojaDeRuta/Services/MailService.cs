@@ -4,6 +4,7 @@ using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Models.Enums;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using PuppeteerSharp.Media;
 using System.Net;
 using System.Net.Mail;
 
@@ -28,6 +29,7 @@ namespace HojaDeRuta.Services
         public async Task NotificarAprobacion(EMailBody eMailBody, string urlRedireccion)
         {
             _logger.LogInformation($"Notificación de aprobación de etapa" +
+                $" con redireccion a la ruta {urlRedireccion}" +
                 $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
 
             try
@@ -54,6 +56,7 @@ namespace HojaDeRuta.Services
         public async Task NotificarRechazo(EMailBody eMailBody, string rechazador, string urlRedireccion)
         {
             _logger.LogInformation($"Notificación de rechazo de etapa" +
+                $" con redireccion a la ruta {urlRedireccion}" +
                 $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
 
             try
@@ -80,7 +83,8 @@ namespace HojaDeRuta.Services
         public async Task NotificarFirma(EMailBody eMailBody, string firmante, string urlRedireccion)
         {
             _logger.LogInformation($"Notificación de firma de hoja" +
-               $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
+                $" con redireccion a la ruta {urlRedireccion}" +
+                $" con el objeto {JsonConvert.SerializeObject(eMailBody)}");
             try
             {
                 string subject = $"La hoja de ruta {eMailBody.NumeroHoja}" +
@@ -105,7 +109,8 @@ namespace HojaDeRuta.Services
         public async Task NotificarAccesoCruzado(Hoja hoja, string urlRedireccion)
         {
             _logger.LogInformation($"Notificación de accesos cruzados" +
-               $" para la hoja {hoja.Id}");
+                $" con redireccion a la ruta {urlRedireccion}" +
+                $" para la hoja {hoja.Id}");
 
             try
             {
@@ -147,17 +152,17 @@ namespace HojaDeRuta.Services
             {
                 string dominio = _mailSettings.Dominio;
 
-                //TODO: TEST
+                //TODO: TEST PARA ENVIO DE EMAIL
                 //destinatarios = new List<string>()
                 //{
-                //    "sebastian.katcheroff@gmail.com"
+                //    "sebastian.katcheroff@gbcservices.com"
                 //};
 
                 using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
                 {
                     client.EnableSsl = _mailSettings.EnableSsl;
                     client.UseDefaultCredentials = false;
-                    client.Credentials = null; // new NetworkCredential(_mailSettings.From, _mailSettings.Pass);
+                    client.Credentials = new NetworkCredential(_mailSettings.From, _mailSettings.Pass); //null; // 
 
                     _logger.LogInformation($"Obtencion de credenciales");
 
@@ -174,14 +179,15 @@ namespace HojaDeRuta.Services
                     foreach (var destinatario in destinatarios)
                     {
                         if (!string.IsNullOrWhiteSpace(destinatario))
-                        {
-                            //TODO: HABILITAR EN PROD
+                        {                            
                             message.To.Add($"{destinatario}{dominio}");
+
+                            //TODO: PARA PRUEBAS TEST
                             //message.To.Add(destinatario);
                         }
                     }
 
-                    //TODO: HABILITAR EN PROD (VER? POR AHORA NO!)
+                    //TODO: HABILITAR EN PROD (POR AHORA NO!)
                     //message.To.Add($"{destinatario}{dominio}");
                     //message.To.Add(destinatario);
 
@@ -208,18 +214,65 @@ namespace HojaDeRuta.Services
                 <p> Hola {eMailBody.Revisor.Detalle}:<p>
                 <p>Se le ha asignado la Hoja de Ruta <strong> Nº {eMailBody.NumeroHoja} </strong> para su revisión.</p>
                 <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>
-                <p> <strong>Ruta de papeles:</strong> {eMailBody.RutaPapeles} </p>
-                <p> <strong>Ruta del doc.:</strong> {eMailBody.RutaDoc} </p>
                 
+                <p> <strong>Ruta de papeles:</strong>
+                    <a href='{eMailBody.RutaPapeles}' style='color: #007bff; text-decoration: underline;'>
+                    Ir a Ruta de Papeles
+                    </a>
+                </p>
+
+                <p> <strong>Ruta del doc.:</strong>
+                    <a href='{eMailBody.RutaDoc}' style='color: #007bff; text-decoration: underline;'>
+                    Ir a Ruta de Documento
+                    </a>
+                </p>
+
                 <p style='margin-top:20px;'>
-                  <a href='{url}' 
+                    <!--[if mso]>
+                        <v:roundrect xmlns:v=""urn:schemas-microsoft-com:vml""
+                                     href='{url}'
+                                     style=""height:40px;v-text-anchor:middle;width:200px;""
+                                     arcsize=""10%""
+                                     strokecolor=""#354997""
+                                     fillcolor=""#354997"">
+                          <w:anchorlock/>
+                          <center style=""color:#ffffff;font-family:Arial,sans-serif;font-size:14px;"">
+                            Ver Hoja de Ruta
+                          </center>
+                        </v:roundrect>
+                    <![endif]-->
+
+                    <!--[if !mso]><!-- -->
+                        <a href='{url}'
+                           style=""display:inline-block;
+                                  background-color:#354997;
+                                  color:#ffffff;
+                                  padding:10px 15px;
+                                  text-decoration:none;
+                                  border-radius:5px;
+                                  font-family:Arial, sans-serif;"">
+                           Ver Hoja de Ruta
+                        </a>
+                    <!--<![endif]-->
+                </p>
+              </body>
+            </html>";
+
+            //CODIGO BOTON ANTERIOR
+            /*
+             <a href='{url}' 
                      style='background-color:#354997;color:#fff;padding:10px 15px;
                             text-decoration:none;border-radius:5px;'>
                      Ver Hoja de Ruta
                   </a>
-                </p>
-              </body>
-            </html>";
+
+
+            <a href='{url}' 
+                       style='color: #354997; font-family: Arial, sans-serif; font-weight: bold; text-decoration: none; font-size: 16px;'>
+                        Ver Hoja de Ruta
+                    </a>
+
+             */
         }
 
         public async Task<string> GetBodyInformarGestorFinal(string url, EMailBody eMailBody, string firmante)
@@ -229,20 +282,71 @@ namespace HojaDeRuta.Services
               <body style='font-family: Arial, sans-serif; color:#333;'>
                 <p> Hola {eMailBody.Revisor.Detalle}:<p>
                 <p>El socio {firmante} aprobó su Hoja de Ruta</p>
-                <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>
-                <p> <strong>Ruta de papeles:</strong> {eMailBody.RutaPapeles} </p>
-                <p> <strong>Ruta del doc.:</strong> {eMailBody.RutaDoc} </p>
+                <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>                
+                <p> <strong>Ruta de papeles:</strong>
+                    <a href='{eMailBody.RutaPapeles}' style='color: #007bff; text-decoration: underline;'>
+                    Ir a Ruta de Papeles
+                    </a>
+                </p>
+
+                <p> <strong>Ruta del doc.:</strong>
+                    <a href='{eMailBody.RutaDoc}' style='color: #007bff; text-decoration: underline;'>
+                    Ir a Ruta de Documento
+                    </a>
+                </p>
+
                 <p> <strong>Observaciones:</strong> {eMailBody.Observaciones} </p>
-                
+
                 <p style='margin-top:20px;'>
-                  <a href='{url}' 
-                     style='background-color:#354997;color:#fff;padding:10px 15px;
-                            text-decoration:none;border-radius:5px;'>
-                     Ver Hoja de Ruta
-                  </a>
+                    <!--[if mso]>
+                        <v:roundrect xmlns:v=""urn:schemas-microsoft-com:vml""
+                                     href='{url}'
+                                     style=""height:40px;v-text-anchor:middle;width:200px;""
+                                     arcsize=""10%""
+                                     strokecolor=""#354997""
+                                     fillcolor=""#354997"">
+                          <w:anchorlock/>
+                          <center style=""color:#ffffff;font-family:Arial,sans-serif;font-size:14px;"">
+                            Ver Hoja de Ruta
+                          </center>
+                        </v:roundrect>
+                    <![endif]-->
+
+                    <!--[if !mso]><!-- -->
+                        <a href='{url}'
+                           style=""display:inline-block;
+                                  background-color:#354997;
+                                  color:#ffffff;
+                                  padding:10px 15px;
+                                  text-decoration:none;
+                                  border-radius:5px;
+                                  font-family:Arial, sans-serif;"">
+                           Ver Hoja de Ruta
+                        </a>
+                    <!--<![endif]-->
                 </p>
               </body>
             </html>";
+
+            //return $@"
+            //<html>
+            //  <body style='font-family: Arial, sans-serif; color:#333;'>
+            //    <p> Hola {eMailBody.Revisor.Detalle}:<p>
+            //    <p>El socio {firmante} aprobó su Hoja de Ruta</p>
+            //    <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>
+            //    <p> <strong>Ruta de papeles:</strong> {eMailBody.RutaPapeles} </p>
+            //    <p> <strong>Ruta del doc.:</strong> {eMailBody.RutaDoc} </p>
+            //    <p> <strong>Observaciones:</strong> {eMailBody.Observaciones} </p>
+                
+            //    <p style='margin-top:20px;'>
+            //      <a href='{url}' 
+            //         style='background-color:#354997;color:#fff;padding:10px 15px;
+            //                text-decoration:none;border-radius:5px;'>
+            //         Ver Hoja de Ruta
+            //      </a>
+            //    </p>
+            //  </body>
+            //</html>";
         }
 
         public async Task<string> GetBodyInformarRechazo(string url, EMailBody eMailBody, string rechazador)
@@ -253,23 +357,76 @@ namespace HojaDeRuta.Services
                 <p> Hola {eMailBody.Revisor.Detalle}:<p>
                 <p>La hoja de Ruta <strong> Nº {eMailBody.NumeroHoja} </strong> fue rechazada por <strong>{rechazador}.</strong></p>
 
-                {(!String.IsNullOrWhiteSpace(eMailBody.MotivoDeRechazo)
+                   {(!String.IsNullOrWhiteSpace(eMailBody.MotivoDeRechazo)
                         ? $"<p> <strong> Motivo de rechazo: </strong> {eMailBody.MotivoDeRechazo} </p>"
                         : "")}
 
-                <p> <strong> Sector: </strong> {eMailBody.Sector} - <strong> Número: </strong> {eMailBody.NumeroHoja} </p>
-                <p> <strong> Ruta de papeles: </strong> {eMailBody.RutaPapeles} </p>
-                <p> <strong> Ruta del doc.: </strong> {eMailBody.RutaDoc} </p>
+                <p> <strong>Sector:</strong> {eMailBody.Sector} - <strong> Número:</strong> {eMailBody.NumeroHoja} </p>                
+                <p> <strong>Ruta de papeles:</strong>
+                    <a href='{eMailBody.RutaPapeles}' style='color: #007bff; text-decoration: underline;'>
+                    Ir a Ruta de Papeles
+                    </a>
+                </p>
+
+                <p> <strong>Ruta del doc.:</strong>
+                    <a href='{eMailBody.RutaDoc}' style='color: #007bff; text-decoration: underline;'>
+                    Ir a Ruta de Documento
+                    </a>
+                </p>
 
                 <p style='margin-top:20px;'>
-                  <a href='{url}' 
-                     style='background-color:#354997;color:#fff;padding:10px 15px;
-                            text-decoration:none;border-radius:5px;'>
-                     Ver Hoja de Ruta
-                  </a>
+                    <!--[if mso]>
+                        <v:roundrect xmlns:v=""urn:schemas-microsoft-com:vml""
+                                     href='{url}'
+                                     style=""height:40px;v-text-anchor:middle;width:200px;""
+                                     arcsize=""10%""
+                                     strokecolor=""#354997""
+                                     fillcolor=""#354997"">
+                          <w:anchorlock/>
+                          <center style=""color:#ffffff;font-family:Arial,sans-serif;font-size:14px;"">
+                            Ver Hoja de Ruta
+                          </center>
+                        </v:roundrect>
+                    <![endif]-->
+
+                    <!--[if !mso]><!-- -->
+                        <a href='{url}'
+                           style=""display:inline-block;
+                                  background-color:#354997;
+                                  color:#ffffff;
+                                  padding:10px 15px;
+                                  text-decoration:none;
+                                  border-radius:5px;
+                                  font-family:Arial, sans-serif;"">
+                           Ver Hoja de Ruta
+                        </a>
+                    <!--<![endif]-->
                 </p>
               </body>
             </html>";
+            //return $@"
+            //<html>
+            //  <body style='font-family: Arial, sans-serif; color:#333;'>
+            //    <p> Hola {eMailBody.Revisor.Detalle}:<p>
+            //    <p>La hoja de Ruta <strong> Nº {eMailBody.NumeroHoja} </strong> fue rechazada por <strong>{rechazador}.</strong></p>
+
+            //    {(!String.IsNullOrWhiteSpace(eMailBody.MotivoDeRechazo)
+            //            ? $"<p> <strong> Motivo de rechazo: </strong> {eMailBody.MotivoDeRechazo} </p>"
+            //            : "")}
+
+            //    <p> <strong> Sector: </strong> {eMailBody.Sector} - <strong> Número: </strong> {eMailBody.NumeroHoja} </p>
+            //    <p> <strong> Ruta de papeles: </strong> {eMailBody.RutaPapeles} </p>
+            //    <p> <strong> Ruta del doc.: </strong> {eMailBody.RutaDoc} </p>
+
+            //    <p style='margin-top:20px;'>
+            //      <a href='{url}' 
+            //         style='background-color:#354997;color:#fff;padding:10px 15px;
+            //                text-decoration:none;border-radius:5px;'>
+            //         Ver Hoja de Ruta
+            //      </a>
+            //    </p>
+            //  </body>
+            //</html>";
         }
 
         public async Task<string> GetBodyInformarAccesoCruzado(string url, Hoja hoja, string socioLider)
@@ -279,16 +436,54 @@ namespace HojaDeRuta.Services
               <body style='font-family: Arial, sans-serif; color:#333;'>
                 <p> Hola {socioLider}:<p>
                 <p> El socio {hoja.SocioFirmante} solicita acceso a la carpeta
-                   {hoja.RutaPapeles} para la revisión de la Hoja de Ruta {hoja.Numero}</p>
+                   {hoja.RutaPapeles} para la revisión de la Hoja de Ruta {hoja.Numero}
+                </p>
+
                 <p style='margin-top:20px;'>
-                  <a href='{url}' 
-                     style='background-color:#354997;color:#fff;padding:10px 15px;
-                            text-decoration:none;border-radius:5px;'>
-                     Ver Hoja de Ruta
-                  </a>
+                    <!--[if mso]>
+                        <v:roundrect xmlns:v=""urn:schemas-microsoft-com:vml""
+                                     href='{url}'
+                                     style=""height:40px;v-text-anchor:middle;width:200px;""
+                                     arcsize=""10%""
+                                     strokecolor=""#354997""
+                                     fillcolor=""#354997"">
+                          <w:anchorlock/>
+                          <center style=""color:#ffffff;font-family:Arial,sans-serif;font-size:14px;"">
+                            Ver Hoja de Ruta
+                          </center>
+                        </v:roundrect>
+                    <![endif]-->
+
+                    <!--[if !mso]><!-- -->
+                        <a href='{url}'
+                           style=""display:inline-block;
+                                  background-color:#354997;
+                                  color:#ffffff;
+                                  padding:10px 15px;
+                                  text-decoration:none;
+                                  border-radius:5px;
+                                  font-family:Arial, sans-serif;"">
+                           Ver Hoja de Ruta
+                        </a>
+                    <!--<![endif]-->
                 </p>
               </body>
             </html>";
+            //return $@"
+            //<html>
+            //  <body style='font-family: Arial, sans-serif; color:#333;'>
+            //    <p> Hola {socioLider}:<p>
+            //    <p> El socio {hoja.SocioFirmante} solicita acceso a la carpeta
+            //       {hoja.RutaPapeles} para la revisión de la Hoja de Ruta {hoja.Numero}</p>
+            //    <p style='margin-top:20px;'>
+            //      <a href='{url}' 
+            //         style='background-color:#354997;color:#fff;padding:10px 15px;
+            //                text-decoration:none;border-radius:5px;'>
+            //         Ver Hoja de Ruta
+            //      </a>
+            //    </p>
+            //  </body>
+            //</html>";
         }
 
         public async Task<string> GetBodyNotificacionSemanal(HojaPendiente pendiente)

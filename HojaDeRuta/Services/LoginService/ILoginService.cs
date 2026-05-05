@@ -1,4 +1,5 @@
 ﻿using HojaDeRuta.Models.Config;
+using HojaDeRuta.Models.DTO;
 using Microsoft.Graph;
 
 namespace HojaDeRuta.Services.LoginService
@@ -11,6 +12,6 @@ namespace HojaDeRuta.Services.LoginService
         Task<string> GetUserAreaAsync();
         Task<string> GetUserCargoAsync();
         Task<IList<GroupConfig>> GetUserGroupsAsync();
-        Task SyncUsuariosLogueados(string? UserName, string? Email, string? Area, string? Cargo, IList<GroupConfig> Roles);
+        Task SyncUsuariosLogueados (UserContext CurrentUser);
     }
 }

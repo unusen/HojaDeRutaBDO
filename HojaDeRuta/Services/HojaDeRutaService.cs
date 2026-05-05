@@ -305,7 +305,7 @@ namespace HojaDeRuta.Services
         {
             _logger.LogInformation($"Validar la habilitación de botones de la hoja {hoja.Id} para el usuario {usuarioActual} ");
 
-            if (usuarioActual != hoja.Manejador)
+            if (usuarioActual.ToUpper() != hoja.Manejador.ToUpper())
             {
                 _logger.LogError($"El usuario {usuarioActual} no puede ser diferente" +
                     $" al manejador {hoja.Manejador} de la hoja {hoja.Id}");
@@ -316,7 +316,8 @@ namespace HojaDeRuta.Services
             _logger.LogInformation($"Validar los estados de la hoja {hoja.Id}");
 
             var estado = hoja.HojaEstados.
-                Where(e => e.HojaId == hoja.Id && e.Revisor == usuarioActual).FirstOrDefault();
+                Where(e => e.HojaId == hoja.Id && 
+                e.Revisor.ToUpper() == usuarioActual.ToUpper()).FirstOrDefault();
 
             if (estado != null)
             {

@@ -4,6 +4,7 @@
     using DocumentFormat.OpenXml.Wordprocessing;
     using HojaDeRuta.Models.Config;
     using HojaDeRuta.Models.DAO;
+    using HojaDeRuta.Models.DTO;
     using HojaDeRuta.Services.Repository;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Options;
@@ -227,15 +228,33 @@
             }
         }
 
-        public async Task SyncUsuariosLogueados(
-            string? UserName,
-            string? Email,
-            string? Area,
-            string? Cargo,
-            IList<GroupConfig> Roles)
+        public async Task SyncUsuariosLogueados(UserContext CurrentUser)
         {
-            //TODO: GENERAR SP Y METODO PARA SYNC USUARIOS EN CADA LOGUEO
-            var spName = _dbSettings.Sp["SyncUsuariosLogueados"].ToString();
+            try
+            {
+                _logger.LogInformation($"Inicio de SyncUsuariosLogueados");
+
+                var spName = _dbSettings.Sp["sp_sync_usuarios"].ToString();
+
+                _logger.LogInformation($"Llamada al sp {spName}");
+
+                var parameters = new Dictionary<string, object>
+                {
+                    { "username", CurrentUser.UserName },
+                    { "empleado ", CurrentUser.Empleado },
+                    { "area", CurrentUser.Area },
+                    { "nivel", CurrentUser.Roles.FirstOrDefault().Nivel}
+                };
+
+                _logger.LogInformation($"Envio de parametros {parameters}");
+
+                var hojas = await _revisorRepository.ExecuteStoredProcedureDynamicAsync(spName, parameters);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error al sincronizar nuevos usuarios. {ex.Message}");
+                throw new Exception();
+            }
         }
     }
 

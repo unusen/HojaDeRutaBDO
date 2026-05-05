@@ -114,16 +114,21 @@ namespace HojaDeRuta.Services.Repository
 
         public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
         {
-            _logger.LogInformation($"Find para la entidad {typeof(T).Name} con el predicado {predicate.Body}");
-            
+            _logger.LogInformation($"Find para la entidad {typeof(T).Name} con el predicado {predicate.ToString()}");
 
             if (predicate == null)
             {
+                _logger.LogError($"El predicado no puede ser nulo para la entidad {typeof(T).Name}");
                 throw new ArgumentNullException(nameof(predicate));
             }
             try
             {
-                return await _dbSet.Where(predicate).ToListAsync();
+                //return await _dbSet.Where(predicate).ToListAsync();
+                var query = _dbSet.Where(predicate);
+
+                _logger.LogInformation(query.ToQueryString());
+
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {

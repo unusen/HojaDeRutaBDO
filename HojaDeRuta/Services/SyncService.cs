@@ -17,14 +17,17 @@ namespace HojaDeRuta.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly SyncSettings _syncSettings;
+        private readonly ILogger<SyncService> _logger;
 
         public SyncService(
             IServiceProvider serviceProvider,
-            IOptions<SyncSettings> options
+            IOptions<SyncSettings> options,
+            ILogger<SyncService> logger
             )
         {
             _serviceProvider = serviceProvider;
             _syncSettings = options.Value;
+            _logger = logger;
         }
 
         //protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -60,10 +63,13 @@ namespace HojaDeRuta.Services
             while (!stoppingToken.IsCancellationRequested)
             {
                 var now = DateTime.Now;
+                _logger.LogInformation($"Ejecucion del Sync Service {now}");
 
                 // --- Ejecución diaria ---
                 var nextRunDaily = new DateTime(now.Year, now.Month, now.Day, _syncSettings.SyncClientesRunHour, _syncSettings.SyncClientesRunMinute, 0);
                 if (now > nextRunDaily) nextRunDaily = nextRunDaily.AddDays(1);
+
+                _logger.LogInformation($"nextRunDaily {nextRunDaily}");
 
                 // --- Ejecución semanal ---
                 var weeklyDay = Enum.Parse<DayOfWeek>(_syncSettings.NotificacionSemanalDay);
@@ -73,6 +79,8 @@ namespace HojaDeRuta.Services
 
                 var nextRunWeekly = new DateTime(now.Year, now.Month, now.Day,
                     _syncSettings.NotificacionSemanalHour, _syncSettings.NotificacionSemanalMinute, 0).AddDays(daysUntilWeekly);
+
+                _logger.LogInformation($"nextRunWeekly {nextRunWeekly}");
 
                 if (nextRunWeekly <= now)
                 {
@@ -86,18 +94,41 @@ namespace HojaDeRuta.Services
 
                 if (DateTime.Now >= nextRunDaily && DateTime.Now < nextRunDaily.AddMinutes(1))
                 {
-                    //try { await SyncContacts(stoppingToken); }
-                    //    catch (Exception ex) { throw new Exception(ex.Message); }
+                    _logger.LogInformation($"Comienzo de ejecucion diaria");
 
-                    try { await SyncContratos(stoppingToken); }
-                    catch (Exception ex) { throw new Exception(ex.Message); }
+                    try
+                    {
+                        await SyncContacts(stoppingToken);
+                    }
+                    catch (Exception ex) 
+                    {
+                        _logger.LogError($"Error al ejecutar SyncContacts. Detalle {ex.Message} ");
+                        throw new Exception(ex.Message);
+                    }
 
-                    //await SyncContacts(stoppingToken);
+                    try 
+                    {
+                        await SyncContratos(stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error al ejecutar SyncContratos. Detalle {ex.Message} ");
+                        throw new Exception(ex.Message);
+                    }
                 }
 
                 if (DateTime.Now >= nextRunWeekly && DateTime.Now < nextRunWeekly.AddMinutes(1))
                 {
-                    await NotificacionHojasPendientes(stoppingToken);
+                    try
+                    {
+                        await NotificacionHojasPendientes(stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error al ejecutar NotificacionHojasPendientes. Detalle {ex.Message} ");
+                        throw;
+                    }
+                    
                 }
             }
         }
@@ -120,9 +151,13 @@ namespace HojaDeRuta.Services
             try
             {
                 DateTime? lastSync = await GetLastSync("Clientes_Creatio");
-                //lastSync = new DateTime(2024, 09, 06, 15, 16, 0);
+                //lastSync = DateTime.MinValue;
+
+                _logger.LogInformation($"Last sync obtenido {lastSync}");
 
                 List<Account> ClientesCreatio = _creatioService.GetClientesByCreatedOn(lastSync.Value);
+
+                _logger.LogInformation($"Clientes obtenidos de Creatio {ClientesCreatio.Count}");
 
                 List<Clientes> clientes = new List<Clientes>();
 
@@ -150,11 +185,14 @@ namespace HojaDeRuta.Services
 
                 if (clientes.Count == 0)
                 {
+                    _logger.LogInformation($"No se obtuvieron clientes para integrar");
+
                     syncControl.LastSyncDate = DateTime.UtcNow;
                     syncControl.Result = "No se obtuvieron clientes para integrar";
                 }
                 else
                 {
+                    _logger.LogInformation($"Comienzo de create clientes para {clientes.Count} clientes");
                     await _clienteService.CreateClientes(clientes);
 
                     syncControl.LastSyncDate = DateTime.UtcNow;
@@ -162,6 +200,8 @@ namespace HojaDeRuta.Services
                     syncControl.Result = ClientesCreatio.Count == 1
                         ? $"Se integró {ClientesCreatio.Count} nuevo cliente"
                         : $"Se integraron {ClientesCreatio.Count} nuevos clientes";
+
+                    _logger.LogInformation($"{syncControl.Result}");
                 }
 
                 await CreateSyncControl(syncControl);
@@ -176,6 +216,8 @@ namespace HojaDeRuta.Services
 
         public async Task NotificacionHojasPendientes(CancellationToken token)
         {
+            _logger.LogInformation($"Comienzo de NotificacionHojasPendientes");
+
             SyncControl syncControl = new SyncControl
             {
                 EntityName = "Email_Pendientes",
@@ -192,6 +234,8 @@ namespace HojaDeRuta.Services
             try
             {
                 List<HojaPendiente> pendientes = await _hojasService.GetHojasPendientes();
+
+                _logger.LogInformation($"Hojas pendientes para notificar {pendientes.Count}");
 
                 if (pendientes.Any())
                 {
@@ -213,23 +257,29 @@ namespace HojaDeRuta.Services
                     }
 
                     syncControl.Result = $"Se envió el correo semanal a {pendientes.Count} destinatarios.";
+
                 }
                 else
                 {
                     syncControl.Result = $"No se encontraron hojas pendientes para el envio semanal.";
                 }
 
+                _logger.LogInformation($"{syncControl.Result}");
+
                 await CreateSyncControl(syncControl);
             }
             catch (Exception ex)
             {
                 syncControl.Result = $"Error en envío semanal: {ex.Message}";
+                _logger.LogError($"Error al notificar hojas pendientes: {ex.Message}");
                 await CreateSyncControl(syncControl);
             }
         }
 
         public async Task SyncContratos(CancellationToken token)
         {
+            _logger.LogInformation($"Comienzo de SyncContratos");
+
             SyncControl syncControl = new SyncControl
             {
                 EntityName = "contratos_completo"
@@ -270,14 +320,20 @@ namespace HojaDeRuta.Services
                                         Contrato = reader.GetString(2)
                                     }
                                 );
+
+                                _logger.LogInformation($"Se obtuvo de la vista el contrato " +
+                                    $"{reader.GetString(2)} para el codigo plataforma {reader.GetString(1)}");
                             }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
+                    _logger.LogError($"Error al sincronizar contratos. Detalle: {ex.Message}");
                     throw new Exception(ex.Message);
                 }
+
+                _logger.LogInformation($"Busqueda de contratos en la base HDR");
 
                 //Obtener nombres de contratos de la base HDR
                 var contratosLocales = (await _sharedService.GetContratos())
@@ -286,9 +342,15 @@ namespace HojaDeRuta.Services
                     .Distinct()
                     .ToHashSet();
 
+                _logger.LogInformation($"Se obtuvieron {contratosLocales.Count} contratos en la base HDR.");
+
+                _logger.LogInformation($"Busqueda de diferencial de nuevos contratos.");
+
                 var nuevosContratos = vistaContratos
                     .Where(r => !contratosLocales.Contains(r.Contrato))
                     .ToList();
+
+                _logger.LogInformation($"Se obtuvieron {nuevosContratos.Count} nuevos contratos diferenciales.");
 
                 if (nuevosContratos.Count == 0)
                 {
@@ -303,12 +365,16 @@ namespace HojaDeRuta.Services
                     syncControl.Result = $"Se insertaron {nuevosContratos.Count} nuevos contratos.";
                 }
 
+                _logger.LogInformation($"{syncControl.Result}");
+
                 await CreateSyncControl(syncControl);
             }
             catch (Exception ex)
             {
                 syncControl.Result = $"Error al sincronizar contratos: {ex.Message}";
                 syncControl.LastSyncDate = DateTime.UtcNow;
+                _logger.LogError($"Error al sincronizar contratos. Detalle: {ex.Message}");
+
                 await CreateSyncControl(syncControl);
             }
         }
@@ -317,6 +383,8 @@ namespace HojaDeRuta.Services
         {
             try
             {
+                _logger.LogInformation($"Comienzo de GetLastSync para la entidad {EntityName}");
+
                 using var scope = _serviceProvider.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<HojasDbContext>();
                 var _syncControlRepository = scope.ServiceProvider.GetRequiredService<IGenericRepository<SyncControl>>();

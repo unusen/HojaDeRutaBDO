@@ -1,14 +1,9 @@
-﻿using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
-using HojaDeRuta.Controllers;
-using HojaDeRuta.Models.Config;
-using HojaDeRuta.Models.DAO;
-using HojaDeRuta.Models.DTO;
+﻿using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Services.LoginService;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages.Manage;
 
 public abstract class BaseController : Controller, IAsyncActionFilter
 {
@@ -48,7 +43,7 @@ public abstract class BaseController : Controller, IAsyncActionFilter
             CurrentUser = new UserContext
             {
                 UserName = _loginService.GetUserName(),
-                Empleado = _loginService.GetUserName().Split('@')[0],
+                Empleado = _loginService.GetUserEmail().Split('@')[0].ToUpper(),
                 Email = _loginService.GetUserEmail(),
                 Area = await _loginService.GetUserAreaAsync(),
                 //Cargo = await _loginService.GetUserCargoAsync(),
@@ -121,12 +116,13 @@ public abstract class BaseController : Controller, IAsyncActionFilter
             //    CurrentUser.Area = "BANK";  
             //}
 
-            await _loginService.SyncUsuariosLogueados(
-                CurrentUser.UserName,
-                CurrentUser.Email,
-                CurrentUser.Area,
-                CurrentUser.Cargo,
-                CurrentUser.Roles);
+            try
+            {
+                await _loginService.SyncUsuariosLogueados(CurrentUser);
+            }
+            catch (Exception)
+            {
+            }
         }
         catch (Exception ex)
         {

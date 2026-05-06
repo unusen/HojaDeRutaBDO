@@ -1,4 +1,4 @@
-﻿@using HojaDeRuta.Models.DAO
+@using HojaDeRuta.Models.DAO
 @using HojaDeRuta.Models.Enums
 @model HojaDeRuta.Models.DAO.Hoja
 
@@ -331,9 +331,9 @@
                             <div class="col-md-9">
                                 <div class="input-group input-group-sm">
                                     <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
-                                    <label for="archivo" class="input-group-text btn bg-bdo">
+                                    <label for="archivoRutaPapeles" class="input-group-text btn bg-bdo">
                                         <i class="bi bi-arrow-bar-up"></i>
-                                        <input type="file" id="archivo" class="d-none">
+                                        <input type="file" id="archivoRutaPapeles" class="d-none">
                                     </label>
                                 </div>
                                 <span asp-validation-for="RutaPapeles" class="text-danger small"></span>
@@ -350,9 +350,9 @@
                             <div class="col-md-9">
                                 <div class="input-group input-group-sm">
                                     <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
-                                    <label for="archivo" class="input-group-text btn bg-bdo">
+                                    <label for="archivoRutaDoc" class="input-group-text btn bg-bdo">
                                         <i class="bi bi-arrow-bar-up"></i>
-                                        <input type="file" id="archivo" class="d-none">
+                                        <input type="file" id="archivoRutaDoc" name="archivoDoc" class="d-none">
                                     </label>
                                 </div>
                                 <span asp-validation-for="RutaDoc" class="text-danger small"></span>
@@ -510,7 +510,21 @@
             inicializarSpinnerDescarga();
             isInitialLoad = false;
             validarGestorFinal();
+            inicializarEventosArchivo();
         })
+
+        function inicializarEventosArchivo() {
+            const archivoRutaDoc = document.getElementById('archivoRutaDoc');
+            const adjuntos = document.getElementById('adjuntos');
+
+            if (archivoRutaDoc && adjuntos) {
+                archivoRutaDoc.addEventListener('change', function () {
+                    if (this.files && this.files.length > 0) {
+                        adjuntos.value = this.files[0].name;
+                    }
+                });
+            }
+        }
 
         function inicializarModalConfirmacion() {
             debugger;

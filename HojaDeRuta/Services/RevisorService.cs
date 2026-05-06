@@ -30,8 +30,15 @@ namespace HojaDeRuta.Services
         {
             try
             {
+                //IEnumerable<Revisores> revisores = await revisoresRepository.GetAllAsync();
+                //return revisores.OrderBy(r => r.Detalle).ToList();
+
                 IEnumerable<Revisores> revisores = await revisoresRepository.GetAllAsync();
-                return revisores.OrderBy(r => r.Detalle).ToList();
+
+                return revisores
+                    .DistinctBy(r => r.Empleado)
+                    .OrderBy(r => r.Detalle)
+                    .ToList();
             }
             catch (Exception ex)
             {

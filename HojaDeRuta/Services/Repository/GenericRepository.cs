@@ -104,7 +104,9 @@ namespace HojaDeRuta.Services.Repository
 
             try
             {
-                return await _dbSet.ToListAsync();
+                var log3= $"Query EF para {typeof(T).Name}: {_dbSet.AsNoTracking().ToQueryString()}";
+
+                return await _dbSet.AsNoTracking().ToListAsync();
             }
             catch (Exception ex)
             {
@@ -124,7 +126,7 @@ namespace HojaDeRuta.Services.Repository
             try
             {
                 //return await _dbSet.Where(predicate).ToListAsync();
-                var query = _dbSet.Where(predicate);
+                var query = _dbSet.AsNoTracking().Where(predicate);
 
                 _logger.LogInformation(query.ToQueryString());
 
@@ -143,10 +145,10 @@ namespace HojaDeRuta.Services.Repository
         {
             if (getLast)
             {
-                return await _dbSet.Where(filter).OrderBy(orderBy).FirstOrDefaultAsync();
+                return await _dbSet.AsNoTracking().Where(filter).OrderBy(orderBy).FirstOrDefaultAsync();
             }
 
-            return await _dbSet.Where(filter).OrderByDescending(orderBy).FirstOrDefaultAsync();
+            return await _dbSet.AsNoTracking().Where(filter).OrderByDescending(orderBy).FirstOrDefaultAsync();
         }
 
         public async Task<bool> UpdateAsync(T entity)

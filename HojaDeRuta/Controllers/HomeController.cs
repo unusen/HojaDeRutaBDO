@@ -86,7 +86,7 @@ namespace HojaDeRuta.Controllers
             //     groupConfig
             // };
 
-            ////TODO: PARA TEST LOGIN, ELIMINAR EN PROD
+            //TODO: PARA TEST LOGIN, ELIMINAR EN PROD
             //CurrentUser = new UserContext
             //{
             //    UserName = "HDR_Testing",
@@ -983,6 +983,7 @@ namespace HojaDeRuta.Controllers
                                       $"{s.Detalle.ToLower()} ({r?.Area.ToUpperInvariant() ?? ""})"
                                   )
                               }).ToList();
+            
 
             ViewBag.Gestores = gestores.Select(c => new SelectListItem
             {

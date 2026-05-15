@@ -10,5 +10,7 @@ namespace HojaDeRuta.Models.DTO
         public string Area { get; set; }
         public string Cargo { get; set; }
         public IList<GroupConfig> Roles { get; set; }
+        public int HighestRole { get; set; }
+        public DateTimeOffset FetchedAtUtc { get; set; }
     }
 }

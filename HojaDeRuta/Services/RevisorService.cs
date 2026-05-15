@@ -1,4 +1,4 @@
-﻿using HojaDeRuta.Controllers;
+using HojaDeRuta.Controllers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Services.Repository;
@@ -42,7 +42,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener la lista completa de revisores.");
+                throw new Exception("No se pudo cargar el listado de revisores.", ex);
             }
         }
 
@@ -69,7 +70,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener revisores por nivel.");
+                throw new Exception("Ocurrió un error al filtrar los revisores por jerarquía.", ex);
             }
         }
 
@@ -142,7 +144,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al identificar el revisor actual para la hoja.");
+                throw new Exception("No se pudo determinar el revisor responsable en esta etapa.", ex);
             }
         }
 
@@ -235,8 +238,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error al obtener {(buscarAnterior ? "revisores anteriores" : "próximo revisor")} para la hoja {hoja.Id}. {ex.Message}");
-                throw new Exception($"Error al obtener revisores relacionados: {ex.Message}", ex);
+                _logger.LogError(ex, "Error al obtener revisores relacionados (buscando anterior: {BuscarAnterior}) para la hoja {HojaId}.", buscarAnterior, hoja?.Id ?? "N/A");
+                throw new Exception("Error al intentar identificar los responsables del flujo de firma.", ex);
             }
         }
 

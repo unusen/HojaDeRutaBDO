@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620">
+  <rect width="900" height="620" fill="#dfe7f1"/>
+  <rect x="180" y="110" width="540" height="360" rx="14" fill="#ffffff" stroke="#b8c4d6"/>
+  <rect x="180" y="110" width="540" height="56" rx="14" fill="#2f4b7c"/>
+  <text x="225" y="145" font-family="Arial, sans-serif" font-size="24" fill="#ffffff">Confirmar accion</text>
+
+  <text x="225" y="220" font-family="Arial, sans-serif" font-size="22" fill="#2b3645">Desea rechazar la hoja?</text>
+  <text x="225" y="275" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Motivo de rechazo</text>
+  <rect x="225" y="290" width="450" height="110" rx="8" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="245" y="330" font-family="Arial, sans-serif" font-size="16" fill="#66758a">Ingrese una explicacion clara para el preparador</text>
+  <text x="245" y="355" font-family="Arial, sans-serif" font-size="16" fill="#66758a">Ejemplo: falta documentacion o dato inconsistente</text>
+
+  <rect x="400" y="420" width="120" height="38" rx="6" fill="#2f9e44"/>
+  <text x="428" y="445" font-family="Arial, sans-serif" font-size="18" fill="#ffffff">Confirmar</text>
+  <rect x="540" y="420" width="120" height="38" rx="6" fill="#c92a2a"/>
+  <text x="575" y="445" font-family="Arial, sans-serif" font-size="18" fill="#ffffff">Cancelar</text>
+
+  <rect x="145" y="515" width="610" height="60" rx="10" fill="#ffffff" stroke="#b8c4d6"/>
+  <text x="175" y="552" font-family="Arial, sans-serif" font-size="18" fill="#23395d">Uso funcional: el rechazo detiene la hoja, guarda el motivo y notifica al preparador.</text>
+</svg>

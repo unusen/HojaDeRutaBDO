@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
@@ -22,6 +22,7 @@ namespace HojaDeRuta.Services
         private readonly IGenericRepository<Jurisdiccion> jurisdiccionRepository;
         private readonly IGenericRepository<Rutas> rutasRepository;
         private readonly DBSettings dbSettings;
+        private readonly ILogger<SharedService> _logger;
 
         public SharedService(
             IGenericRepository<TipoDocumento> tipoDocRepository,
@@ -31,7 +32,8 @@ namespace HojaDeRuta.Services
             IGenericRepository<Contratos> contratosRepository,
             IGenericRepository<Jurisdiccion> jurisdiccionRepository,
             IGenericRepository<Rutas> rutasRepository,
-            IOptions<DBSettings> dbSettings
+            IOptions<DBSettings> dbSettings,
+            ILogger<SharedService> logger
             )
         {
             this.tipoDocRepository = tipoDocRepository;
@@ -42,6 +44,7 @@ namespace HojaDeRuta.Services
             this.jurisdiccionRepository = jurisdiccionRepository;
             this.rutasRepository = rutasRepository;
             this.dbSettings = dbSettings.Value;
+            this._logger = logger;
         }
 
         public async Task<List<TipoDocumento>> GetTipoDocumentos()
@@ -53,7 +56,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener tipos de documento.");
+                throw new Exception("No se pudo cargar el catálogo de tipos de documento.", ex);
             }
         }
 
@@ -61,10 +65,8 @@ namespace HojaDeRuta.Services
         {
             try
             {
-                var tiposDoc = await GetTipoDocumentos();
-                TipoDocumento tipoDoc = tiposDoc.Where(t => t.NombreGenerico == nombreGenerico).FirstOrDefault();
-
-                return tipoDoc.Categoria == "Auditoria";
+                await Task.CompletedTask;
+                return string.Equals(nombreGenerico?.Trim(), "Informe del auditor", StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception ex)
             {
@@ -81,7 +83,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener listado de sectores.");
+                throw new Exception("No se pudo cargar el listado de sectores/áreas.", ex);
             }
         }
 
@@ -96,7 +99,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener sector por detalle: {Sector}", sectorDetalle);
+                throw new Exception("Error al intentar recuperar la información del sector especificado.", ex);
             }
         }
 
@@ -109,7 +113,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener listado de subáreas.");
+                throw new Exception("No se pudo cargar el catálogo de subáreas.", ex);
             }
         }
 
@@ -122,7 +127,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener listado de jurisdicciones.");
+                throw new Exception("No se pudo cargar el catálogo de jurisdicciones.", ex);
             }
         }
 
@@ -135,7 +141,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener el listado de socios.");
+                throw new Exception("No se pudo cargar el catálogo de socios.", ex);
             }
         }
 
@@ -150,7 +157,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al buscar socio por código: {Socio}", CodSocio);
+                throw new Exception("No se pudo recuperar la información del socio.", ex);
             }
         }
 
@@ -165,7 +173,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener socio líder mediante procedimiento almacenado.");
+                throw new Exception("No se pudo identificar al socio líder del área.", ex);
             }
         }
 
@@ -178,7 +187,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener el catálogo de contratos.");
+                throw new Exception("No se pudo cargar el listado de contratos.", ex);
             }
         }
 
@@ -202,7 +212,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al buscar contratos por código de plataforma: {Codigo}", CodigoPlataforma);
+                throw new Exception("Error al intentar recuperar los contratos vinculados.", ex);
             }
         }
 
@@ -214,7 +225,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al crear rango de contratos.");
+                throw new Exception("No se pudieron registrar los nuevos contratos en la base de datos.", ex);
             }
         }
 
@@ -226,7 +238,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al crear un contrato individual.");
+                throw new Exception("No se pudo persistir el contrato en la base de datos.", ex);
             }
         }
 
@@ -241,7 +254,24 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener la ruta de red para la letra: {Letra}", letra);
+                throw new Exception("No se pudo identificar la ruta de red correspondiente a la unidad especificada.", ex);
+            }
+        }
+
+        public async Task<List<Rutas>> GetRutas()
+        {
+            try
+            {
+                IEnumerable<Rutas> rutas = await rutasRepository.GetAllAsync();
+                return rutas
+                    .OrderBy(r => r.Letra)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener el catálogo completo de rutas.");
+                throw new Exception("No se pudo cargar el catálogo de rutas de red.", ex);
             }
         }
 

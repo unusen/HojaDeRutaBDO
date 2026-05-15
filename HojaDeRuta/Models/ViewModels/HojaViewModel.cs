@@ -1,4 +1,5 @@
-﻿using HojaDeRuta.Models.Enums;
+using HojaDeRuta.Models.Enums;
+using HojaDeRuta.Models.DTO;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -114,9 +115,14 @@ namespace HojaDeRuta.Models.ViewModels
         [Required(ErrorMessage = "Debe informar la ruta de papeles.")]
         public string RutaPapeles { get; set; }
 
-        [NotMapped]
-        [Required(ErrorMessage = "La carpeta de documento debe tener archivos.")]
         public string Adjuntos { get; set; }
+
+        public string? ArchivoTemp { get; set; }
+
+        public string? ArchivoHash { get; set; }
+
+        [NotMapped]
+        public List<HojaArchivoDescriptor> ArchivosAdjuntos { get; set; } = new();
 
         [Column("observaciones")]
         public string? Observaciones { get; set; }

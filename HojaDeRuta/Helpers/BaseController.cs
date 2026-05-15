@@ -1,5 +1,5 @@
-﻿using HojaDeRuta.Models.DTO;
-using HojaDeRuta.Services.LoginService;
+using HojaDeRuta.Models.DTO;
+using HojaDeRuta.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,21 +7,18 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 public abstract class BaseController : Controller, IAsyncActionFilter
 {
-    protected UserContext CurrentUser { get; private set; }
+    protected UserContext CurrentUser { get; private set; } = new();
     protected string? UserError { get; private set; }
 
-    private readonly ILoginService _loginService;
+    private readonly IUserContextCacheService _userContextCacheService;
 
-    public BaseController(ILoginService loginService)
+    protected BaseController(IUserContextCacheService userContextCacheService)
     {
-        _loginService = loginService;
+        _userContextCacheService = userContextCacheService;
     }
 
-    public async Task OnActionExecutionAsync(
-        ActionExecutingContext context,
-        ActionExecutionDelegate next)
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-
         var endpoint = context.HttpContext.GetEndpoint();
         if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
         {
@@ -40,89 +37,7 @@ public abstract class BaseController : Controller, IAsyncActionFilter
 
         try
         {
-            CurrentUser = new UserContext
-            {
-                UserName = _loginService.GetUserName(),
-                Empleado = _loginService.GetUserEmail().Split('@')[0].ToUpper(),
-                Email = _loginService.GetUserEmail(),
-                Area = await _loginService.GetUserAreaAsync(),
-                //Cargo = await _loginService.GetUserCargoAsync(),
-                Roles = await _loginService.GetUserGroupsAsync()
-            };
-
-            //TODO TEST:
-            //if (CurrentUser.UserName == "HDR_Testing_1")
-            //{
-            //    CurrentUser.Area = "AUDI";
-            //    GroupConfig groupConfig = new GroupConfig
-            //    {
-            //        Name = "HDR_Socios_General",
-            //        GroupId = "827621be-0983-4006-8754-e1528da50706",
-            //        Nivel = 9
-            //    };
-            //    IList<GroupConfig> roles = new List<GroupConfig>
-            //    {
-            //         groupConfig
-            //    };
-            //    CurrentUser.Roles = roles;
-            //}
-            //else if (CurrentUser.UserName == "HDR_Testing_2")
-            //{
-            //    CurrentUser.Area = "BANK";
-            //    GroupConfig groupConfig = new GroupConfig
-            //    {
-            //        Name = "HDR_Directores",
-            //        GroupId = "",
-            //        Nivel = 8
-            //    };
-            //    IList<GroupConfig> roles = new List<GroupConfig>
-            //    {
-            //         groupConfig
-            //    };
-            //    CurrentUser.Roles = roles;
-            //}
-            //else if (CurrentUser.UserName == "HDR_Testing_3")
-            //{
-            //    CurrentUser.Area = "BANK";
-            //    GroupConfig groupConfig = new GroupConfig
-            //    {
-            //        Name = "HDR_Supervisores",
-            //        GroupId = "",
-            //        Nivel = 6
-            //    };
-            //    IList<GroupConfig> roles = new List<GroupConfig>
-            //    {
-            //         groupConfig
-            //    };
-            //    CurrentUser.Roles = roles;
-            //}
-            //else if (CurrentUser.UserName == "HDR_Testing_4")
-            //{
-            //    CurrentUser.Area = "BANK";
-            //    GroupConfig groupConfig = new GroupConfig
-            //    {
-            //        Name = "HDR_Gestores",
-            //        GroupId = "bb28f657-54dd-426f-b75a-2ddb0bde6ca4",
-            //        Nivel = 4
-            //    };
-            //    IList<GroupConfig> roles = new List<GroupConfig>
-            //    {
-            //         groupConfig
-            //    };
-            //    CurrentUser.Roles = roles;
-            //}
-            //else if (CurrentUser.UserName == "HDR_Testing")
-            //{
-            //    CurrentUser.Area = "BANK";  
-            //}
-
-            try
-            {
-                await _loginService.SyncUsuariosLogueados(CurrentUser);
-            }
-            catch (Exception)
-            {
-            }
+            CurrentUser = await _userContextCacheService.GetCurrentUserAsync(context.HttpContext.RequestAborted);
         }
         catch (Exception ex)
         {

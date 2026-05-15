@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -12,6 +12,7 @@ using PuppeteerSharp.Media;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using A = DocumentFormat.OpenXml.Drawing;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Border = DocumentFormat.OpenXml.Spreadsheet.Border;
@@ -24,6 +25,7 @@ using ParagraphProperties = DocumentFormat.OpenXml.Wordprocessing.ParagraphPrope
 using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
 using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
 using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
+using System.Security.Cryptography;
 
 
 
@@ -40,6 +42,46 @@ namespace HojaDeRuta.Services
         {
             _logger = logger;
             _pathSettings = pathSettings.Value;
+        }
+
+        public string GetFinalRoot()
+        {
+            if (!string.IsNullOrWhiteSpace(_pathSettings.FinalRoot))
+            {
+                return _pathSettings.FinalRoot;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_pathSettings.PathBase))
+            {
+                return _pathSettings.PathBase;
+            }
+
+            return Path.Combine(AppContext.BaseDirectory, "storage", "final");
+        }
+
+        public string GetTempRoot()
+        {
+            if (!string.IsNullOrWhiteSpace(_pathSettings.TempRoot))
+            {
+                return _pathSettings.TempRoot;
+            }
+
+            return Path.Combine(GetFinalRoot(), "Temp");
+        }
+
+        public string GetTempFilePath(string tempFileName)
+        {
+            return Path.Combine(GetTempRoot(), tempFileName);
+        }
+
+        public bool TempFileExists(string? tempFileName)
+        {
+            if (string.IsNullOrWhiteSpace(tempFileName))
+            {
+                return false;
+            }
+
+            return File.Exists(GetTempFilePath(tempFileName));
         }
 
         public async Task<byte[]> GetPdfFromHtml(string html)
@@ -489,8 +531,8 @@ namespace HojaDeRuta.Services
                 byte[] pdfBytes = await GetPdfFromHtml(html);
                 _logger.LogInformation($"Bytes PDF generados correctamente");
 
-                string pathBase = _pathSettings.PathBase;
-                string pdfFolderPath = Path.Combine(pathBase, folder);
+                string finalRoot = GetFinalRoot();
+                string pdfFolderPath = Path.Combine(finalRoot, folder);
                 _logger.LogInformation($"Carpeta destino: {pdfFolderPath}");
 
                 Directory.CreateDirectory(pdfFolderPath);
@@ -503,9 +545,180 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(
-                    $"Error al guardar el PDF en la ruta de sistemas. {ex.Message}");
+                _logger.LogError(ex, "Error al guardar el PDF final {FileName} en la carpeta {Folder}", fileName, folder);
+                throw new Exception("Ocurrió un error al intentar guardar el documento PDF generado. Verifique los permisos de escritura en el servidor de archivos.", ex);
             }
+        }
+
+        public async Task SaveUploadedFile(IFormFile file, string folder, string fileName)
+        {
+            try
+            {
+                _logger.LogInformation($"Firma - Iniciando guardado de archivo físico. Nombre base: {fileName}");
+
+                if (file == null)
+                {
+                    _logger.LogError("Firma - El objeto IFormFile es nulo.");
+                    throw new Exception("El archivo proporcionado es nulo.");
+                }
+
+                if (file.Length == 0)
+                {
+                    _logger.LogError("Firma - El archivo tiene un tamaño de 0 bytes.");
+                    throw new Exception("El archivo proporcionado está vacío.");
+                }
+
+                _logger.LogInformation($"Firma - Archivo recibido: {file.FileName}, Tamaño: {file.Length} bytes, ContentType: {file.ContentType}");
+
+                string finalRoot = GetFinalRoot();
+                string folderPath = Path.Combine(finalRoot, folder);
+                _logger.LogInformation($"Firma - Carpeta destino construida: {folderPath} (basada en FinalRoot: {finalRoot} y Folder: {folder})");
+
+                if (!Directory.Exists(folderPath))
+                {
+                    _logger.LogInformation($"Firma - Creando directorio inexistente: {folderPath}");
+                    Directory.CreateDirectory(folderPath);
+                }
+
+                string fileExtension = Path.GetExtension(file.FileName);
+                string fullFileName = $"{fileName}{fileExtension}";
+                string fullPath = Path.Combine(folderPath, fullFileName);
+                _logger.LogInformation($"Firma - Ruta completa final: {fullPath}");
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                    _logger.LogInformation("Firma - Copia de stream al archivo físico completada exitosamente.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Firma - Excepción capturada en SaveUploadedFile para el archivo {FileName} en {Folder}", fileName, folder);
+                throw new Exception("No se pudo completar el guardado del archivo físico. Asegúrese de que la ruta de red sea accesible y tenga los permisos necesarios.", ex);
+            }
+        }
+
+        public async Task<(string fileName, string hash)> SaveToTempAsync(IFormFile file, string hojaId)
+        {
+            try
+            {
+                string tempFolder = GetTempRoot();
+                if (!Directory.Exists(tempFolder)) Directory.CreateDirectory(tempFolder);
+
+                string fileExtension = Path.GetExtension(file.FileName);
+                string tempFileName = $"{hojaId}_{Guid.NewGuid()}{fileExtension}";
+                string fullPath = Path.Combine(tempFolder, tempFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                string hash = await CalculateHashAsync(fullPath);
+                _logger.LogInformation($"Archivo guardado en TEMP: {tempFileName}, Hash: {hash}");
+
+                return (tempFileName, hash);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al guardar archivo temporal");
+                throw;
+            }
+        }
+
+        public async Task<string> CalculateHashAsync(string filePath)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                using (var stream = File.OpenRead(filePath))
+                {
+                    var hashBytes = await sha256.ComputeHashAsync(stream);
+                    return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                }
+            }
+        }
+
+        public async Task<string> FinalizeTempFileAsync(string tempFileName, string destinationFolder, string finalFileNameNoExt)
+        {
+            try
+            {
+                string tempPath = GetTempFilePath(tempFileName);
+                if (!File.Exists(tempPath)) throw new FileNotFoundException("Archivo temporal no encontrado");
+
+                string extension = Path.GetExtension(tempFileName);
+                string finalPath = Path.Combine(GetFinalRoot(), destinationFolder);
+                if (!Directory.Exists(finalPath)) Directory.CreateDirectory(finalPath);
+
+                string fullDestinationPath = Path.Combine(finalPath, $"{finalFileNameNoExt}{extension}");
+
+                File.Move(tempPath, fullDestinationPath, true);
+                _logger.LogInformation($"Archivo movido de TEMP a destino final: {fullDestinationPath}");
+
+                return fullDestinationPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al finalizar archivo desde TEMP");
+                throw;
+            }
+        }
+
+        public async Task<bool> VerifyHashAsync(string tempFileName, string? expectedHash)
+        {
+            if (string.IsNullOrWhiteSpace(expectedHash) || !TempFileExists(tempFileName))
+            {
+                return false;
+            }
+
+            string calculatedHash = await CalculateHashAsync(GetTempFilePath(tempFileName));
+            return string.Equals(calculatedHash, expectedHash, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public async Task<string> CopyTempFileToFinalAsync(string tempFileName, string destinationFolder, string finalFileNameNoExt)
+        {
+            string tempPath = GetTempFilePath(tempFileName);
+            if (!File.Exists(tempPath))
+            {
+                throw new FileNotFoundException("Archivo temporal no encontrado", tempPath);
+            }
+
+            string extension = Path.GetExtension(tempFileName);
+            string finalPath = Path.Combine(GetFinalRoot(), destinationFolder);
+            if (!Directory.Exists(finalPath))
+            {
+                Directory.CreateDirectory(finalPath);
+            }
+
+            string destinationPath = Path.Combine(finalPath, $"{finalFileNameNoExt}{extension}");
+
+            await using var sourceStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            await using var destinationStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await sourceStream.CopyToAsync(destinationStream);
+
+            _logger.LogInformation("Archivo temporal copiado a destino final: {DestinationPath}", destinationPath);
+            return destinationPath;
+        }
+
+        public async Task<string> CopyFileToFinalAsync(string sourcePath, string destinationFolder, string targetFileName)
+        {
+            if (!File.Exists(sourcePath))
+            {
+                throw new FileNotFoundException("Archivo de origen no encontrado", sourcePath);
+            }
+
+            string finalPath = Path.Combine(GetFinalRoot(), destinationFolder);
+            if (!Directory.Exists(finalPath))
+            {
+                Directory.CreateDirectory(finalPath);
+            }
+
+            string destinationPath = Path.Combine(finalPath, targetFileName);
+            await using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            await using var destinationStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await sourceStream.CopyToAsync(destinationStream);
+
+            _logger.LogInformation("Archivo copiado a destino final: {DestinationPath}", destinationPath);
+            return destinationPath;
         }
     }
 }

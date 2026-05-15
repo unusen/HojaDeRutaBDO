@@ -1,4 +1,4 @@
-﻿using HojaDeRuta.DBContext;
+using HojaDeRuta.DBContext;
 using HojaDeRuta.Helpers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Services;
@@ -13,11 +13,24 @@ using Microsoft.Identity.Web.UI;
 
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
+var hojaDbConnection = builder.Configuration.GetConnectionString("hojaDB");
+var vistaContratosConnection = builder.Configuration.GetConnectionString("vistaContratos");
+
+if (string.IsNullOrWhiteSpace(hojaDbConnection))
+{
+    throw new InvalidOperationException("Falta configurar ConnectionStrings:hojaDB.");
+}
+
+if (string.IsNullOrWhiteSpace(vistaContratosConnection))
+{
+    throw new InvalidOperationException("Falta configurar ConnectionStrings:vistaContratos.");
+}
+
 //builder.Services.AddDbContext<HojasDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration.GetConnectionString("hojaDB")));
 builder.Services.AddDbContext<HojasDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("hojaDB"),
+        hojaDbConnection,
         sqlOptions =>
         {
             sqlOptions.EnableRetryOnFailure(
@@ -30,7 +43,7 @@ builder.Services.AddDbContext<HojasDbContext>(options =>
 
 builder.Services.AddDistributedSqlServerCache(options =>
 {
-    options.ConnectionString = builder.Configuration.GetConnectionString("hojaDB");
+    options.ConnectionString = hojaDbConnection;
     options.SchemaName = "dbo";
     options.TableName = "TokenCache";
 });
@@ -168,11 +181,21 @@ builder.Services.AddScoped<HojaDeRutaService>();
 builder.Services.AddScoped<SharedService>();
 builder.Services.AddScoped<ClienteService>();
 builder.Services.AddScoped<RevisorService>();
+builder.Services.AddScoped<IHojaWorkflowService, HojaWorkflowService>();
+builder.Services.AddScoped<IUserContextCacheService, UserContextCacheService>();
+builder.Services.AddScoped<ICatalogCacheService, CatalogCacheService>();
+builder.Services.AddScoped<IRutaDocumentoService, RutaDocumentoService>();
+builder.Services.AddScoped<IHojaAttachmentService, HojaAttachmentService>();
 builder.Services.AddScoped<MailService>();
+builder.Services.AddScoped<INotificationDeliveryService, NotificationDeliveryService>();
 builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<IOperationProgressService, OperationProgressService>();
+builder.Services.AddSingleton<NotificationQueueService>();
+builder.Services.AddSingleton<INotificationQueueService>(sp => sp.GetRequiredService<NotificationQueueService>());
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddHostedService<SyncService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NotificationQueueService>());
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAutoMapper(cfg =>
@@ -180,8 +203,12 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddProfile<MappingProfile>();
 });
 
-//TODO: QUITAR EN PROD
-//builder.Logging.AddConsole();
+// Configuración de Logging para incluir Fecha y Hora globalmente
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+    options.UseUtcTimestamp = false; // Usa la hora local
+});
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -195,6 +222,29 @@ builder.Configuration.AddEnvironmentVariables();
 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<HojasDbContext>();
+    var dbConnection = db.Database.GetDbConnection();
+    var configuredConnectionString = db.Database.GetConnectionString();
+    var runtimeConnectionString = dbConnection.ConnectionString;
+
+    if (string.IsNullOrWhiteSpace(configuredConnectionString))
+    {
+        throw new InvalidOperationException("HojasDbContext se inicializo sin cadena de conexion configurada.");
+    }
+
+    if (string.IsNullOrWhiteSpace(runtimeConnectionString))
+    {
+        throw new InvalidOperationException(
+            $"HojasDbContext tiene configuracion, pero DbConnection llego sin cadena. " +
+            $"Provider: {db.Database.ProviderName ?? "(null)"}. " +
+            $"ConnectionType: {dbConnection.GetType().FullName}");
+    }
+
+    await db.Database.CanConnectAsync();
+}
 
 app.UseForwardedHeaders();
 

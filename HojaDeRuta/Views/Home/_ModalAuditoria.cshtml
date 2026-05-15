@@ -1,8 +1,8 @@
 ﻿@functions {
 
-    public string DisabledByDetail()
+    public string DisabledByAuditoriaReadOnly()
     {
-        return @ViewBag.Detail ? "disabled" : null;
+        return (bool)(ViewBag.AuditoriaReadOnly ?? true) ? "disabled" : null;
     }
 }
 
@@ -16,7 +16,8 @@
 
             <div class="modal-body">
                 <form id="formAuditoria">
-                    <fieldset disabled=@DisabledByDetail()>
+                    @Html.AntiForgeryToken()
+                    <fieldset disabled=@DisabledByAuditoriaReadOnly()>
                         <input type="hidden" id="HojaId" name="HojaId" value="@Model.Id" />
 
                         <div class="row mb-3">
@@ -98,7 +99,7 @@
 
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                @if (!@ViewBag.Detail)
+                @if (!(bool)(ViewBag.AuditoriaReadOnly ?? true))
                 {
                     <button type="button" class="btn btn-success" id="btnGuardarAuditoria" onclick="guardarAuditoria()">Guardar</button>
                 }

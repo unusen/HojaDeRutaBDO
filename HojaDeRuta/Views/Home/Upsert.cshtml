@@ -9,6 +9,16 @@
     bool botonesHabilitados = (bool)(ViewBag.HabilitarBotones ?? false);
     var estadosDeHoja = Model.HojaEstados.ToList();
     string rechazo = (ViewBag.Rechazo ?? "");
+    var workflowStageOrder = new[] { "Reviso", "RevisionGerente", "EngagementPartner", "SocioFirmante" };
+    var etapaActual = ViewBag.EtapaActual as string;
+
+    if (string.IsNullOrWhiteSpace(etapaActual))
+    {
+        etapaActual = Model.Estado == (int)Estado.Pendiente
+            ? workflowStageOrder.FirstOrDefault(stage =>
+                estadosDeHoja.Any(e => e.Etapa == stage && e.Estado == (int)Estado.Pendiente))
+            : null;
+    }
 }
 
 @functions {
@@ -32,6 +42,7 @@
                             ? "campoHabilitado" //clase css
                            : "";
     }
+
 }
 
 <div class="container-fluid content-wrapper">
@@ -40,12 +51,50 @@
 
     <div class="border border-2 rounded-3 p-3">
 
-        <form id="hojaForm" asp-action="Create" enctype="multipart/form-data">
+        <form id="hojaForm" asp-controller="Home" asp-action="Upsert" method="post" enctype="multipart/form-data">
+            @if (Model.Estado != (int)Estado.Aprobada)
+            {
+                <div id="contenedorErroresUnificado" class="alert alert-danger alert-dismissible fade show mb-3 @(ViewBag.ErrorArchivo == null ? "d-none" : "")" role="alert">
+                    <i class="bi bi-x-circle-fill me-2"></i>
+                    <strong>Atención: No se puede avanzar por los siguientes motivos:</strong>
+                    <ul id="listaErrores" class="mt-2 mb-0">
+                        @if (ViewBag.ErrorArchivo != null)
+                        {
+                            <li id="errorArchivoFisico" data-severity="error">
+                                <span>@ViewBag.ErrorArchivo</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2 py-0" onclick="reverificarArchivo('@Model.Id')" style="font-size: 0.75rem; vertical-align: middle;">
+                                    <i class="bi bi-arrow-clockwise"></i> Verificar ahora
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                
+                if (ViewBag.AdvertenciaArchivo != null)
+                {
+                    <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        @ViewBag.AdvertenciaArchivo
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+            }
+            @if (!string.IsNullOrWhiteSpace(ViewBag.AdvertenciaAuditoria as string))
+            {
+                <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>
+                    @ViewBag.AdvertenciaAuditoria
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
             <fieldset disabled=@DisabledByDetail()>
                 <div class="row">
                     <input type="hidden" asp-for="Id" />
                     <input type="hidden" id="Manejador" asp-for="Manejador" />
                     <input type="hidden" id="Estado" asp-for="Estado" />
+                    <input type="hidden" asp-for="ArchivoTemp" />
+                    <input type="hidden" asp-for="ArchivoHash" />
 
                     @if (Model.HojaEstados != null)
                     {
@@ -161,7 +210,7 @@
                         <label asp-for="ContratoPlataforma" class="form-label form-label-sm mb-0">Contrato Plataforma <span class="text-danger">*</span></label>
                     </div>
                     <div class="col-md-3">
-                        <select asp-for="ContratoPlataforma" id="ContratoPlataforma" class="form-select form-select-sm">
+                        <select asp-for="ContratoPlataforma" asp-items="@ViewBag.ContratosPlataforma" id="ContratoPlataforma" class="form-select form-select-sm">
                             <option value="">Seleccione Contrato Plataforma</option>
                         </select>
                         <span asp-validation-for="ContratoPlataforma" class="text-danger small"></span>
@@ -184,7 +233,7 @@
                             </div>
                         </div>
 
-                        <div class="row mt-3">
+                        <div class="row mt-3 @(string.Equals(etapaActual, "Reviso", StringComparison.OrdinalIgnoreCase) ? "workflow-stage-row is-current-stage" : "workflow-stage-row")">
                             <div class="col-md-2">
                                 <label for="Reviso" class="form-label fs-6">Revisó:</label>
                             </div>
@@ -204,7 +253,7 @@
                             </div>
                         </div>
 
-                        <div class="row mt-3">
+                        <div class="row mt-3 @(string.Equals(etapaActual, "RevisionGerente", StringComparison.OrdinalIgnoreCase) ? "workflow-stage-row is-current-stage" : "workflow-stage-row")">
                             <div class="col-md-2">
                                 <label for="RevisionGerente" class="form-label fs-6">Gerente/Dir.:</label>
                             </div>
@@ -224,7 +273,7 @@
                             </div>
                         </div>
 
-                        <div class="row mt-3">
+                        <div class="row mt-3 @(string.Equals(etapaActual, "EngagementPartner", StringComparison.OrdinalIgnoreCase) ? "workflow-stage-row is-current-stage" : "workflow-stage-row")">
                             <div class="col-md-2">
                                 <label for="EngagementPartner" class="form-label">Eng. Partner:</label>
                             </div>
@@ -245,9 +294,12 @@
                             </div>
                         </div>
 
-                        <div class="row mt-3">
+                        <div class="row mt-3 @(string.Equals(etapaActual, "SocioFirmante", StringComparison.OrdinalIgnoreCase) ? "workflow-stage-row is-current-stage" : "workflow-stage-row")">
                             <div class="col-md-2">
-                                <label for="SocioFirmante" class="form-label">Socio firmante: <span class="text-danger">*</span></label>
+                                <label for="SocioFirmante" class="form-label required-inline-label">
+                                    <span>Socio firmante:</span>
+                                    <span class="text-danger">*</span>
+                                </label>
                             </div>
                             <div class="col-md-5">
                                 <select asp-for="SocioFirmante" asp-items="@ViewBag.Socios"
@@ -331,10 +383,12 @@
                             <div class="col-md-9">
                                 <div class="input-group input-group-sm">
                                     <input asp-for="RutaPapeles" type="text" class="form-control form-control-sm" id="rutaPapeles" placeholder="Ruta de papeles de trabajo">
-                                    <label for="archivoRutaPapeles" class="input-group-text btn bg-bdo">
+                                    <label for="archivoRutaPapelesPath" class="input-group-text btn bg-bdo">
                                         <i class="bi bi-arrow-bar-up"></i>
-                                        <input type="file" id="archivoRutaPapeles" class="d-none">
+                                        <input type="file" id="archivoRutaPapelesPath" class="d-none">
                                     </label>
+                                    <!-- Espaciador para alinear con el botón de clip de abajo -->
+                                    <span class="input-group-text border-0 bg-transparent p-0" style="width: 40px;"></span>
                                 </div>
                                 <span asp-validation-for="RutaPapeles" class="text-danger small"></span>
                             </div>
@@ -350,8 +404,12 @@
                             <div class="col-md-9">
                                 <div class="input-group input-group-sm">
                                     <input asp-for="RutaDoc" type="text" class="form-control form-control-sm" id="rutaDoc" placeholder="Ruta de documento">
-                                    <label for="archivoRutaDoc" class="input-group-text btn bg-bdo">
+                                    <label for="archivoRutaDocPath" class="input-group-text btn bg-bdo">
                                         <i class="bi bi-arrow-bar-up"></i>
+                                        <input type="file" id="archivoRutaDocPath" class="d-none">
+                                    </label>
+                                    <label for="archivoRutaDoc" class="input-group-text btn btn-outline-secondary" title="Adjuntar archivo">
+                                        <i class="bi bi-paperclip"></i>
                                         <input type="file" id="archivoRutaDoc" name="archivoDoc" class="d-none">
                                     </label>
                                 </div>
@@ -363,7 +421,28 @@
                                 <label for="Adjuntos" class="form-label">Adjuntos:</label>
                             </div>
                             <div class="col-md-9">
-                                <textarea asp-for="Adjuntos" class="form-control" id="adjuntos" rows="3" placeholder="Archivos adjuntos"></textarea>
+                                <textarea asp-for="Adjuntos" class="form-control d-none" id="adjuntos" rows="1" placeholder="Archivos adjuntos" readonly></textarea>
+                                <div id="contenedorAdjunto" class="mt-1 d-none">
+                                    <div class="badge bg-bdo d-inline-flex align-items-center p-2 rounded-2">
+                                        <i class="bi bi-file-earmark-check me-2"></i>
+                                        <span id="nombreAdjunto" class="me-2 text-truncate" style="max-width: 200px;"></span>
+                                        @if ((bool?)ViewBag.AttachmentCanOpen == true)
+                                        {
+                                            <a href="@Url.Action("AbrirAdjuntoPrincipal", "Home", new { id = Model.Id })"
+                                               target="_blank"
+                                               class="btn btn-sm btn-light py-0 px-1 me-1"
+                                               title="Abrir adjunto">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                            <a href="@Url.Action("AbrirAdjuntoPrincipal", "Home", new { id = Model.Id, download = true })"
+                                               class="btn btn-sm btn-light py-0 px-1 me-2"
+                                               title="Descargar adjunto">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                        }
+                                        <button type="button" class="btn-close btn-close-white" style="font-size: 0.5rem;" onclick="eliminarAdjunto()" title="Quitar archivo"></button>
+                                    </div>
+                                </div>
                                 <span asp-validation-for="Adjuntos" class="text-danger small"></span>
                             </div>
                         </div>
@@ -386,7 +465,7 @@
                     @if (@String.IsNullOrEmpty(Model.Id))
                     {
                         <button id="btnCrear" asp-action="Upsert" asp-route-mode="0" method="post"
-                                type="submit" class="btn btn-sm btn-success me-2">
+                                type="submit" class="btn btn-sm btn-success me-2" data-operation-mode="Create">
                             <i class="bi bi-plus-lg"></i> Crear hoja
                         </button>
                     }
@@ -399,7 +478,7 @@
                             @if (@Model.Estado == 0)
                             {
                                 <button id="btnModificar" asp-route-mode="Update"
-                                        type="submit" asp-controller="Home"
+                                        type="submit" asp-controller="Home" data-operation-mode="Update"
                                         class="btn btn-sm btn-secondary me-1">
                                     <i class="bi bi-floppy"></i> Guardar Cambios
                                 </button>
@@ -409,14 +488,14 @@
                             {
                                 <button id="btnFirmar" asp-action="FirmarDoc" type="button"
                                         class="btn btn-sm btn-success me-1
-                                                                @(Model.SocioFirmante != Model.Manejador ? "d-none" : "")">
+                                                                @(string.Equals(etapaActual, "SocioFirmante", StringComparison.OrdinalIgnoreCase) ? "" : "d-none")">
                                     <i class="bi bi-pencil-fill"></i>
                                     Firmar Documento
                                 </button>
 
                                 <button id="btnAprobar" asp-action="RevisarEtapa" type="button"
                                         class="btn btn-sm btn-success me-1
-                                                    @(Model.SocioFirmante == Model.Manejador ? "d-none" : "")">
+                                                    @(string.Equals(etapaActual, "SocioFirmante", StringComparison.OrdinalIgnoreCase) ? "d-none" : "")">
                                     <i class="bi bi-check-lg"></i>
                                     Aprobar
                                 </button>
@@ -436,8 +515,7 @@
                                 <a id="btnModificar" asp-controller="Home" asp-action="Upsert"
                                    asp-route-mode="Update" asp-route-id="@Model.Id"
                                    class="btn btn-sm btn-secondary me-2" role="button">
-                                    <i class="bi bi-pencil fs-5"></i>
-                                    <span class="ms-1">Modificar</span>
+                                    <i class="bi bi-pencil"></i> Modificar
                                 </a>
                             }
                         }
@@ -452,37 +530,76 @@
 
         </form>
 
-        <div class="col-md-5 d-flex justify-content-end">
-            @if (!string.IsNullOrWhiteSpace(rechazo))
-            {
-                <p class="text-danger"><strong>Motivo de rechazo: </strong> @rechazo</p>
-            }
-            else if (Model.Estado == (int)Estado.Aprobada)
-            {
-                <form id="formDescargarHoja" asp-controller="Home" asp-action="GenerarArchivoHoja" method="post"
-                      class="btn-download-form d-inline-flex align-items-baseline gap-2 flex-nowrap">
+        <div class="col-md-5">
+            <div class="footer-side-panel ms-md-auto">
+                @if (!string.IsNullOrWhiteSpace(rechazo))
+                {
+                    <p class="text-danger mb-0"><strong>Motivo de rechazo: </strong> @rechazo</p>
+                }
+                else if (Model.Estado == (int)Estado.Aprobada)
+                {
+                    <form id="formDescargarHoja" asp-controller="Home" asp-action="GenerarArchivoHoja" method="post"
+                          class="btn-download-form d-inline-flex align-items-baseline gap-2 flex-nowrap">
 
-                    <input type="hidden" name="hojaId" value="@Model.Id" />
+                        <input type="hidden" name="hojaId" value="@Model.Id" />
 
-                    <label for="formato" class="mb-0 me-2 pt-1">Descargar Hoja:</label>
+                        <label for="formato" class="mb-0 me-2 pt-1">Descargar Hoja:</label>
 
-                    <select id="formato" name="formato"
-                            class="form-select form-select-sm w-auto me-2" required>
-                        <option value="">Seleccione...</option>
-                        <option value="pdf">PDF</option>
-                        <option value="word">Word (.docx)</option>
-                    </select>
+                        <select id="formato" name="formato"
+                                class="form-select form-select-sm w-auto me-2" required>
+                            <option value="">Seleccione...</option>
+                            <option value="pdf">PDF</option>
+                            <option value="word">Word (.docx)</option>
+                        </select>
 
-                    <button type="submit" class="btn btn-sm bg-bdo btn-sm ms-1 d-flex align-items-center" title="Descargar Hoja">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                        <i class="bi bi-download"></i>
-                    </button>
-                </form>
-            }
+                        <button type="submit" class="btn btn-sm bg-bdo btn-sm ms-1 d-flex align-items-center" title="Descargar Hoja">
+                            <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </form>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.Id))
+                {
+                    <div id="notificationStatusPanel" class="accordion notification-status-accordion d-none" data-hoja-id="@Model.Id">
+                        <div class="accordion-item notification-status-item-shell">
+                            <h2 class="accordion-header" id="notificationStatusHeader">
+                                <button class="accordion-button collapsed notification-status-toggle" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#notificationStatusCollapse"
+                                        aria-expanded="false" aria-controls="notificationStatusCollapse">
+                                    <span class="notification-status-title">Notificaciones</span>
+                                    <span id="notificationStatusSummary" class="notification-status-summary"></span>
+                                </button>
+                            </h2>
+                            <div id="notificationStatusCollapse" class="accordion-collapse collapse" aria-labelledby="notificationStatusHeader">
+                                <div class="accordion-body notification-status-body">
+                                    @Html.AntiForgeryToken()
+                                    <ul id="notificationStatusList" class="notification-status-list mb-0"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
         </div>
     </div>
 </div>
 
+<div id="operationProgressOverlay" class="operation-progress-overlay d-none" aria-live="polite" aria-modal="true" role="dialog">
+    <div id="operationProgressCard" class="operation-progress-card">
+        <div class="operation-progress-header">
+            <div class="operation-progress-kicker">Hoja de Ruta</div>
+            <h4 id="operationProgressTitle" class="mb-1">Procesando</h4>
+            <p id="operationProgressMessage" class="mb-0 text-white-50">Preparando operación...</p>
+        </div>
+        <div class="operation-progress-body">
+            <ul id="operationProgressSteps" class="operation-progress-steps"></ul>
+        </div>
+        <div class="operation-progress-footer">
+            <button id="operationProgressClose" type="button" class="btn btn-outline-secondary d-none">Cerrar</button>
+        </div>
+    </div>
+</div>
 
 @await Html.PartialAsync("_ModalAprobacion")
 @await Html.PartialAsync("_ModalConfirmacion", Model)
@@ -493,12 +610,18 @@
 
     <script>
         const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
+        const auditoriaNombreObjetivo = "Informe del auditor";
         var codClientePlataforma = "";
         const idHoja = document.getElementById("Id");
         let isInitialLoad = true;
         let oldSocioFirmante = null;
 
         document.addEventListener("DOMContentLoaded", function () {
+            window.hojaUpsertProgress?.init();
+            window.hojaNotificationStatus?.init({
+                hojaId: idHoja?.value || "",
+                endpoint: "/Home/GetNotificationStatuses"
+            });
             addClassToLabels('fs-7');
             actualizarCodigoPlataforma(@Model.Cliente);
             inicializarFormulario();
@@ -511,170 +634,212 @@
             isInitialLoad = false;
             validarGestorFinal();
             inicializarEventosArchivo();
+            inicializarValidacionArchivo();
+            verificarArchivoAlCargar();
         })
+
+        function inicializarValidacionArchivo() {
+            const form = document.getElementById('hojaForm');
+            const archivoRutaDoc = document.getElementById('archivoRutaDoc');
+
+            if (form && archivoRutaDoc) {
+                form.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    
+                    const submitter = e.submitter;
+                    const isBackAction = submitter && submitter.innerText.includes('Volver');
+                    
+                    if (isBackAction) {
+                        window.location.href = '@Url.Action("Index", "Home")';
+                        return;
+                    }
+
+                    formularioIntentado = true;
+                    const esValido = window.actualizarValidaciones();
+                    if (!esValido) {
+                        const contenedorErrores = document.getElementById("contenedorErroresUnificado");
+                        if (contenedorErrores) {
+                            contenedorErrores.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        return;
+                    }
+
+                    ocultarAlertErrores();
+
+                    // Validación básica de archivo antes de enviar
+                    if (false && (!archivoRutaDoc.files || archivoRutaDoc.files.length === 0)) {
+                        const adjuntosVal = document.getElementById('adjuntos')?.value;
+                        if (!adjuntosVal || adjuntosVal.trim() === '') {
+                             mostrarErrorEnAlert("Debe seleccionar el archivo el documento.");
+                             return;
+                        }
+                    }
+
+                    const operationMode = submitter?.dataset.operationMode || 'Update';
+                    const initialTitle = operationMode === 'Create' ? 'Creando hoja' : 'Guardando cambios';
+                    const initialMessage = operationMode === 'Create'
+                        ? 'Estamos preparando la nueva hoja de ruta...'
+                        : 'Estamos guardando los cambios realizados...';
+
+                    await window.hojaUpsertProgress.runFormOperation({
+                        form: form,
+                        disableElements: [submitter],
+                        initialTitle: initialTitle,
+                        initialMessage: initialMessage,
+                        prepareFormData: function (formData) {
+                            formData.set('mode', operationMode);
+                            return true;
+                        },
+                        onExecutionErrorClosed: function (payload) {
+                            mostrarErrorEnAlert(payload.message, payload.errors || []);
+                        }
+                    });
+                });
+            }
+        }
 
         function inicializarEventosArchivo() {
             const archivoRutaDoc = document.getElementById('archivoRutaDoc');
             const adjuntos = document.getElementById('adjuntos');
+            const contenedorAdjunto = document.getElementById('contenedorAdjunto');
+            const nombreAdjunto = document.getElementById('nombreAdjunto');
+
+            if (adjuntos && contenedorAdjunto && nombreAdjunto) {
+                // Si el modelo ya tiene un archivo adjunto (modo edición/visualización), mostrarlo
+                if (adjuntos.value && adjuntos.value.trim() !== '') {
+                    nombreAdjunto.textContent = adjuntos.value;
+                    contenedorAdjunto.classList.remove('d-none');
+                }
+            }
 
             if (archivoRutaDoc && adjuntos) {
                 archivoRutaDoc.addEventListener('change', function () {
                     if (this.files && this.files.length > 0) {
-                        adjuntos.value = this.files[0].name;
+                        const fileName = this.files[0].name;
+                        adjuntos.value = fileName;
+                        if (nombreAdjunto) nombreAdjunto.textContent = fileName;
+                        if (contenedorAdjunto) contenedorAdjunto.classList.remove('d-none');
                     }
                 });
             }
         }
 
+        function eliminarAdjunto() {
+            const confirmar = confirm("¿Desea quitar el archivo adjunto de la hoja?");
+            if (!confirmar) {
+                return;
+            }
+
+            const archivoRutaDoc = document.getElementById('archivoRutaDoc');
+            const adjuntos = document.getElementById('adjuntos');
+            const contenedorAdjunto = document.getElementById('contenedorAdjunto');
+
+            if (archivoRutaDoc) archivoRutaDoc.value = ""; // Limpia el input file
+            if (adjuntos) adjuntos.value = "";
+            if (contenedorAdjunto) contenedorAdjunto.classList.add('d-none');
+        }
+
+        function mostrarErrorEnAlert(mensaje, errores = []) {
+            const alertDiv = document.getElementById('contenedorErroresUnificado');
+            const listaErrores = document.getElementById('listaErrores');
+            
+            if (!alertDiv || !listaErrores) return;
+
+            // Limpiar lista previa
+            listaErrores.innerHTML = '';
+            
+            // Si hay un mensaje principal, lo agregamos como un strong o primer item
+            const mainMsg = document.createElement('li');
+            mainMsg.innerHTML = `<strong>${mensaje}</strong>`;
+            listaErrores.appendChild(mainMsg);
+
+            // Agregar detalles si existen
+            errores.forEach(err => {
+                const li = document.createElement('li');
+                li.textContent = err;
+                listaErrores.appendChild(li);
+            });
+
+            alertDiv.classList.remove('d-none');
+            alertDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function ocultarAlertErrores() {
+            const alertDiv = document.getElementById('contenedorErroresUnificado');
+            if (alertDiv) alertDiv.classList.add('d-none');
+        }
+
         function inicializarModalConfirmacion() {
-            debugger;
             const modalElement = document.getElementById("confirmModal");
             const confirmText = document.getElementById("confirmText");
             const accionInput = document.getElementById("accion");
             const motivoContainer = document.getElementById("motivoContainer");
             const confirmForm = document.getElementById("confirmForm");
+            const btnConfirmar = document.getElementById("btnConfirmar");
+            const btnCancelar = document.getElementById("btnCancelar");
 
             if (!modalElement || !accionInput || !confirmText || !motivoContainer || !confirmForm) {
-                console.warn("[ModalConfirm] Elementos esenciales no encontrados.");
                 return;
             }
 
             const modal = new bootstrap.Modal(modalElement);
-
-            // Variables para el texto dinámico
             let currentAction = '';
-            const actionTexts = {
-                'APROBAR': 'Hoja en proceso de Aprobación de etapa. Aguarde por favor.',
-                'RECHAZAR': 'Hoja en proceso de Rechazo de etapa. Aguarde por favor.',
-                'FIRMAR': 'Hoja en proceso de Aprobación Final. Aguarde por favor.'
-            };
-
-            // Crear elementos dinámicamente si no existen
-            let modalOverlay = document.getElementById("modalOverlay");
-            let modalOverlayText = document.getElementById("modalOverlayText");
-            let btnConfirmar = document.getElementById("btnConfirmar");
-            let btnCancelar = document.getElementById("btnCancelar");
-
-            // Si el overlay no existe, lo creamos
-            if (!modalOverlay) {
-                console.warn("[ModalConfirm] Overlay no encontrado, creando dinámicamente...");
-                modalOverlay = document.createElement('div');
-                modalOverlay.id = 'modalOverlay';
-                modalOverlay.className = 'position-absolute top-0 start-0 w-100 h-100 d-none';
-                modalOverlay.style.cssText = 'background: rgba(33, 150, 243, 0.1); backdrop-filter: blur(2px); z-index: 1055; border-radius: 0.3rem;';
-                modalOverlay.innerHTML = `
-                    <div class="d-flex justify-content-center align-items-center h-100 flex-column">
-                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                            <span class="visually-hidden">Procesando...</span>
-                        </div>
-                        <span class="mt-2 fw-semibold text-primary" id="modalOverlayText">Procesando...</span>
-                    </div>
-                `;
-                modalElement.querySelector('.modal-content').insertBefore(modalOverlay, confirmForm);
-                modalOverlayText = document.getElementById("modalOverlayText");
-            }
-
-            // Si los botones no tienen ID, se los asignamos
-            if (!btnConfirmar) {
-                const submitBtn = confirmForm.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.id = 'btnConfirmar';
-                    btnConfirmar = submitBtn;
-                }
-            }
-
-            if (!btnCancelar) {
-                const cancelBtn = confirmForm.querySelector('button[data-bs-dismiss="modal"]');
-                if (cancelBtn) {
-                    cancelBtn.id = 'btnCancelar';
-                    btnCancelar = cancelBtn;
-                }
-            }
 
             function configurarModal(texto, accion, mostrarMotivo) {
                 confirmText.textContent = texto;
                 accionInput.value = accion;
-                currentAction = accion; // Guardar la acción actual
+                currentAction = accion;
                 motivoContainer.style.display = mostrarMotivo ? "block" : "none";
-
-                // Resetear estado cada vez que se abre el modal
-                modalOverlay.classList.add('d-none');
-                if (btnConfirmar) btnConfirmar.disabled = false;
-                if (btnCancelar) btnCancelar.disabled = false;
-                if (btnConfirmar) btnConfirmar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
 
                 modal.show();
             }
 
-            function setOverlayText(accion) {
-                console.log("[ModalConfirm] Configurando texto para acción:", accion);
-                const text = actionTexts[accion] || 'Procesando...';
-
-                // Actualizar texto del overlay
-                if (modalOverlayText) {
-                    modalOverlayText.textContent = text;
-                    console.log("[ModalConfirm] Texto del overlay actualizado:", text);
-                } else {
-                    console.warn("[ModalConfirm] modalOverlayText no encontrado");
-                }
-
-                // // Actualizar texto del botón (opcional, si lo quieres mantener)
-                // if (btnConfirmar) {
-                //     btnConfirmar.innerHTML = `<i class="bi bi-hourglass-split"></i> ${text}`;
-                // }
-            }
-
-            // Configurar evento submit del formulario
-            confirmForm.addEventListener('submit', function(e) {
+            confirmForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
 
-                console.log("[ModalConfirm] Enviando formulario... Acción:", currentAction);
-
-                // Configurar texto dinámico
-                setOverlayText(currentAction);
-
-                // Mostrar overlay de carga
-                modalOverlay.classList.remove('d-none');
-
-                // Deshabilitar botones
-                if (btnConfirmar) btnConfirmar.disabled = true;
-                if (btnCancelar) btnCancelar.disabled = true;
-
-                // Cambiar texto del botón de confirmar
-                // if (btnConfirmar) {
-                //     const buttonText = actionTexts[currentAction] || 'Procesando...';
-                //     btnConfirmar.innerHTML = `<i class="bi bi-hourglass-split"></i> ${buttonText}`;
-                // }
-
-                // Realizar el submit del formulario
-                setTimeout(() => {
-                    try {
-                        this.submit();
-                    } catch (error) {
-                        console.error("[ModalConfirm] Error al enviar formulario:", error);
-                        // Restaurar estado en caso de error
-                        modalOverlay.classList.add('d-none');
-                        if (btnConfirmar) btnConfirmar.disabled = false;
-                        if (btnCancelar) btnCancelar.disabled = false;
-                        if (btnConfirmar) btnConfirmar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
+                ocultarAlertErrores();
+                const archivoInput = document.getElementById('archivoRutaDoc');
+                
+                if (archivoInput && currentAction === 'FIRMAR') {
+                    const adjuntosVal = document.getElementById('adjuntos')?.value;
+                    if ((!archivoInput.files || archivoInput.files.length === 0) && (!adjuntosVal || adjuntosVal.trim() === '')) {
+                        mostrarErrorEnAlert("Por favor, adjunte el documento físico antes de Firmar.");
+                        return;
                     }
-                }, 100);
+                }
+
+                await window.hojaUpsertProgress.runFormOperation({
+                    form: confirmForm,
+                    disableElements: [btnConfirmar, btnCancelar],
+                    initialTitle: currentAction === 'FIRMAR' ? 'Firmando documento' : currentAction === 'RECHAZAR' ? 'Rechazando hoja' : 'Aprobando hoja',
+                    initialMessage: currentAction === 'FIRMAR'
+                        ? 'Estamos procesando la firma final del documento...'
+                        : 'Estamos procesando la acción seleccionada...',
+                    prepareFormData: function (formData) {
+                        formData.set('accion', currentAction);
+
+                        if (archivoInput && currentAction === 'FIRMAR' && archivoInput.files && archivoInput.files.length > 0) {
+                            formData.set('archivoDoc', archivoInput.files[0]);
+                        }
+
+                        return true;
+                    },
+                    beforeOpenOverlay: function () {
+                        modal.hide();
+                    },
+                    onExecutionErrorClosed: function (payload) {
+                        mostrarErrorEnAlert(payload.message, payload.errors || []);
+                    }
+                });
             });
 
-            // Reiniciar estado del modal cuando se cierra
             modalElement.addEventListener('hidden.bs.modal', function () {
-                modalOverlay.classList.add('d-none');
-                if (btnConfirmar) btnConfirmar.disabled = false;
-                if (btnCancelar) btnCancelar.disabled = false;
-                if (btnConfirmar) btnConfirmar.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
-                // Limpiar textarea de motivo
                 const motivoRechazo = document.getElementById("motivoRechazo");
                 if (motivoRechazo) motivoRechazo.value = "";
 
-                currentAction = ''; // Resetear acción actual
+                currentAction = '';
             });
 
-            // Configurar botones de acción
             const btnAprobar = document.getElementById("btnAprobar");
             if (btnAprobar) {
                 btnAprobar.addEventListener("click", e => {
@@ -698,8 +863,6 @@
                     configurarModal("¿Desea firmar la hoja?", "FIRMAR", false);
                 });
             }
-
-            console.log("[ModalConfirm] Inicializado correctamente.");
         }
 
         function validarGestorFinal() {
@@ -738,8 +901,7 @@
 
             const preparoInput = document.getElementById("Preparo");
             const preparoValue = preparoInput?.dataset.value || "";
-            const preparoRevisor = revisoresFull.find(r => r.Empleado === preparoValue);
-            const preparoCargo = preparoRevisor ? preparoRevisor.Cargo : 0;
+            const preparoCargo = getReviewerCargo(preparoValue, revisoresFull);
 
             const valorReviso = (document.getElementById("reviso").dataset.value || "").trim();
             llenarSelect("reviso", preparoCargo, valorReviso, revisoresFull);
@@ -803,7 +965,6 @@
         }
 
         function manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull) {
-            debugger;
             if (!current.value) {
                 current.classList.remove("readonly");
                 const fechaInput = document.getElementById(sel.fecha);
@@ -826,10 +987,10 @@
                     const valorInf = (inferior.dataset.value || inferior.value || "").trim();
                     if (!valorInf) continue;
 
-                    const revInf = revisoresFull.find(r => r.Empleado === valorInf);
+                    const revInf = findReviewer(revisoresFull, valorInf);
                     if (!revInf) continue;
 
-                    const cargoInf = parseInt(revInf.Cargo || 0, 10);
+                    const cargoInf = parseInt(revInf.Cargo || "0", 10);
                     if (isNaN(cargoInf)) continue;
 
                     if (cargoInf <= cargoActual) {
@@ -882,7 +1043,7 @@
             if (!valorExistente) return;
             if ([...selectElem.options].some(o => o.value === valorExistente)) return;
 
-            const revisor = revisoresFull.find(r => r.Empleado === valorExistente);
+            const revisor = findReviewer(revisoresFull, valorExistente);
             if (!revisor) return;
 
             const opt = document.createElement("option");
@@ -893,19 +1054,21 @@
         }
 
         function llenarSelect(selectId, cargoBase, valorExistente, revisoresFull) {
-            debugger;
             const selectElem = document.getElementById(selectId);
             if (!selectElem) return;
 
             const seleccionActual = valorExistente || selectElem.value || null;
-            const filtrados = revisoresFull.filter(r => r.Cargo > cargoBase);
+            const baseLevel = Number.isFinite(cargoBase) ? cargoBase : 0;
+            const filtrados = revisoresFull.filter(r => {
+                const reviewerLevel = parseInt(r.Cargo || "0", 10);
+                return !isNaN(reviewerLevel) && reviewerLevel > baseLevel;
+            });
 
             const placeholder = selectElem.getAttribute('data-placeholder') || '-- Seleccione --';
             selectElem.innerHTML = `<option value="">${placeholder}</option>`;
 
             if (seleccionActual) {
-                debugger;
-                const existe = revisoresFull.find(r => r.Empleado === seleccionActual);
+                const existe = findReviewer(revisoresFull, seleccionActual);
                 if (existe && !filtrados.some(f => f.Empleado === seleccionActual)) {
                     const optExist = document.createElement("option");
                     optExist.value = existe.Empleado;
@@ -925,7 +1088,6 @@
             });
 
             if (seleccionActual) {
-                debugger;
                 selectElem.value = seleccionActual;
                 selectElem.dataset.value = seleccionActual; // sincroniza con dataset
             }
@@ -994,6 +1156,27 @@
             const ds = (selectElem.dataset && selectElem.dataset.value) ? selectElem.dataset.value.trim() : "";
             const val = (selectElem.value) ? selectElem.value.trim() : "";
             return ds || val || null;
+        }
+
+        function normalizeReviewerIdentifier(value) {
+            return (value || "").toString().trim().toUpperCase();
+        }
+
+        function findReviewer(revisoresFull, identifier) {
+            const normalizedIdentifier = normalizeReviewerIdentifier(identifier);
+            if (!normalizedIdentifier) {
+                return null;
+            }
+
+            return revisoresFull.find(r =>
+                normalizeReviewerIdentifier(r.Empleado) === normalizedIdentifier ||
+                normalizeReviewerIdentifier(r.Mail) === normalizedIdentifier) || null;
+        }
+
+        function getReviewerCargo(identifier, revisoresFull) {
+            const reviewer = findReviewer(revisoresFull, identifier);
+            const reviewerLevel = parseInt(reviewer?.Cargo || "0", 10);
+            return Number.isFinite(reviewerLevel) ? reviewerLevel : 0;
         }
 
 
@@ -1162,9 +1345,14 @@
 
             if (!nombreGenericoSelect || !contratosSelect) return;
 
+            function requiereAuditoria(valorSeleccionado) {
+                return (valorSeleccionado || "").trim().toLowerCase() === auditoriaNombreObjetivo.toLowerCase();
+            }
+
             function procesarNombreGenerico(valorSeleccionado, esCargaInicial = false) {
-                debugger;
                 const generico = genericosData.find(x => x.NombreGenerico === valorSeleccionado);
+                const contratoActual = (contratosSelect.value || "").trim();
+                const tieneContratoPersistido = contratoActual !== "";
 
                 const sinContratoExistente = Array.from(contratosSelect.options)
                     .find(opt => opt.value === "Sin Contrato");
@@ -1183,19 +1371,20 @@
                     sinContratoOption.value = "Sin Contrato";
                     sinContratoOption.text = "Sin Contrato";
                     contratosSelect.appendChild(sinContratoOption);
-                    contratosSelect.value = "Sin Contrato";
+                    if (!esCargaInicial || !tieneContratoPersistido) {
+                        contratosSelect.value = "Sin Contrato";
+                    }
                 }
 
-                //Si es "Auditoría", mostrar campo fecha de cierre y abrir ventana
-                if (generico && generico.Categoria === "Auditoria") {
+                //Si es "Informe del auditor", mostrar campo fecha de cierre y acceso al modal
+                if (requiereAuditoria(valorSeleccionado)) {
                     fechaCierreDiv.classList.remove("invisible");
+                    btnAuditoria.classList.remove("invisible");
 
-                    if (esCargaInicial) {
-                        btnAuditoria.classList.remove("invisible");
+                    if (!esCargaInicial || !tieneContratoPersistido) {
+                        contratosSelect.selectedIndex = 0;
                     }
-
-                    contratosSelect.selectedIndex = 0;
-                } else {
+                } else if (!esCargaInicial || !tieneContratoPersistido) {
                     contratosSelect.selectedIndex = 0;
                 }
             }
@@ -1212,6 +1401,7 @@
 
         function actualizarCodigoPlataforma(clienteId) {
             var inputCodCliente = document.getElementById('CodCliente');
+            var selectContratos = document.getElementById('ContratoPlataforma');
 
             if (!clienteId) {
                 inputCodCliente.value = '';
@@ -1222,8 +1412,14 @@
 
             if (clienteSeleccionado) {
                 inputCodCliente.value = clienteSeleccionado.CodigoPlataforma;
-                inputCodCliente.dispatchEvent(new Event('change'));
                 codClientePlataforma = clienteSeleccionado.CodigoPlataforma;
+
+                const hayContratosPrecargados = selectContratos
+                    && Array.from(selectContratos.options).some(option => option.value && option.value.trim() !== "");
+
+                if (!isInitialLoad || !hayContratosPrecargados) {
+                    inputCodCliente.dispatchEvent(new Event('change'));
+                }
             } else {
                 inputCodCliente.value = '';
             }
@@ -1236,18 +1432,35 @@
 
         function cargarContratos(codCliente, selectedContract = null) {
             var selectContratos = document.getElementById('ContratoPlataforma');
+            const existingOptions = Array.from(selectContratos.options)
+                .map(option => option.value)
+                .filter(value => value && value.trim() !== "");
+            const currentValue = selectContratos.value;
+            const effectiveSelectedContract = selectedContract || currentValue;
+
+            if (existingOptions.length > 0 && effectiveSelectedContract) {
+                if (existingOptions.includes(effectiveSelectedContract)) {
+                    selectContratos.value = effectiveSelectedContract;
+                }
+
+                delete selectContratos.dataset.loading;
+                selectContratos.dispatchEvent(new Event('change'));
+                return;
+            }
 
             selectContratos.innerHTML = '<option value="">Cargando contratos...</option>';
+            selectContratos.dataset.loading = "true"; // marcar como en carga
 
             if (!codCliente) {
                 selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>';
+                delete selectContratos.dataset.loading;
                 return;
             }
 
             fetch('/Home/GetContratosByCodigo?codigoPlataforma=' + codCliente)
                 .then(response => response.json())
                 .then(data => {
-                    selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>'; // Restablece
+                    selectContratos.innerHTML = '<option value="">Seleccione Contrato Plataforma</option>';
 
                     data.forEach(function(contrato) {
                         var option = document.createElement('option');
@@ -1260,10 +1473,15 @@
 
                         selectContratos.appendChild(option);
                     });
+                    
+                    // Quitar marca de carga y notificar para refrescar validaciones
+                    delete selectContratos.dataset.loading;
+                    selectContratos.dispatchEvent(new Event('change'));
                 })
                 .catch(error => {
                     console.error('Error al cargar contratos:', error);
                     selectContratos.innerHTML = '<option value="">Error al cargar los contratos</option>';
+                    delete selectContratos.dataset.loading;
                 });
         }
 
@@ -1282,89 +1500,90 @@
             //retener valor de contratos
             //var codCliente = '@Model.CodCliente
             var codCliente = '@Model.CodCliente' || codClientePlataforma;
-            var selectedContract = '@Model.ContratoPlataforma';
+            var selectedContract = '@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(Model.ContratoPlataforma ?? ""))';
+            var selectContratos = document.getElementById('ContratoPlataforma');
+            const hayContratosPrecargados = selectContratos
+                && Array.from(selectContratos.options).some(option => option.value && option.value.trim() !== "");
 
-            if (codCliente) {
+            if (hayContratosPrecargados && selectedContract) {
+                const existingOption = Array.from(selectContratos.options)
+                    .find(option => option.value === selectedContract);
+
+                if (!existingOption) {
+                    const option = document.createElement('option');
+                    option.value = selectedContract;
+                    option.text = selectedContract;
+                    option.selected = true;
+                    selectContratos.appendChild(option);
+                }
+
+                selectContratos.value = selectedContract;
+                selectContratos.dispatchEvent(new Event('change'));
+            }
+            else if (codCliente) {
                 cargarContratos(codCliente, selectedContract);
             }
         }
 
         function guardarAuditoria() {
-            debugger;
             const form = document.getElementById("formAuditoria");
-            const formData = new FormData(form);
+            const modalElement = document.getElementById("modalAuditoria");
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            const btnGuardar = document.getElementById("btnGuardarAuditoria");
 
-            // Limpiar errores anteriores
             form.querySelectorAll(".text-danger").forEach(span => span.textContent = "");
 
-            fetch('/Home/SaveAuditoria', {
-                method: "POST",
-                body: formData
-            })
-            .then(resp => {
-                debugger;
-                if (!resp.ok) throw new Error("Error en el servidor");
-                return resp.json();
-            })
-                .then(data => {
-                debugger;
-                if (data.success) {
-                    alert("Auditoría guardada correctamente");
-                    const modal = bootstrap.Modal.getInstance(document.getElementById("modalAuditoria"));
-                    modal.hide();
-                    form.reset();
-
-                    // Redirigir manualmente a la URL indicada por el servidor
-                    if (data.redirectUrl) {
-                        window.location.href = data.redirectUrl;
+            window.hojaUpsertProgress.runFormOperation({
+                form: form,
+                url: '/Home/SaveAuditoria',
+                disableElements: [btnGuardar],
+                initialTitle: 'Guardando auditoría',
+                initialMessage: 'Estamos registrando la información de auditoría...',
+                beforeOpenOverlay: function () {
+                    if (modal) {
+                        modal.hide();
                     }
-                }
-                else if (data.validationErrors) {
-                    // Mostrar errores debajo de cada campo
+                },
+                onPreflightError: function (data) {
+                    if (!data.validationErrors) {
+                        return false;
+                    }
+
                     data.validationErrors.forEach(err => {
-                        debugger;
-                        //const inputName = err.Campo.replace("auditoria.", "").replace("Auditoria.", "");
                         const inputName = (err.campo || "")
-                        .split('.')
-                        .pop(); // obtiene el último segmento del nombre (por ejemplo: "Auditoria.Activo" → "Activo")
+                            .split('.')
+                            .pop();
 
                         const span = form.querySelector(`span[data-valmsg-for='${inputName}']`);
                         if (span) {
                             span.textContent = err.errores.join(", ");
                         }
                     });
+
+                    if (modal) {
+                        modal.show();
+                    }
+
+                    return true;
+                },
+                onExecutionErrorClosed: function (payload) {
+                    mostrarErrorEnAlert(payload.message, payload.errors || []);
+                    if (modal) {
+                        modal.show();
+                    }
                 }
-                else {
-                    alert("Error: " + (data.message || "Error desconocido"));
-                }
-            })
-            .catch(err => {
-                debugger;
-                console.error(err);
-                alert("Error inesperado al guardar la auditoría.");
             });
         }
 
         function abrirModalAuditoria() {
-            debugger;
             const form = document.getElementById("formAuditoria");
             form.reset();
             form.querySelectorAll(".text-danger").forEach(span => span.textContent = "");
-
-            console.log("Opciones del select:", [...document.getElementById("Moneda").options].map(o => o.value));
-
-            // IDs
-            let auditoriaId = 0;
             const hojaId = '@Model.Id';
 
-            // Limpia o crea input hidden de AuditoriaId
-            let inputAuditoriaId = document.getElementById("AuditoriaId");
-            if (!inputAuditoriaId) {
-                inputAuditoriaId = document.createElement("input");
-                inputAuditoriaId.type = "hidden";
-                inputAuditoriaId.id = "AuditoriaId";
-                inputAuditoriaId.name = "Id";
-                form.appendChild(inputAuditoriaId);
+            if (!hojaId) {
+                mostrarErrorEnAlert("Guardá la hoja primero para poder completar la información de auditoría.");
+                return;
             }
 
             // Asignar siempre el id de hoja
@@ -1373,7 +1592,6 @@
             // Llamar a la API con fetch
             fetch('/Home/GetAuditoriaById?IdHoja=' + hojaId)
                 .then(response => {
-                    debugger;
                     if (!response.ok)
                     {
                         throw new Error("Error al obtener la auditoría");
@@ -1382,13 +1600,13 @@
                     return response.json();
                 })
                 .then(result => {
-                    debugger;
+                    if (result.success === false) {
+                        mostrarErrorEnAlert(result.message || "No pudimos cargar la auditoría en este momento.");
+                        return;
+                    }
+
                     if (result.exists) {
                         const data = result.data;
-                        auditoriaId = data.Id;
-
-                        console.log("Valor recibido de Moneda:", data.Moneda);
-
                         // Completar los campos con los valores existentes
                         document.getElementById("Activo").value = data.activo ?? "";
                         document.getElementById("Pasivo").value = data.pasivo ?? "";
@@ -1400,16 +1618,13 @@
                         document.getElementById("TotalOtrosIngresos").value = data.totalOtrosIngresos ?? "";
                     }
 
-                    // Asigna el Id de la auditoría (0 si no existe)
-                    inputAuditoriaId.value = auditoriaId;
-
                     // Abre el modal
                     const modal = new bootstrap.Modal(document.getElementById("modalAuditoria"));
                     modal.show();
                 })
                 .catch(err => {
                     console.error(err);
-                    alert("Error al cargar los datos de auditoría.");
+                    mostrarErrorEnAlert("No pudimos cargar la auditoría en este momento. Intentá nuevamente en unos instantes.");
                 });
         }
 
@@ -1450,4 +1665,279 @@
 
     </script>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Campos que tienen el asterisco (*) en el HTML
+            const fieldsToValidate = [
+                { id: "Cliente", name: "Cliente" },
+                { id: "Sector", name: "Sector" },
+                { id: "subarea", name: "Subárea" },
+                { id: "NombreGenerico", name: "Tipo de Documento" },
+                { id: "descripcion", name: "Descripción" },
+                { id: "ContratoPlataforma", name: "Contrato Plataforma" },
+                { id: "revisoSocioFirmante", name: "Socio Firmante" },
+                { id: "lugarFirmaDoc", name: "Lugar de firma" },
+                { id: "rutaPapeles", name: "Ruta papeles" },
+                { id: "rutaDoc", name: "Ruta doc." }
+            ];
+
+            let formularioIntentado = false;
+
+            function validarAdjuntoDocumento() {
+                const archivoInput = document.getElementById("archivoRutaDoc");
+                const adjuntosInput = document.getElementById("adjuntos");
+                const tieneArchivoSeleccionado = !!(archivoInput && archivoInput.files && archivoInput.files.length > 0);
+                const tieneAdjuntoGuardado = !!(adjuntosInput && adjuntosInput.value && adjuntosInput.value.trim() !== "");
+                const esValido = tieneArchivoSeleccionado || tieneAdjuntoGuardado;
+
+                return {
+                    esValido,
+                    mensaje: esValido ? "" : "Falta adjuntar el documento fisico."
+                };
+            }
+
+            window.validarAdjuntoDocumento = validarAdjuntoDocumento;
+
+            // Función global de validación (accesible desde reverificarArchivo)
+            window.actualizarValidaciones = function() {
+                const contenedorErrores = document.getElementById("contenedorErroresUnificado");
+                const listaErrores = document.getElementById("listaErrores");
+                const btnFirmar = document.getElementById("btnFirmar");
+                const btnCrear = document.getElementById("btnCrear");
+                
+                if (!contenedorErrores || !listaErrores) return true;
+
+                // 1. Preservar el <li> de error de archivo y limpiar el resto
+                const errorArchivoLi = document.getElementById("errorArchivoFisico");
+                listaErrores.innerHTML = "";
+                if (errorArchivoLi) listaErrores.appendChild(errorArchivoLi);
+
+                // 2. Validar campos obligatorios SOLO si el usuario ya intentó enviar el formulario
+                let hayErroresDeCampos = false;
+                if (formularioIntentado) {
+                    fieldsToValidate.forEach(field => {
+                        const elem = document.getElementById(field.id);
+                        if (!elem) return;
+                        if (elem.dataset.loading === "true") return; // campo en carga: ignorar
+                        if (!elem.value || elem.value.trim() === "") {
+                            const li = document.createElement("li");
+                            li.textContent = `Falta completar el campo obligatorio: ${field.name}`;
+                            li.className = "error-campo-js";
+                            listaErrores.appendChild(li);
+                            hayErroresDeCampos = true;
+                        }
+                    });
+
+                    const validacionAdjunto = validarAdjuntoDocumento();
+                    if (!validacionAdjunto.esValido) {
+                        const li = document.createElement("li");
+                        li.textContent = validacionAdjunto.mensaje;
+                        li.className = "error-campo-js";
+                        listaErrores.appendChild(li);
+                        hayErroresDeCampos = true;
+                    }
+                }
+
+                // 3. Detectar error crítico de archivo
+                const errorArchivoElem = document.getElementById("errorArchivoFisico");
+                const hayErrorArchivoCritico = !!(errorArchivoElem && errorArchivoElem.dataset.severity === "error");
+
+                // 4. Mostrar/Ocultar contenedor rojo
+                const tieneMensajes = listaErrores.querySelectorAll("li").length > 0;
+                if (tieneMensajes && (hayErrorArchivoCritico || (formularioIntentado && hayErroresDeCampos))) {
+                    contenedorErrores.classList.remove("d-none");
+                } else {
+                    contenedorErrores.classList.add("d-none");
+                }
+
+                // 5. Botón Firmar: SOLO se bloquea si el archivo no existe físicamente
+                if (btnCrear) {
+                    btnCrear.disabled = formularioIntentado && hayErroresDeCampos;
+                }
+
+                if (btnFirmar) {
+                    btnFirmar.disabled = hayErrorArchivoCritico;
+                    btnFirmar.classList.toggle("disabled", hayErrorArchivoCritico);
+                    btnFirmar.title = hayErrorArchivoCritico
+                        ? "Archivo no encontrado. Verifique la ruta de red para poder firmar."
+                        : "";
+                }
+
+                return !hayErroresDeCampos;
+            };
+
+            // Manejar intento de envío (Crear / Guardar)
+            function manejarIntentoEnvio(e) {
+                formularioIntentado = true;
+                const esValido = window.actualizarValidaciones();
+                if (!esValido) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const contenedorErrores = document.getElementById("contenedorErroresUnificado");
+                    if (contenedorErrores) contenedorErrores.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            // Registrar listeners (una sola vez)
+            const btnCrear = document.getElementById("btnCrear");
+            const btnModificar = document.getElementById("btnModificar");
+            if (btnCrear) btnCrear.addEventListener("click", manejarIntentoEnvio);
+            if (btnModificar) btnModificar.addEventListener("click", manejarIntentoEnvio);
+
+            // Actualización en tiempo real al completar campos
+            fieldsToValidate.forEach(field => {
+                const elem = document.getElementById(field.id);
+                if (elem) {
+                    elem.addEventListener("change", window.actualizarValidaciones);
+                    elem.addEventListener("input", window.actualizarValidaciones);
+                }
+            });
+
+            const archivoRutaDocValidacion = document.getElementById("archivoRutaDoc");
+            if (archivoRutaDocValidacion) {
+                archivoRutaDocValidacion.addEventListener("change", window.actualizarValidaciones);
+            }
+
+            const adjuntosValidacion = document.getElementById("adjuntos");
+            if (adjuntosValidacion) {
+                adjuntosValidacion.addEventListener("change", window.actualizarValidaciones);
+                adjuntosValidacion.addEventListener("input", window.actualizarValidaciones);
+            }
+
+            // Ejecución inicial: deshabilita el botón si hay error de archivo al cargar
+            window.actualizarValidaciones();
+        });
+
+        function verificarArchivoAlCargar() {
+            const id = idHoja?.value;
+            const adjunto = document.getElementById('adjuntos')?.value;
+
+            if (!id || !adjunto) {
+                return;
+            }
+
+            fetch(`/Home/VerificarArchivoPrincipal?id=${id}`)
+                .then(response => response.json())
+                .then(data => aplicarResultadoVerificacionArchivo(data))
+                .catch(() => { });
+        }
+
+        function reverificarArchivo(id) {
+            const btnVerificar = event.currentTarget;
+            const originalHtml = btnVerificar.innerHTML;
+            btnVerificar.disabled = true;
+            btnVerificar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verificando...';
+
+            fetch(`/Home/VerificarArchivoPrincipal?id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 1. Eliminar el item de error de la lista
+                        const liError = document.getElementById("errorArchivoFisico");
+                        if (liError) liError.remove();
+
+                        // 2. Vaciar lista completa por si hay más items
+                        const lista = document.getElementById("listaErrores");
+                        if (lista) lista.innerHTML = "";
+
+                        // 3. Ocultar el contenedor rojo directamente (sin depender de scope externo)
+                        const contenedor = document.getElementById("contenedorErroresUnificado");
+                        if (contenedor) contenedor.classList.add("d-none");
+
+                        // 4. Habilitar el botón de firma
+                        const btnFirmar = document.getElementById("btnFirmar");
+                        if (btnFirmar) {
+                            btnFirmar.disabled = false;
+                            btnFirmar.classList.remove("disabled");
+                            btnFirmar.title = "";
+                        }
+
+                        // 5. Restaurar el botón de verificación
+                        btnVerificar.disabled = false;
+                        btnVerificar.innerHTML = originalHtml;
+
+                        alert("Archivo encontrado. Ya puede continuar.");
+                    } else {
+                        // Actualizar el mensaje y la severidad del error existente
+                        const liError = document.getElementById("errorArchivoFisico");
+                        if (liError) {
+                            if (data.severity) liError.dataset.severity = data.severity;
+                            const span = liError.querySelector("span");
+                            if (span) span.textContent = data.message;
+                        }
+
+                        // Deshabilitar botón de firma si el archivo no se encontró
+                        if (data.severity === "error") {
+                            const btnFirmar = document.getElementById("btnFirmar");
+                            if (btnFirmar) {
+                                btnFirmar.disabled = true;
+                                btnFirmar.classList.add("disabled");
+                                btnFirmar.title = "Archivo no encontrado. Verifique la ruta de red para poder firmar.";
+                            }
+                        }
+
+                        btnVerificar.disabled = false;
+                        btnVerificar.innerHTML = originalHtml;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al verificar archivo:', error);
+                    btnVerificar.disabled = false;
+                    btnVerificar.innerHTML = originalHtml;
+                });
+        }
+
+        function aplicarResultadoVerificacionArchivo(data) {
+            const contenedor = document.getElementById("contenedorErroresUnificado");
+            const lista = document.getElementById("listaErrores");
+            const btnFirmar = document.getElementById("btnFirmar");
+            if (!contenedor || !lista) {
+                return;
+            }
+
+            let liError = document.getElementById("errorArchivoFisico");
+
+            if (data.success && data.severity !== "warning") {
+                if (liError) {
+                    liError.remove();
+                }
+
+                if (!lista.children.length) {
+                    contenedor.classList.add("d-none");
+                }
+
+                if (btnFirmar) {
+                    btnFirmar.disabled = false;
+                    btnFirmar.classList.remove("disabled");
+                    btnFirmar.title = "";
+                }
+
+                return;
+            }
+
+            contenedor.classList.remove("d-none");
+
+            if (!liError) {
+                liError = document.createElement("li");
+                liError.id = "errorArchivoFisico";
+                lista.prepend(liError);
+            }
+
+            liError.dataset.severity = data.severity || "error";
+            liError.innerHTML = `
+                <span>${data.message || 'No pudimos validar el archivo.'}</span>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-2 py-0" onclick="reverificarArchivo('${idHoja?.value || ''}')" style="font-size: 0.75rem; vertical-align: middle;">
+                    <i class="bi bi-arrow-clockwise"></i> Verificar ahora
+                </button>`;
+
+            if (btnFirmar) {
+                const bloquearFirma = data.severity === "error";
+                btnFirmar.disabled = bloquearFirma;
+                btnFirmar.classList.toggle("disabled", bloquearFirma);
+                btnFirmar.title = bloquearFirma
+                    ? "Archivo no encontrado. Verifique la ruta de red para poder firmar."
+                    : "";
+            }
+        }
+    </script>
 }

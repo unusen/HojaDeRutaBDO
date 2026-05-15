@@ -1,4 +1,4 @@
-﻿using HojaDeRuta.Models.Config;
+using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Models.Enums;
@@ -48,8 +48,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al notificar al revisor" +
-                    $" {eMailBody.Revisor.Empleado}. {ex.Message}");
+                _logger.LogError(ex, "Error al notificar aprobación al revisor {Revisor} para la hoja {Hoja}", eMailBody.Revisor.Empleado, eMailBody.NumeroHoja);
+                throw new Exception($"No se pudo enviar la notificación de aprobación por correo electrónico.", ex);
             }
         }
 
@@ -75,8 +75,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al notificar al revisor" +
-                    $" {eMailBody.Revisor.Empleado}. {ex.Message}");
+                _logger.LogError(ex, "Error al notificar rechazo al revisor {Revisor} para la hoja {Hoja}", eMailBody.Revisor.Empleado, eMailBody.NumeroHoja);
+                throw new Exception($"No se pudo enviar la notificación de rechazo por correo electrónico.", ex);
             }
         }
 
@@ -101,8 +101,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al notificar al revisor" +
-                    $" {eMailBody.Revisor.Empleado}. {ex.Message}");
+                _logger.LogError(ex, "Error al notificar firma al revisor {Revisor} para la hoja {Hoja}", eMailBody.Revisor.Empleado, eMailBody.NumeroHoja);
+                throw new Exception($"No se pudo enviar la notificación de firma por correo electrónico.", ex);
             }
         }
 
@@ -136,8 +136,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error al notificar el acceso cruzado." +
-                    $" Sector: {hoja.Sector}. {ex.Message}");
+                _logger.LogError(ex, "Error al notificar acceso cruzado para el sector {Sector}", hoja.Sector);
+                throw new Exception($"Ocurrió un problema al enviar la notificación de acceso cruzado.", ex);
             }
         }
 
@@ -153,10 +153,10 @@ namespace HojaDeRuta.Services
                 string dominio = _mailSettings.Dominio;
 
                 //TODO: TEST PARA ENVIO DE EMAIL
-                //destinatarios = new List<string>()
-                //{
-                //    "sebastian.katcheroff@gbcservices.com"
-                //};
+                destinatarios = new List<string>()
+                {
+                    "sebastian.katcheroff@gmail.com"
+                };
 
                 using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
                 {
@@ -180,10 +180,10 @@ namespace HojaDeRuta.Services
                     {
                         if (!string.IsNullOrWhiteSpace(destinatario))
                         {                            
-                            message.To.Add($"{destinatario}{dominio}");
+                            //message.To.Add($"{destinatario}{dominio}");
 
                             //TODO: PARA PRUEBAS TEST
-                            //message.To.Add(destinatario);
+                            message.To.Add(destinatario);
                         }
                     }
 
@@ -200,9 +200,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                var error = $"Error al enviar mail. {ex.Message}.";
-                error += ex.InnerException != null ? ex.InnerException.Message : "";
-                throw new Exception(error);
+                _logger.LogError(ex, "Falla crítica en el envío de email: {Subject}", subject);
+                throw new Exception("El servicio de mensajería no está disponible o las credenciales son incorrectas. Por favor, verifique el log de eventos.", ex);
             }
         }
 

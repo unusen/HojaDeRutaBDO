@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700">
+  <rect width="1100" height="700" fill="#f4f7fb"/>
+
+  <rect x="80" y="80" width="940" height="120" rx="12" fill="#fff5f5" stroke="#f1aeb5"/>
+  <text x="110" y="120" font-family="Arial, sans-serif" font-size="24" fill="#a61e4d">Atencion: no se puede avanzar</text>
+  <text x="110" y="155" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">- No encontramos el archivo adjunto en la carpeta indicada.</text>
+  <text x="110" y="182" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">- Falta completar el campo obligatorio: Ruta del documento.</text>
+  <rect x="820" y="135" width="150" height="34" rx="6" fill="#c92a2a"/>
+  <text x="848" y="158" font-family="Arial, sans-serif" font-size="16" fill="#ffffff">Verificar ahora</text>
+
+  <rect x="80" y="235" width="940" height="90" rx="12" fill="#fff9db" stroke="#e6d58a"/>
+  <text x="110" y="275" font-family="Arial, sans-serif" font-size="22" fill="#5c4d00">Advertencia de auditoria</text>
+  <text x="110" y="304" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">La hoja puede avanzar, pero no se podra firmar hasta completar la informacion de auditoria.</text>
+
+  <rect x="80" y="370" width="940" height="210" rx="12" fill="#ffffff" stroke="#b8c4d6"/>
+  <text x="110" y="410" font-family="Arial, sans-serif" font-size="24" fill="#23395d">Comportamiento esperado</text>
+  <text x="110" y="452" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">- Si hay error critico de archivo, el boton Firmar Documento queda bloqueado.</text>
+  <text x="110" y="485" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">- Si faltan obligatorios, no se permite crear ni guardar la hoja.</text>
+  <text x="110" y="518" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">- Si la auditoria esta incompleta, la firma final no puede completarse.</text>
+  <text x="110" y="551" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">- Las advertencias ayudan a corregir antes de continuar.</text>
+</svg>

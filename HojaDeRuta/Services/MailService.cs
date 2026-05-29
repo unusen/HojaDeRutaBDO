@@ -153,10 +153,10 @@ namespace HojaDeRuta.Services
                 string dominio = _mailSettings.Dominio;
 
                 //TODO: TEST PARA ENVIO DE EMAIL
-                destinatarios = new List<string>()
-                {
-                    "sebastian.katcheroff@gmail.com"
-                };
+                //destinatarios = new List<string>()
+                //{
+                //    "sebastian.katcheroff@gmail.com"
+                //};
 
                 using (var client = new SmtpClient(_mailSettings.SmtpServer, _mailSettings.SmtpPort))
                 {
@@ -179,11 +179,12 @@ namespace HojaDeRuta.Services
                     foreach (var destinatario in destinatarios)
                     {
                         if (!string.IsNullOrWhiteSpace(destinatario))
-                        {                            
-                            //message.To.Add($"{destinatario}{dominio}");
+                        {              
+                            //DEJAR ASI EN PROD
+                            message.To.Add($"{destinatario}{dominio}");
 
                             //TODO: PARA PRUEBAS TEST
-                            message.To.Add(destinatario);
+                            //message.To.Add(destinatario);
                         }
                     }
 

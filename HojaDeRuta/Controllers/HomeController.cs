@@ -586,7 +586,23 @@ namespace HojaDeRuta.Controllers
                         return CrearRespuestaErrorFlujo("Revisa los campos obligatorios antes de continuar.", erroresModelo, ErrorPhasePreflight, operationId);
                     }
 
+                    var attachmentMode = _hojaAttachmentService.ResolveMode(hoja);
+                    _logger.LogInformation(
+                        "Upsert(Update) - Preparando adjunto principal. Hoja={HojaId} Modo={StorageMode} ArchivoNuevo={HasNewFile} ArchivoActual={CurrentAttachment} TempActual={CurrentTemp}",
+                        hoja?.Id ?? "N/A",
+                        attachmentMode,
+                        archivoDoc != null && archivoDoc.Length > 0 && !string.IsNullOrWhiteSpace(archivoDoc.FileName),
+                        existingHoja?.Adjuntos ?? hoja?.Adjuntos ?? "(sin adjunto)",
+                        existingHoja?.ArchivoTemp ?? hoja?.ArchivoTemp ?? "(sin temp)");
+
                     await _hojaAttachmentService.PreparePrimaryAttachmentAsync(hoja, existingHoja, archivoDoc);
+
+                    _logger.LogInformation(
+                        "Upsert(Update) - Adjunto principal preparado. Hoja={HojaId} Adjunto={Attachment} Temp={TempFile} HashPresente={HasHash}",
+                        hoja?.Id ?? "N/A",
+                        hoja?.Adjuntos ?? "(sin adjunto)",
+                        hoja?.ArchivoTemp ?? "(sin temp)",
+                        !string.IsNullOrWhiteSpace(hoja?.ArchivoHash));
 
                     var workflowValidation = await _hojaWorkflowService.ValidateWorkflowConfigurationAsync(hoja, hoja.Preparo ?? string.Empty, false);
                     if (!workflowValidation.IsValid)
@@ -845,17 +861,24 @@ namespace HojaDeRuta.Controllers
                 _logger.LogInformation($"Firma - Inicio de proceso en FirmarDoc para la hoja {Id}."
                     + $" Revisor: {CurrentUser.UserName}.");
 
+                Hoja hoja = await _hojaDeRutaService.GetHojaByIdAsync(Id);
+                string error = string.Empty;
+
                 if (archivoDoc == null)
                 {
-                    _logger.LogWarning($"Firma - El parámetro archivoDoc es NULO en FirmarDoc para la hoja {Id}.");
+                    if (!string.IsNullOrWhiteSpace(hoja?.ArchivoTemp))
+                    {
+                        _logger.LogInformation("Firma - No se recibió un archivo nuevo en FirmarDoc para la hoja {HojaId}. Se reutilizará el archivo temporal {ArchivoTemp}.", Id, hoja.ArchivoTemp);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Firma - No se recibió archivo nuevo ni existe archivo temporal previo en FirmarDoc para la hoja {HojaId}.", Id);
+                    }
                 }
                 else
                 {
                     _logger.LogInformation($"Firma - Parámetro archivoDoc recibido: {archivoDoc.FileName}, Tamaño: {archivoDoc.Length} bytes.");
                 }
-
-                Hoja hoja = await _hojaDeRutaService.GetHojaByIdAsync(Id);
-                string error = string.Empty;
 
                 if (hoja == null)
                 {
@@ -1002,13 +1025,20 @@ namespace HojaDeRuta.Controllers
                     return CrearRespuestaErrorFlujo("No pudimos completar la firma porque no encontramos la etapa final de aprobación. Recargá la hoja e intentá nuevamente.", errorPhase: executionStarted ? ErrorPhaseExecution : ErrorPhasePreflight, operationId: operationId);
                 }
 
-                Revisores gestorFinal = await _revisorService.GetRevisorByName(hoja.GestorFinal);
-                
-                if (gestorFinal == null)
+                Revisores? gestorFinal = null;
+
+                if (!string.IsNullOrWhiteSpace(hoja.GestorFinal))
                 {
-                    _logger.LogWarning($"Firma - No se encontró la información del Gestor Final: {hoja.GestorFinal}");
-                    await RegistrarFallaOperacionAsync(operationId, currentStepKey, "No pudimos completar la firma porque falta información del gestor final. Revisá la hoja antes de volver a intentarlo.");
-                    return CrearRespuestaErrorFlujo("No pudimos completar la firma porque falta información del gestor final. Revisá la hoja antes de volver a intentarlo.", errorPhase: executionStarted ? ErrorPhaseExecution : ErrorPhasePreflight, operationId: operationId);
+                    gestorFinal = await _revisorService.GetRevisorByName(hoja.GestorFinal);
+
+                    if (gestorFinal == null)
+                    {
+                        _logger.LogWarning("Firma - No se encontró la información del Gestor Final configurado. Hoja={HojaId} GestorFinal={GestorFinal}", hoja.Id, hoja.GestorFinal);
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("Firma - La hoja {HojaId} no tiene Gestor Final. La firma continuará sin notificación final al gestor.", hoja.Id);
                 }
 
                 currentStepKey = "actualizando-estado-final";
@@ -1057,11 +1087,18 @@ namespace HojaDeRuta.Controllers
                 var url = Url.Action(nameof(Upsert), "Home",
                     new { mode = ViewMode.Update, id = eMailBody.HojaId },
                     protocol: Request.Scheme);
-                await _notificationQueueService.QueueSignatureAsync(
-                    eMailBody,
-                    hoja.SocioFirmante,
-                    url,
-                    "Notificacion de firma al gestor final");
+                if (gestorFinal != null)
+                {
+                    await _notificationQueueService.QueueSignatureAsync(
+                        eMailBody,
+                        hoja.SocioFirmante,
+                        url,
+                        "Notificacion de firma al gestor final");
+                }
+                else
+                {
+                    _logger.LogInformation("Firma - Se omite la notificación final al gestor porque la hoja {HojaId} no tiene Gestor Final válido.", hoja.Id);
+                }
                 await MarcarPasoCompletadoAsync(operationId, currentStepKey);
 
                 currentStepKey = "finalizando";

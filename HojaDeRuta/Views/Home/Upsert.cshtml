@@ -681,12 +681,20 @@
                         ? 'Estamos preparando la nueva hoja de ruta...'
                         : 'Estamos guardando los cambios realizados...';
 
-                    await window.hojaUpsertProgress.runFormOperation({
+                    const operationResult = await window.hojaUpsertProgress.runFormOperation({
                         form: form,
                         disableElements: [submitter],
                         initialTitle: initialTitle,
                         initialMessage: initialMessage,
                         prepareFormData: function (formData) {
+                            const fileInput = document.getElementById('archivoRutaDoc');
+                            const hasDirtyFile = fileInput?.dataset.fileDirty === 'true';
+                            const hasSelectedFile = !!(fileInput && fileInput.files && fileInput.files.length > 0 && fileInput.files[0] && fileInput.files[0].size > 0);
+
+                            if (!hasDirtyFile || !hasSelectedFile) {
+                                formData.delete('archivoDoc');
+                            }
+
                             formData.set('mode', operationMode);
                             return true;
                         },
@@ -694,6 +702,10 @@
                             mostrarErrorEnAlert(payload.message, payload.errors || []);
                         }
                     });
+
+                    if (archivoRutaDoc && operationResult?.success && submitter?.dataset.operationMode && submitter.dataset.operationMode !== 'Create') {
+                        archivoRutaDoc.dataset.fileDirty = 'false';
+                    }
                 });
             }
         }
@@ -713,10 +725,13 @@
             }
 
             if (archivoRutaDoc && adjuntos) {
+                archivoRutaDoc.dataset.fileDirty = 'false';
+
                 archivoRutaDoc.addEventListener('change', function () {
                     if (this.files && this.files.length > 0) {
                         const fileName = this.files[0].name;
                         adjuntos.value = fileName;
+                        this.dataset.fileDirty = 'true';
                         if (nombreAdjunto) nombreAdjunto.textContent = fileName;
                         if (contenedorAdjunto) contenedorAdjunto.classList.remove('d-none');
                     }
@@ -735,6 +750,7 @@
             const contenedorAdjunto = document.getElementById('contenedorAdjunto');
 
             if (archivoRutaDoc) archivoRutaDoc.value = ""; // Limpia el input file
+            if (archivoRutaDoc) archivoRutaDoc.dataset.fileDirty = "false";
             if (adjuntos) adjuntos.value = "";
             if (contenedorAdjunto) contenedorAdjunto.classList.add('d-none');
         }

@@ -92,8 +92,13 @@ namespace HojaDeRuta.Services
         {
             PreserveExistingMetadata(hoja, existingHoja);
 
-            if (uploadedFile == null || uploadedFile.Length == 0)
+            if (!HasMeaningfulUpload(uploadedFile))
             {
+                _logger.LogInformation(
+                    "Adjunto principal: se conserva metadata existente. Hoja={HojaId} TieneAdjunto={HasAttachment} ArchivoTemp={ArchivoTemp}",
+                    hoja?.Id ?? BuildFallbackHojaId(hoja),
+                    !string.IsNullOrWhiteSpace(hoja?.Adjuntos),
+                    hoja?.ArchivoTemp ?? "(null)");
                 return;
             }
 
@@ -101,6 +106,10 @@ namespace HojaDeRuta.Services
 
             if (GetConfiguredMode() == FileStorageMode.SharedFolder)
             {
+                _logger.LogInformation(
+                    "Adjunto principal: modo SharedFolder, se actualiza solo metadata visual. Hoja={HojaId} Archivo={FileName}",
+                    hoja?.Id ?? BuildFallbackHojaId(hoja),
+                    hoja.Adjuntos);
                 return;
             }
 
@@ -111,6 +120,12 @@ namespace HojaDeRuta.Services
             var (fileName, hash) = await _fileService.SaveToTempAsync(uploadedFile, hojaId);
             hoja.ArchivoTemp = fileName;
             hoja.ArchivoHash = hash;
+
+            _logger.LogInformation(
+                "Adjunto principal: archivo reemplazado en AppStorage. Hoja={HojaId} Archivo={FileName} Temp={TempFile}",
+                hojaId,
+                hoja.Adjuntos,
+                hoja.ArchivoTemp);
         }
 
         public async Task<FileValidationResult> ValidatePrimaryAttachmentAsync(Hoja hoja)
@@ -299,6 +314,16 @@ namespace HojaDeRuta.Services
             var sector = string.IsNullOrWhiteSpace(hoja.Sector) ? "HDR" : hoja.Sector.Trim();
             var numero = string.IsNullOrWhiteSpace(hoja.Numero) ? Guid.NewGuid().ToString("N") : hoja.Numero.Trim();
             return $"{sector}_{numero}";
+        }
+
+        private static bool HasMeaningfulUpload(IFormFile? uploadedFile)
+        {
+            if (uploadedFile == null || uploadedFile.Length <= 0)
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(uploadedFile.FileName);
         }
     }
 }

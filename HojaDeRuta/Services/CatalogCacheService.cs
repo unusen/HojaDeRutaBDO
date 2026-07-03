@@ -12,6 +12,8 @@ namespace HojaDeRuta.Services
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
         private static readonly SemaphoreSlim FactoryExecutionGate = new(1, 1);
         private const string ClientesCacheKey = "catalog:clientes:v1";
+        private const string ContratosCacheVersionKey = "catalog:contratos:version";
+        private const string DefaultContratosCacheVersion = "v1";
 
         private readonly IDistributedCache _cache;
         private readonly ClienteService _clienteService;
@@ -58,16 +60,50 @@ namespace HojaDeRuta.Services
             => GetOrCreateAsync("catalog:rutas:v1", StandardCatalogTtl, _sharedService.GetRutas, cancellationToken);
 
         public Task<List<Contratos>> GetContratosByCodigoPlataformaAsync(string? codigoPlataforma, CancellationToken cancellationToken = default)
+            => GetContratosByCodigoPlataformaInternalAsync(codigoPlataforma, cancellationToken);
+
+        public Task InvalidateContratosAsync(CancellationToken cancellationToken = default)
+            => _cache.SetStringAsync(
+                ContratosCacheVersionKey,
+                DateTime.UtcNow.Ticks.ToString(),
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30)
+                },
+                cancellationToken);
+
+        private async Task<List<Contratos>> GetContratosByCodigoPlataformaInternalAsync(string? codigoPlataforma, CancellationToken cancellationToken)
         {
             var normalizedCode = string.IsNullOrWhiteSpace(codigoPlataforma)
                 ? "all"
                 : codigoPlataforma.Trim().ToLowerInvariant();
+            var version = await GetContratosCacheVersionAsync(cancellationToken);
 
-            return GetOrCreateAsync(
-                $"catalog:contratos:{normalizedCode}:v1",
+            return await GetOrCreateAsync(
+                $"catalog:contratos:{normalizedCode}:{version}",
                 StandardCatalogTtl,
                 () => _sharedService.GetContratosByCodigoPlataforma(codigoPlataforma),
                 cancellationToken);
+        }
+
+        private async Task<string> GetContratosCacheVersionAsync(CancellationToken cancellationToken)
+        {
+            var version = await _cache.GetStringAsync(ContratosCacheVersionKey, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(version))
+            {
+                return version;
+            }
+
+            await _cache.SetStringAsync(
+                ContratosCacheVersionKey,
+                DefaultContratosCacheVersion,
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30)
+                },
+                cancellationToken);
+
+            return DefaultContratosCacheVersion;
         }
 
         private async Task<List<T>> GetOrCreateAsync<T>(

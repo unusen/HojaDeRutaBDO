@@ -35,7 +35,3 @@ Abra el panel `Notificaciones` dentro de la hoja y verifique el estado del envio
 ## 9. El archivo adjunto no abre o no descarga
 
 Puede deberse a que el archivo ya no existe, a que la ruta no es accesible o a que el usuario no tiene permiso para abrirlo. Reintente desde la hoja y, si persiste, valide la existencia del documento principal.
-
-## 10. La hoja fue rechazada. Que hago?
-
-Abra la hoja y revise el `Motivo de rechazo`. Esa informacion indica que debe corregirse. Una hoja rechazada no continua el flujo normal hasta que se analice el ajuste necesario fuera de ese circuito.

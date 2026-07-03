@@ -234,13 +234,16 @@ namespace HojaDeRuta.Services
 
             try
             {
+                var finalFileNameBase = BuildFinalFileNameBase(hoja);
+
                 if (ResolveMode(hoja) == FileStorageMode.SharedFolder)
                 {
                     var sourcePath = await ResolveSharedFolderPathAsync(hoja);
+                    var sourceExtension = Path.GetExtension(sourcePath);
                     var destinationPath = await _fileService.CopyFileToFinalAsync(
                         sourcePath,
                         targetFolder,
-                        hoja.Adjuntos ?? Path.GetFileName(sourcePath));
+                        $"{finalFileNameBase}{sourceExtension}");
 
                     return new HojaAttachmentFinalizeResult
                     {
@@ -255,7 +258,7 @@ namespace HojaDeRuta.Services
                 var finalPath = await _fileService.CopyTempFileToFinalAsync(
                     hoja.ArchivoTemp!,
                     targetFolder,
-                    Path.GetFileNameWithoutExtension(hoja.Adjuntos));
+                    finalFileNameBase);
 
                 return new HojaAttachmentFinalizeResult
                 {
@@ -314,6 +317,24 @@ namespace HojaDeRuta.Services
             var sector = string.IsNullOrWhiteSpace(hoja.Sector) ? "HDR" : hoja.Sector.Trim();
             var numero = string.IsNullOrWhiteSpace(hoja.Numero) ? Guid.NewGuid().ToString("N") : hoja.Numero.Trim();
             return $"{sector}_{numero}";
+        }
+
+        private static string BuildFinalFileNameBase(Hoja hoja)
+        {
+            var nombreGenerico = hoja.NombreGenerico?.Trim();
+            var subarea = hoja.Subarea?.Trim();
+            var numero = hoja.Numero?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(nombreGenerico)
+                && !string.IsNullOrWhiteSpace(subarea)
+                && !string.IsNullOrWhiteSpace(numero))
+            {
+                return $"{nombreGenerico}_{subarea}_{numero}";
+            }
+
+            return !string.IsNullOrWhiteSpace(hoja.Adjuntos)
+                ? Path.GetFileNameWithoutExtension(hoja.Adjuntos)
+                : BuildFallbackHojaId(hoja);
         }
 
         private static bool HasMeaningfulUpload(IFormFile? uploadedFile)

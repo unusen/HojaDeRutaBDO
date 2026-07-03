@@ -49,6 +49,7 @@ namespace HojaDeRuta.Controllers
         private readonly ITempDataProvider _tempDataProvider;
         private readonly IServiceProvider _serviceProvider;
         private readonly PathSetings _pathSettings;
+        private readonly UploadSettings _uploadSettings;
 
         //TODO: PARA TEST LOGIN, ELIMINAR EN PROD
         //private readonly UserContext CurrentUser;
@@ -72,7 +73,8 @@ namespace HojaDeRuta.Controllers
             IRazorViewEngine viewEngine,
             ITempDataProvider tempDataProvider,
             IServiceProvider serviceProvider,
-            IOptions<PathSetings> pathSettings
+            IOptions<PathSetings> pathSettings,
+            IOptions<UploadSettings> uploadSettings
             ) : base(userContextCacheService)
         {
             _logger = logger;
@@ -94,6 +96,7 @@ namespace HojaDeRuta.Controllers
             _tempDataProvider = tempDataProvider;
             _serviceProvider = serviceProvider;
             _pathSettings = pathSettings.Value;
+            _uploadSettings = uploadSettings.Value;
 
             //TODO: PARA TEST LOGIN, ELIMINAR EN PROD
             //GroupConfig groupConfig = new GroupConfig
@@ -415,6 +418,7 @@ namespace HojaDeRuta.Controllers
 
                     int proximoNumero = await _hojaDeRutaService.GetProximoNumero();
                     hoja.Numero = proximoNumero.ToString();
+                    _logger.LogInformation("Create numeracion tentativa. User={User} Empleado={Empleado} Sector={Sector} NumeroTentativo={NumeroTentativo}", CurrentUser.UserName, CurrentUser.Empleado, CurrentUser.Area, proximoNumero);
 
                     _logger.LogInformation($"El próximo número de hoja de ruta es {proximoNumero}");
 
@@ -440,6 +444,7 @@ namespace HojaDeRuta.Controllers
                 }
 
                 await CargarViewBags(hoja, mode);
+                ConfigurarViewBagUploadLimits();
                 ViewBag.ErrorArchivo = TempData["ErrorArchivo"]?.ToString();
                 ConfigurarViewBagAdjunto(hoja);
                 await ConfigurarViewBagEtapaActualAsync(hoja);
@@ -514,7 +519,40 @@ namespace HojaDeRuta.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Upsert(Hoja hoja, ViewMode mode, IFormFile? archivoDoc, string? operationId)
+        public async Task<IActionResult> ValidarNumeroCreate(string numero)
+        {
+            try
+            {
+                var numeroSolicitado = int.TryParse(numero, out var numeroTentativo) ? numeroTentativo : 0;
+                var numeroDisponibleActual = await _hojaDeRutaService.GetProximoNumero();
+
+                _logger.LogInformation(
+                    "Create numeracion - precheck. User={User} Empleado={Empleado} NumeroSolicitado={NumeroSolicitado} NumeroDisponibleActual={NumeroDisponibleActual}",
+                    CurrentUser.UserName,
+                    CurrentUser.Empleado,
+                    numeroSolicitado,
+                    numeroDisponibleActual);
+
+                if (numeroSolicitado > 0 && numeroSolicitado != numeroDisponibleActual)
+                {
+                    return CrearRespuestaConfirmacionNumero(
+                        numeroSolicitado,
+                        "El número de hoja " + numeroSolicitado + " ya fue utilizado por otro usuario. La presente hoja se guardará con el próximo número disponible.",
+                        null);
+                }
+
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al validar numeración tentativa para el usuario {User}", CurrentUser?.UserName ?? "N/A");
+                return CrearRespuestaErrorFlujo("No pudimos validar la numeración de la hoja en este momento.");
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Upsert(Hoja hoja, ViewMode mode, IFormFile? archivoDoc, string? operationId, bool forceNumeroReassignment = false, string? reservedNumero = null)
         {
             var executionStarted = false;
             var currentStepKey = string.Empty;
@@ -530,6 +568,15 @@ namespace HojaDeRuta.Controllers
                 if (mode == ViewMode.Update && !string.IsNullOrWhiteSpace(hoja?.Id))
                 {
                     existingHoja = await _hojaDeRutaService.GetHojaByIdAsync(hoja.Id);
+                }
+
+                if (!ValidarTamanoArchivoAdjunto(hoja, archivoDoc, out var errorTamanoArchivo))
+                {
+                    return CrearRespuestaErrorFlujo(
+                        "No se puede guardar la hoja porque el archivo adjunto supera el tamaño permitido.",
+                        new[] { errorTamanoArchivo! },
+                        ErrorPhasePreflight,
+                        operationId);
                 }
 
                 // Resolución de ruta de red (mapeo de letras)
@@ -656,6 +703,26 @@ namespace HojaDeRuta.Controllers
                     }
 
                     hoja.Preparo = CurrentUser.Empleado;
+                    var numeroSolicitado = int.TryParse(hoja.Numero, out var numeroTentativo) ? numeroTentativo : 0;
+                    _logger.LogInformation("Create numeracion - inicio POST. User={User} Empleado={Empleado} NumeroSolicitado={NumeroSolicitado} ForceNumeroReassignment={ForceNumeroReassignment} OperationId={OperationId}", CurrentUser.UserName, CurrentUser.Empleado, numeroSolicitado, forceNumeroReassignment, operationId ?? "(sin operationId)");
+                    if (!forceNumeroReassignment)
+                    {
+                        var numeroDisponibleActual = await _hojaDeRutaService.GetProximoNumero();
+                        _logger.LogInformation("Create numeracion - validacion tentativo. User={User} NumeroSolicitado={NumeroSolicitado} NumeroDisponibleActual={NumeroDisponibleActual} OperationId={OperationId}", CurrentUser.UserName, numeroSolicitado, numeroDisponibleActual, operationId ?? "(sin operationId)");
+                        if (numeroSolicitado != numeroDisponibleActual)
+                        {
+                            _logger.LogInformation("Create numeracion - requiere confirmacion. User={User} NumeroSolicitado={NumeroSolicitado} NumeroDisponibleActual={NumeroDisponibleActual} OperationId={OperationId}", CurrentUser.UserName, numeroSolicitado, numeroDisponibleActual, operationId ?? "(sin operationId)");
+                            return CrearRespuestaConfirmacionNumero(
+                                numeroSolicitado,
+                                "El número de hoja " + numeroSolicitado + " ya fue utilizado por otro usuario. La presente hoja se guardará con el próximo número disponible.",
+                                operationId);
+                        }
+                    }
+
+                    int numeroReservado = await _hojaDeRutaService.ReservarProximoNumeroAsync();
+                    _logger.LogInformation("Create numeracion - numero reservado final. User={User} NumeroSolicitado={NumeroSolicitado} NumeroReservado={NumeroReservado} OperationId={OperationId}", CurrentUser.UserName, numeroSolicitado, numeroReservado, operationId ?? "(sin operationId)");
+
+                    hoja.Numero = numeroReservado.ToString(CultureInfo.InvariantCulture);
                     executionStarted = !string.IsNullOrWhiteSpace(operationId);
                     if (executionStarted)
                     {
@@ -666,6 +733,7 @@ namespace HojaDeRuta.Controllers
                     }
 
                     hoja.Id = $"{hoja.Sector}{hoja.Numero}";
+                    _logger.LogInformation("Create numeracion - persistencia final. User={User} HojaId={HojaId} NumeroFinal={NumeroFinal} Sector={Sector} Cliente={Cliente} OperationId={OperationId}", CurrentUser.UserName, hoja.Id, hoja.Numero, hoja.Sector, hoja.Cliente, operationId ?? "(sin operationId)");
                     hoja.Estado = (int)Estado.Pendiente;
                     hoja.Manejador = string.Empty;
                     hoja.ArchivoTemp = null;
@@ -1533,11 +1601,10 @@ namespace HojaDeRuta.Controllers
             return File(bytes, contentType, fileName);
         }
 
-        public async Task<List<string>> GetContratosByCodigo(string codigoPlataforma)
+        public async Task<List<ContratoOptionDto>> GetContratosByCodigo(string codigoPlataforma)
         {
             List<Contratos> contratos = await _catalogCacheService.GetContratosByCodigoPlataformaAsync(codigoPlataforma);
-            List<string> contratosName = contratos.Select(c => c.Contrato).ToList();
-            return contratosName;
+            return BuildContratoOptions(contratos);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -1607,13 +1674,15 @@ namespace HojaDeRuta.Controllers
             }).ToList();
 
             ViewBag.ContratosPlataforma = contratosPlataforma
-                .Select(c => c.Contrato)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Distinct()
+                .Where(c => !string.IsNullOrWhiteSpace(c.Contrato))
+                .OrderByDescending(c => c.FechaAlta ?? DateTime.MinValue)
+                .ThenBy(c => c.Contrato)
+                .GroupBy(c => c.Contrato)
+                .Select(group => group.First())
                 .Select(c => new SelectListItem
                 {
-                    Value = c,
-                    Text = c
+                    Value = c.Contrato,
+                    Text = FormatContratoOptionText(c)
                 })
                 .ToList();
 
@@ -1702,6 +1771,33 @@ namespace HojaDeRuta.Controllers
                 && esResponsableActual
                 ? "Esta hoja requiere completar datos de auditoría antes de la firma final. El avance de etapa puede continuar, pero el socio firmante no podrá firmar hasta que la carga esté completa."
                 : null;
+        }
+
+        private static List<ContratoOptionDto> BuildContratoOptions(List<Contratos> contratos)
+        {
+            return contratos
+                .Where(c => !string.IsNullOrWhiteSpace(c.Contrato))
+                .OrderByDescending(c => c.FechaAlta ?? DateTime.MinValue)
+                .ThenBy(c => c.Contrato)
+                .GroupBy(c => c.Contrato)
+                .Select(group => group.First())
+                .Select(c => new ContratoOptionDto
+                {
+                    Value = c.Contrato,
+                    Text = FormatContratoOptionText(c),
+                    FechaAlta = c.FechaAlta?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+                })
+                .ToList();
+        }
+
+        private static string FormatContratoOptionText(Contratos contrato)
+        {
+            if (contrato.FechaAlta.HasValue)
+            {
+                return $"{contrato.Contrato} ({contrato.FechaAlta.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)})";
+            }
+
+            return contrato.Contrato;
         }
 
         [HttpGet]
@@ -2300,6 +2396,19 @@ namespace HojaDeRuta.Controllers
             });
         }
 
+        private JsonResult CrearRespuestaConfirmacionNumero(int requestedNumero, string message, string? operationId)
+        {
+            return Json(new
+            {
+                success = false,
+                message,
+                errorPhase = ErrorPhasePreflight,
+                operationId,
+                requiresNumeroConfirmation = true,
+                requestedNumero
+            });
+        }
+
         private JsonResult CrearRespuestaErrorFlujo(string message, IEnumerable<string>? errors = null, string errorPhase = ErrorPhasePreflight, string? operationId = null)
         {
             var errorList = errors?
@@ -2314,6 +2423,40 @@ namespace HojaDeRuta.Controllers
                 errorPhase,
                 operationId
             });
+        }
+
+        private void ConfigurarViewBagUploadLimits()
+        {
+            ViewBag.MaxUploadFileSizeBytes = _uploadSettings.GetMaxFileSizeBytes();
+            ViewBag.MaxUploadFileSizeLabel = _uploadSettings.GetMaxFileSizeLabel();
+        }
+
+        private bool ValidarTamanoArchivoAdjunto(Hoja? hoja, IFormFile? archivoDoc, out string? errorMessage)
+        {
+            errorMessage = null;
+
+            if (archivoDoc == null || archivoDoc.Length <= 0)
+            {
+                return true;
+            }
+
+            var maxAllowedBytes = _uploadSettings.GetMaxFileSizeBytes();
+            if (archivoDoc.Length <= maxAllowedBytes)
+            {
+                return true;
+            }
+
+            errorMessage = $"El archivo adjunto supera el máximo permitido de {_uploadSettings.GetMaxFileSizeLabel()}.";
+
+            _logger.LogWarning(
+                "Se rechazó un adjunto por tamaño en Upsert. Hoja={HojaId} Archivo={FileName} FileSize={FileSize} MaxAllowed={MaxAllowed} User={User}",
+                hoja?.Id ?? "(nueva)",
+                archivoDoc.FileName,
+                archivoDoc.Length,
+                maxAllowedBytes,
+                CurrentUser?.Empleado ?? "(unknown)");
+
+            return false;
         }
     }
 }

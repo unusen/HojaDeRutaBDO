@@ -34,10 +34,6 @@ El acceso se realiza con la cuenta corporativa autenticada de la organizacion. A
 - el boton para cerrar sesion
 - el acceso a la pantalla principal
 
-Mockup ilustrativo:
-
-![Pantalla inicial](mockups/pantalla-inicial.svg)
-
 ### 2.2 Cierre de sesion
 
 Para salir de la aplicacion:
@@ -120,10 +116,6 @@ Si la hoja esta `Aprobada` o `Rechazada`, el icono de edicion aparece deshabilit
 - Accion recomendada: reintentar luego de unos segundos.
 
 ## 4. Creacion de una hoja de ruta
-
-Mockup ilustrativo:
-
-![Formulario de hoja](mockups/formulario-hoja.svg)
 
 ### 4.1 Paso a paso
 
@@ -260,10 +252,6 @@ Si la modificacion es correcta:
 
 ## 6. Flujo de revision y aprobaciones
 
-Mockup ilustrativo:
-
-![Flujo de revision](mockups/flujo-revision.svg)
-
 La hoja puede pasar por estas etapas:
 - `Reviso`
 - `Gerente/Dir.`
@@ -306,10 +294,6 @@ Que ocurre luego:
 
 ### 6.4 Rechazo de una etapa
 
-Mockup ilustrativo:
-
-![Modal de rechazo](mockups/modal-rechazo.svg)
-
 Paso a paso:
 1. Abra la hoja.
 2. Presione `Rechazar`.
@@ -322,9 +306,6 @@ Que ocurre luego:
 - el preparador recibe la notificacion de rechazo
 - el motivo queda visible dentro de la hoja
 
-Buenas practicas:
-- explicar con claridad el motivo
-- indicar que debe corregirse antes de intentar una nueva gestion externa al flujo actual
 
 ### 6.5 Bloqueos posibles en revision
 
@@ -398,10 +379,6 @@ Si todo es correcto:
 
 ## 8. Auditoria asociada
 
-Mockup ilustrativo:
-
-![Modal de auditoria](mockups/modal-auditoria.svg)
-
 La auditoria asociada aplica solo cuando el tipo de documento es `Informe del auditor`.
 
 ### 8.1 Advertencia visible
@@ -449,10 +426,6 @@ La auditoria:
 
 ## 9. Adjuntos, alertas y validaciones visibles
 
-Mockup ilustrativo:
-
-![Alertas y validaciones](mockups/alertas-validacion.svg)
-
 La hoja puede mostrar avisos importantes en la parte superior.
 
 ### 9.1 Error critico de archivo
@@ -478,10 +451,6 @@ Cuando el usuario intenta crear o guardar una hoja, el sistema puede listar falt
 - falta adjuntar el documento fisico
 
 ## 10. Notificaciones
-
-Mockup ilustrativo:
-
-![Panel de notificaciones](mockups/panel-notificaciones.svg)
 
 La hoja dispone de un panel de seguimiento de notificaciones.
 
@@ -664,13 +633,3 @@ Que hacer:
 - Completar auditoria correctamente y luego firmar.
 - Verificar el panel de notificaciones en estados pendiente, procesando, enviada y fallida.
 - Reintentar una notificacion fallida.
-
-## 13. Referencias visuales
-
-- [Pantalla inicial](mockups/pantalla-inicial.svg)
-- [Formulario de hoja](mockups/formulario-hoja.svg)
-- [Flujo de revision](mockups/flujo-revision.svg)
-- [Modal de rechazo](mockups/modal-rechazo.svg)
-- [Modal de auditoria](mockups/modal-auditoria.svg)
-- [Panel de notificaciones](mockups/panel-notificaciones.svg)
-- [Alertas y validaciones](mockups/alertas-validacion.svg)

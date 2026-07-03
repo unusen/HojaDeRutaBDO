@@ -271,14 +271,16 @@ namespace HojaDeRuta.Services
                 return false;
             }
 
-            bool result = false;
             Revisores revisor = await GetRevisorByName(revisorActual);
 
-            if (revisor != null)
+            if (revisor == null)
             {
-                _logger.LogInformation($"El revisor {revisorActual} fue encontrado. " +
-                    $" con el cargo {revisor.Cargo}");
+                _logger.LogWarning($"No se encontro configuracion de revisor para el empleado {revisorActual}.");
+                return false;
             }
+
+            _logger.LogInformation($"El revisor {revisorActual} fue encontrado. " +
+                $" con el cargo {revisor.Cargo}");
 
             var pasosFlujo = new List<string?>
             {
@@ -290,16 +292,22 @@ namespace HojaDeRuta.Services
                 hoja.GestorFinal
             };
 
+            bool participaEnLaHoja = pasosFlujo.Any(p =>
+                string.Equals(p, revisorActual, StringComparison.OrdinalIgnoreCase));
+
+            bool perteneceAlArea = string.Equals(revisor.Area, hoja.Sector, StringComparison.OrdinalIgnoreCase);
+
+            bool result;
             switch (revisor.Cargo)
             {
                 case 11:
                     result = true;
                     break;
                 case 10:
-                    result = revisor.Area == hoja.Sector;
+                    result = participaEnLaHoja || perteneceAlArea;
                     break;
                 default:
-                    result = pasosFlujo.Any(p => string.Equals(p, revisorActual, StringComparison.OrdinalIgnoreCase));
+                    result = participaEnLaHoja;
                     break;
             }
 

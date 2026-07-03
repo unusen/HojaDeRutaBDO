@@ -8,6 +8,7 @@ using HojaDeRuta.Services.Repository;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Globalization;
 using System.Linq.Expressions;
 
 namespace HojaDeRuta.Services
@@ -21,6 +22,7 @@ namespace HojaDeRuta.Services
         private readonly IGenericRepository<Auditoria> _auditoriaRepository;
         private readonly IGenericRepository<HojaEstado> _hojaEstadoRepository;
         private readonly DBSettings _dbSettings;
+        private readonly MailSettings _mailSettings;
         private readonly MonedasSettings _monedasSettings;
         private readonly IMapper _mapper;
         private readonly ICatalogCacheService _catalogCacheService;
@@ -32,6 +34,7 @@ namespace HojaDeRuta.Services
             IGenericRepository<Auditoria> auditoriaRepository,
             IGenericRepository<HojaEstado> hojaEstadoRepository,
             IOptions<DBSettings> dbSettings,
+            IOptions<MailSettings> mailSettings,
             IOptions<MonedasSettings> monedasSettings,
             IMapper mapper,
             ICatalogCacheService catalogCacheService
@@ -43,6 +46,7 @@ namespace HojaDeRuta.Services
             _auditoriaRepository = auditoriaRepository;
             _hojaEstadoRepository = hojaEstadoRepository;
             _dbSettings = dbSettings.Value;
+            _mailSettings = mailSettings.Value;
             _monedasSettings = monedasSettings.Value;
             _mapper = mapper;
             _catalogCacheService = catalogCacheService;
@@ -316,6 +320,30 @@ namespace HojaDeRuta.Services
             {
                 _logger.LogError(ex, "Error al calcular el próximo número de Hoja de Ruta");
                 throw new Exception("No se pudo determinar el siguiente número correlativo para la nueva hoja.", ex);
+            }
+        }
+
+        public async Task<int> ReservarProximoNumeroAsync()
+        {
+            try
+            {
+                if (!_dbSettings.Sp.TryGetValue("GetNextHojaNumero", out var spName) || string.IsNullOrWhiteSpace(spName))
+                {
+                    throw new InvalidOperationException("No se encontro configurado DBSettings:Sp:GetNextHojaNumero.");
+                }
+
+                var nextNumber = await _hojaRepository.ExecuteStoredProcedureWithReturnValueAsync(spName, new Dictionary<string, object>());
+                if (nextNumber <= 0)
+                {
+                    throw new InvalidOperationException("El SP de numeracion atomica devolvio un valor invalido.");
+                }
+
+                return nextNumber;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al reservar el próximo número de Hoja de Ruta");
+                throw new Exception("No se pudo reservar un número correlativo para la nueva hoja.", ex);
             }
         }
 
@@ -620,17 +648,51 @@ namespace HojaDeRuta.Services
         {
             try
             {
-                var hojasPendientes = await _context.Hoja_Estado
-                .Where(h => h.Estado == 0 && h.Revisor != null)
-                .GroupBy(h => h.Revisor)
-                .Select(g => new HojaPendiente
+                var fechaMinimaConfigurada = DateTime.TryParseExact(
+                    _mailSettings.EnviarPendientesDesde,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var fechaMinima)
+                    ? fechaMinima.Date
+                    : (DateTime?)null;
+
+                if (!string.IsNullOrWhiteSpace(_mailSettings.EnviarPendientesDesde) && !fechaMinimaConfigurada.HasValue)
                 {
-                    Revisor = g.Key,
-                    CantidadRegistros = g.Count(),
-                    HojasAsociadas = string.Join(" - ", g.Select(h => h.HojaId))
-                })
-                .OrderBy(r => r.Revisor)
-                .ToListAsync();
+                    _logger.LogWarning(
+                        "MailSettings:EnviarPendientesDesde tiene un formato invalido: {ConfigValue}. Se omitira el filtro por fecha.",
+                        _mailSettings.EnviarPendientesDesde);
+                }
+
+                var query = _context.Hoja_Estado
+                    .Join(
+                        _context.Hojas,
+                        estado => estado.HojaId,
+                        hoja => hoja.Id,
+                        (estado, hoja) => new { EstadoEtapa = estado, Hoja = hoja })
+                    .Where(x =>
+                        x.EstadoEtapa.Estado == (int)Estado.Pendiente &&
+                        x.EstadoEtapa.Revisor != null &&
+                        x.Hoja.Estado != (int)Estado.Rechazada);
+
+                if (fechaMinimaConfigurada.HasValue)
+                {
+                    var fechaCorte = fechaMinimaConfigurada.Value;
+                    query = query.Where(x =>
+                        x.Hoja.FechaDocumento.HasValue &&
+                        x.Hoja.FechaDocumento.Value >= fechaCorte);
+                }
+
+                var hojasPendientes = await query
+                    .GroupBy(x => x.EstadoEtapa.Revisor)
+                    .Select(g => new HojaPendiente
+                    {
+                        Revisor = g.Key,
+                        CantidadRegistros = g.Count(),
+                        HojasAsociadas = string.Join(" - ", g.Select(x => x.EstadoEtapa.HojaId))
+                    })
+                    .OrderBy(r => r.Revisor)
+                    .ToListAsync();
 
                 return hojasPendientes;
             }

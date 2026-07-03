@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Text;
+using System.Text.RegularExpressions;
 using HojaDeRuta.DBContext;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
@@ -15,6 +17,12 @@ namespace HojaDeRuta.Services
     public class SyncService : BackgroundService
     {
         private const string ClientesSyncEntityName = "Clientes_Creatio";
+        private static readonly string[] SqlCmdCandidatePaths =
+        {
+            "/opt/mssql-tools/bin/sqlcmd",
+            "/opt/mssql-tools18/bin/sqlcmd"
+        };
+        private static readonly TimeSpan SchedulerRetryDelay = TimeSpan.FromMinutes(5);
         private readonly ClientSyncReconciler _clientSyncReconciler = new();
         private readonly IServiceProvider _serviceProvider;
         private readonly SyncSettings _syncSettings;
@@ -34,71 +42,74 @@ namespace HojaDeRuta.Services
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var now = DateTime.Now;
-                _logger.LogInformation("Ejecucion del servicio de sincronizacion a las {Time}", now);
-
-                var nextRunDaily = new DateTime(now.Year, now.Month, now.Day, _syncSettings.SyncClientesRunHour, _syncSettings.SyncClientesRunMinute, 0);
-                if (now > nextRunDaily)
+                try
                 {
-                    nextRunDaily = nextRunDaily.AddDays(1);
+                    var now = DateTime.Now;
+                    _logger.LogInformation("Ejecucion del servicio de sincronizacion a las {Time}", now);
+
+                    var dailyScheduledAt = GetDailyScheduledTime(now);
+                    var weeklyScheduledAt = GetWeeklyScheduledTime(now);
+                    var lastClientesSync = await GetLastSuccessfulOrRecordedSyncOrNull(ClientesSyncEntityName);
+                    var lastContratosSync = await GetLastSuccessfulOrRecordedSyncOrNull("contratos_completo");
+                    var lastWeeklyNotification = await GetLastSuccessfulOrRecordedSyncOrNull("Email_Pendientes");
+
+                    var shouldRunDaily =
+                        now >= dailyScheduledAt &&
+                        (!lastClientesSync.HasValue || lastClientesSync.Value < dailyScheduledAt
+                         || !lastContratosSync.HasValue || lastContratosSync.Value < dailyScheduledAt);
+
+                    var shouldRunWeekly =
+                        now >= weeklyScheduledAt &&
+                        (!lastWeeklyNotification.HasValue || lastWeeklyNotification.Value < weeklyScheduledAt);
+
+                    _logger.LogInformation(
+                        "Estado scheduler. DailyScheduledAt={DailyScheduledAt}; WeeklyScheduledAt={WeeklyScheduledAt}; LastClientesSync={LastClientesSync}; LastContratosSync={LastContratosSync}; LastWeeklyNotification={LastWeeklyNotification}; ShouldRunDaily={ShouldRunDaily}; ShouldRunWeekly={ShouldRunWeekly}",
+                        dailyScheduledAt,
+                        weeklyScheduledAt,
+                        lastClientesSync,
+                        lastContratosSync,
+                        lastWeeklyNotification,
+                        shouldRunDaily,
+                        shouldRunWeekly);
+
+                    if (shouldRunDaily)
+                    {
+                        await ExecuteDailySyncAsync(stoppingToken, dailyScheduledAt);
+                        continue;
+                    }
+
+                    if (shouldRunWeekly)
+                    {
+                        await ExecuteWeeklyNotificationAsync(stoppingToken, weeklyScheduledAt);
+                        continue;
+                    }
+
+                    var nextRunDaily = now < dailyScheduledAt ? dailyScheduledAt : GetDailyScheduledTime(now.AddDays(1));
+                    var nextRunWeekly = now < weeklyScheduledAt ? weeklyScheduledAt : GetWeeklyScheduledTime(now.AddDays(1));
+                    var nextRun = nextRunDaily < nextRunWeekly ? nextRunDaily : nextRunWeekly;
+                    var timeUntilNextRun = nextRun - now;
+
+                    _logger.LogInformation("Proxima ejecucion diaria: {DailyRun}. Proxima ejecucion semanal: {WeeklyRun}", nextRunDaily, nextRunWeekly);
+
+                    if (timeUntilNextRun < TimeSpan.Zero)
+                    {
+                        timeUntilNextRun = TimeSpan.Zero;
+                    }
+
+                    await Task.Delay(timeUntilNextRun, stoppingToken);
                 }
-
-                var weeklyDay = Enum.Parse<DayOfWeek>(_syncSettings.NotificacionSemanalDay);
-                var daysUntilWeekly = ((int)weeklyDay - (int)now.DayOfWeek + 7) % 7;
-                if (daysUntilWeekly == 0 && now > nextRunDaily)
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
-                    daysUntilWeekly = 7;
+                    break;
                 }
-
-                var nextRunWeekly = new DateTime(now.Year, now.Month, now.Day, _syncSettings.NotificacionSemanalHour, _syncSettings.NotificacionSemanalMinute, 0)
-                    .AddDays(daysUntilWeekly);
-
-                if (nextRunWeekly <= now)
+                catch (Exception ex)
                 {
-                    nextRunWeekly = nextRunWeekly.AddDays(7);
-                }
+                    _logger.LogWarning(
+                        ex,
+                        "El scheduler de sincronizacion no pudo consultar su estado actual. Se reintentara en {RetryDelayMinutes} minutos sin detener la aplicacion.",
+                        SchedulerRetryDelay.TotalMinutes);
 
-                var nextRun = nextRunDaily < nextRunWeekly ? nextRunDaily : nextRunWeekly;
-                var timeUntilNextRun = nextRun - now;
-
-                _logger.LogInformation("Proxima ejecucion diaria: {DailyRun}. Proxima ejecucion semanal: {WeeklyRun}", nextRunDaily, nextRunWeekly);
-
-                await Task.Delay(timeUntilNextRun, stoppingToken);
-
-                if (DateTime.Now >= nextRunDaily && DateTime.Now < nextRunDaily.AddMinutes(1))
-                {
-                    _logger.LogInformation("Comienzo de ejecucion diaria (Clientes y Contratos)");
-
-                    try
-                    {
-                        await SyncContacts(stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Falla critica en la tarea diaria SyncContacts.");
-                    }
-
-                    try
-                    {
-                        await SyncContratos(stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Falla critica en la tarea diaria SyncContratos.");
-                    }
-                }
-
-                if (DateTime.Now >= nextRunWeekly && DateTime.Now < nextRunWeekly.AddMinutes(1))
-                {
-                    _logger.LogInformation("Comienzo de ejecucion semanal (Notificaciones)");
-                    try
-                    {
-                        await NotificacionHojasPendientes(stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Falla critica en la tarea semanal NotificacionHojasPendientes.");
-                    }
+                    await Task.Delay(SchedulerRetryDelay, stoppingToken);
                 }
             }
         }
@@ -167,8 +178,19 @@ namespace HojaDeRuta.Services
                     db.ChangeTracker.Clear();
                 }
 
-                var candidatesToDelete = plan.ClientsCandidateToDelete;
+                var manualClientsSkipped = plan.ClientsCandidateToDelete.Count(cliente => cliente.EsManual);
+                var candidatesToDelete = plan.ClientsCandidateToDelete
+                    .Where(cliente => !cliente.EsManual)
+                    .ToList();
                 var confirmedCandidates = new List<Clientes>();
+                skippedCount += manualClientsSkipped;
+
+                if (manualClientsSkipped > 0)
+                {
+                    _logger.LogInformation(
+                        "Se excluyeron {ManualCount} clientes manuales de las bajas de sincronizacion.",
+                        manualClientsSkipped);
+                }
 
                 if (candidatesToDelete.Any())
                 {
@@ -342,6 +364,7 @@ namespace HojaDeRuta.Services
         public async Task SyncContratos(CancellationToken token)
         {
             _logger.LogInformation("Comienzo de SyncContratos");
+            var stopwatch = Stopwatch.StartNew();
 
             var syncControl = new SyncControl
             {
@@ -352,6 +375,7 @@ namespace HojaDeRuta.Services
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<HojasDbContext>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var catalogCacheService = scope.ServiceProvider.GetRequiredService<ICatalogCacheService>();
             var remoteConnectionString = configuration.GetConnectionString("vistaContratos");
 
             if (string.IsNullOrWhiteSpace(remoteConnectionString))
@@ -359,14 +383,20 @@ namespace HojaDeRuta.Services
                 throw new InvalidOperationException("Falta configurar ConnectionStrings:vistaContratos.");
             }
 
+            _logger.LogInformation(
+                "Diagnostico vistaContratos. {ConnectionSummary}",
+                BuildSqlConnectionDiagnostic(remoteConnectionString));
+
             try
             {
-                var vistaContratos = await ObtenerContratosDesdeVista(remoteConnectionString, token);
+                var remoteResult = await ObtenerContratosDesdeVista(remoteConnectionString, token);
+                var vistaContratos = remoteResult.Contratos;
                 _logger.LogInformation("Se obtuvieron {Count} contratos desde la vista remota.", vistaContratos.Count);
 
                 if (vistaContratos.Count == 0)
                 {
-                    syncControl.Result = "La vista remota no devolvio contratos. No se realizaron cambios.";
+                    stopwatch.Stop();
+                    syncControl.Result = $"La vista remota no devolvio contratos. No se realizaron cambios. duracionMs={stopwatch.ElapsedMilliseconds}.";
                     _logger.LogWarning(syncControl.Result);
                     await CreateSyncControl(syncControl);
                     return;
@@ -376,8 +406,12 @@ namespace HojaDeRuta.Services
 
                 try
                 {
-                    await db.Database.ExecuteSqlRawAsync("TRUNCATE TABLE CONTRATOS_COMPLETO", token);
-                    _logger.LogInformation("Tabla CONTRATOS_COMPLETO truncada correctamente.");
+                    var deletedRows = await db.Database.ExecuteSqlRawAsync(
+                        "DELETE FROM CONTRATOS_COMPLETO WHERE ISNULL(EsManual, 0) = 0",
+                        token);
+                    _logger.LogInformation(
+                        "Se eliminaron {DeletedRows} contratos no manuales de CONTRATOS_COMPLETO antes de la recarga.",
+                        deletedRows);
 
                     const int batchSize = 500;
                     int totalInsertados = 0;
@@ -393,14 +427,19 @@ namespace HojaDeRuta.Services
                     }
 
                     await transaction.CommitAsync(token);
+                    await catalogCacheService.InvalidateContratosAsync(token);
+                    stopwatch.Stop();
 
-                    syncControl.Result = $"Sync completo: se insertaron {totalInsertados} contratos (reemplazo total).";
+                    syncControl.Result =
+                        $"Sync contratos: leidos={remoteResult.TotalLeidos}; insertados={totalInsertados}; " +
+                        $"fechaAltaValida={remoteResult.FechasValidas}; fechaAltaInvalidaONula={remoteResult.FechasInvalidasONulas}; " +
+                        $"duracionMs={stopwatch.ElapsedMilliseconds}.";
                     _logger.LogInformation(syncControl.Result);
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync(token);
-                    _logger.LogError(ex, "Error durante truncate/insert. Se hizo rollback.");
+                    _logger.LogError(ex, "Error durante delete/insert de contratos. Se hizo rollback.");
                     throw;
                 }
 
@@ -409,44 +448,80 @@ namespace HojaDeRuta.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Falla general en SyncContratos.");
-                syncControl.Result = "Error al sincronizar contratos con la vista remota.";
+                syncControl.Result = TruncateSyncResult(
+                    $"Error al sincronizar contratos con la vista remota. {BuildExceptionSummary(ex)}");
                 await CreateSyncControl(syncControl);
             }
         }
 
-        private async Task<List<Contratos>> ObtenerContratosDesdeVista(string connectionString, CancellationToken token)
+        private async Task<ContratosRemoteLoadResult> ObtenerContratosDesdeVista(string connectionString, CancellationToken token)
         {
             var resultado = new List<Contratos>();
-
-            using var remoteConn = new SqlConnection(connectionString);
-            await remoteConn.OpenAsync(token);
+            var fechasValidas = 0;
+            var fechasInvalidasONulas = 0;
 
             const string query = @"
-                SELECT CodigoPlataforma, Contrato
-                FROM CONTRATOS_COMPLETO
-                WHERE Id IS NOT NULL
-                  AND CodigoPlataforma IS NOT NULL
-                  AND LTRIM(RTRIM(CodigoPlataforma)) <> ''
+                SELECT CodigoCliente, RazonSocial, Contrato, FechaAlta
+                FROM dbo.CONSULTA_CONTRATOS
+                WHERE CodigoCliente IS NOT NULL
+                  AND LTRIM(RTRIM(CodigoCliente)) <> ''
                   AND Contrato IS NOT NULL
                   AND LTRIM(RTRIM(Contrato)) <> ''";
 
-            using var cmd = new SqlCommand(query, remoteConn) { CommandTimeout = 120 };
-            using var reader = await cmd.ExecuteReaderAsync(token);
-
-            int colCodigo = reader.GetOrdinal("CodigoPlataforma");
-            int colContrato = reader.GetOrdinal("Contrato");
-
-            while (await reader.ReadAsync(token))
+            try
             {
-                resultado.Add(new Contratos
+                _logger.LogInformation("Intentando abrir conexion SQL remota para contratos.");
+                using var remoteConn = new SqlConnection(connectionString);
+                await remoteConn.OpenAsync(token);
+                _logger.LogInformation(
+                    "Conexion SQL remota abierta correctamente. DataSource={DataSource}; Database={Database}; ServerVersion={ServerVersion}",
+                    remoteConn.DataSource,
+                    remoteConn.Database,
+                    remoteConn.ServerVersion);
+
+                _logger.LogInformation("Ejecutando consulta remota de contratos.");
+                using var cmd = new SqlCommand(query, remoteConn) { CommandTimeout = 120 };
+                using var reader = await cmd.ExecuteReaderAsync(token);
+                _logger.LogInformation("Consulta remota de contratos ejecutada correctamente. Procesando filas.");
+
+                int colCodigo = reader.GetOrdinal("CodigoCliente");
+                int colRazonSocial = reader.GetOrdinal("RazonSocial");
+                int colContrato = reader.GetOrdinal("Contrato");
+                int colFechaAlta = reader.GetOrdinal("FechaAlta");
+
+                while (await reader.ReadAsync(token))
                 {
-                    CodigoPlataforma = reader.GetString(colCodigo),
-                    Contrato = reader.GetString(colContrato)
-                });
+                    AddContratoRow(
+                        resultado,
+                        ReadTrimmedString(reader, colCodigo),
+                        ReadTrimmedString(reader, colRazonSocial),
+                        ReadTrimmedString(reader, colContrato),
+                        ReadTrimmedString(reader, colFechaAlta),
+                        ref fechasValidas,
+                        ref fechasInvalidasONulas);
+                }
+            }
+            catch (Exception ex) when (IsTlsHandshakeFailure(ex))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Fallo la lectura remota de contratos con SqlClient durante el pre-login TLS. Se intentara fallback con sqlcmd.");
+
+                foreach (var contrato in await ObtenerContratosDesdeVistaConSqlCmd(connectionString, $"SET NOCOUNT ON; {query}", token))
+                {
+                    AddContratoRow(
+                        resultado,
+                        contrato.CodigoPlataforma,
+                        contrato.RazonSocial,
+                        contrato.Contrato,
+                        contrato.FechaAltaRaw,
+                        ref fechasValidas,
+                        ref fechasInvalidasONulas);
+                }
             }
 
             _logger.LogInformation("Lectura de vista remota finalizada: {Count} registros.", resultado.Count);
-            return resultado;
+            return new ContratosRemoteLoadResult(resultado, resultado.Count, fechasValidas, fechasInvalidasONulas);
         }
 
         public async Task<DateTime?> GetLastSync(string entityNameValue)
@@ -522,5 +597,334 @@ namespace HojaDeRuta.Services
 
             return summary.ToString();
         }
+
+        private async Task ExecuteDailySyncAsync(CancellationToken stoppingToken, DateTime scheduledAt)
+        {
+            _logger.LogInformation("Comienzo de ejecucion diaria pendiente/programada. ScheduledAt={ScheduledAt}", scheduledAt);
+
+            try
+            {
+                await SyncContacts(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falla critica en la tarea diaria SyncContacts.");
+            }
+
+            try
+            {
+                await SyncContratos(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falla critica en la tarea diaria SyncContratos.");
+            }
+        }
+
+        private async Task ExecuteWeeklyNotificationAsync(CancellationToken stoppingToken, DateTime scheduledAt)
+        {
+            _logger.LogInformation("Comienzo de ejecucion semanal pendiente/programada. ScheduledAt={ScheduledAt}", scheduledAt);
+            try
+            {
+                await NotificacionHojasPendientes(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falla critica en la tarea semanal NotificacionHojasPendientes.");
+            }
+        }
+
+        private DateTime GetDailyScheduledTime(DateTime reference)
+        {
+            return new DateTime(
+                reference.Year,
+                reference.Month,
+                reference.Day,
+                _syncSettings.SyncClientesRunHour,
+                _syncSettings.SyncClientesRunMinute,
+                0);
+        }
+
+        private DateTime GetWeeklyScheduledTime(DateTime reference)
+        {
+            var weeklyDay = Enum.Parse<DayOfWeek>(_syncSettings.NotificacionSemanalDay);
+            var daysUntilWeekly = ((int)weeklyDay - (int)reference.DayOfWeek + 7) % 7;
+
+            return new DateTime(
+                reference.Year,
+                reference.Month,
+                reference.Day,
+                _syncSettings.NotificacionSemanalHour,
+                _syncSettings.NotificacionSemanalMinute,
+                0).AddDays(daysUntilWeekly);
+        }
+
+        private async Task<DateTime?> GetLastSuccessfulOrRecordedSyncOrNull(string entityNameValue)
+        {
+            var lastSync = await GetLastSync(entityNameValue);
+            return lastSync == DateTime.MinValue ? null : lastSync;
+        }
+
+        private static string? ReadTrimmedString(SqlDataReader reader, int ordinal)
+        {
+            if (reader.IsDBNull(ordinal))
+            {
+                return null;
+            }
+
+            return reader.GetValue(ordinal)?.ToString()?.Trim();
+        }
+
+        private void AddContratoRow(
+            List<Contratos> resultado,
+            string? codigoPlataforma,
+            string? razonSocial,
+            string? contrato,
+            string? fechaAltaRaw,
+            ref int fechasValidas,
+            ref int fechasInvalidasONulas)
+        {
+            if (string.IsNullOrWhiteSpace(codigoPlataforma) || string.IsNullOrWhiteSpace(contrato))
+            {
+                return;
+            }
+
+            DateTime? fechaAlta = TryParseFechaAlta(fechaAltaRaw, out var parsedFechaAlta)
+                ? parsedFechaAlta
+                : null;
+
+            if (fechaAlta.HasValue)
+            {
+                fechasValidas++;
+            }
+            else
+            {
+                fechasInvalidasONulas++;
+            }
+
+            resultado.Add(new Contratos
+            {
+                CodigoPlataforma = codigoPlataforma,
+                RazonSocial = razonSocial,
+                Contrato = contrato,
+                FechaAlta = fechaAlta
+            });
+        }
+
+        private static bool TryParseFechaAlta(string? value, out DateTime parsedDate)
+        {
+            parsedDate = default;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var acceptedFormats = new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" };
+            return DateTime.TryParseExact(
+                       value.Trim(),
+                       acceptedFormats,
+                       CultureInfo.InvariantCulture,
+                       DateTimeStyles.None,
+                       out parsedDate)
+                   || DateTime.TryParse(
+                       value.Trim(),
+                       new CultureInfo("es-AR"),
+                       DateTimeStyles.None,
+                       out parsedDate);
+        }
+
+        private static string BuildSqlConnectionDiagnostic(string connectionString)
+        {
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            return
+                $"DataSource={builder.DataSource}; InitialCatalog={builder.InitialCatalog}; UserID={builder.UserID}; " +
+                $"IntegratedSecurity={builder.IntegratedSecurity}; Encrypt={builder.Encrypt}; " +
+                $"TrustServerCertificate={builder.TrustServerCertificate}; MultipleActiveResultSets={builder.MultipleActiveResultSets}; " +
+                $"ConnectTimeout={builder.ConnectTimeout}";
+        }
+
+        private static string BuildExceptionSummary(Exception ex)
+        {
+            var parts = new List<string>();
+            var current = ex;
+            var depth = 0;
+
+            while (current != null && depth < 4)
+            {
+                parts.Add($"{current.GetType().Name}: {current.Message}");
+                current = current.InnerException;
+                depth++;
+            }
+
+            return string.Join(" | ", parts);
+        }
+
+        private static bool IsTlsHandshakeFailure(Exception ex)
+        {
+            return BuildExceptionSummary(ex).Contains("pre-login handshake", StringComparison.OrdinalIgnoreCase)
+                || BuildExceptionSummary(ex).Contains("SSL Provider", StringComparison.OrdinalIgnoreCase)
+                || BuildExceptionSummary(ex).Contains("Encryption(ssl/tls) handshake failed", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<List<SqlCmdContratoRow>> ObtenerContratosDesdeVistaConSqlCmd(
+            string connectionString,
+            string query,
+            CancellationToken token)
+        {
+            var executablePath = ResolveSqlCmdPath();
+            if (string.IsNullOrWhiteSpace(executablePath))
+            {
+                throw new InvalidOperationException(
+                    "No se encontro sqlcmd en el contenedor para ejecutar el fallback de contratos.");
+            }
+
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            var isSqlCmd18 = executablePath.Contains("mssql-tools18", StringComparison.OrdinalIgnoreCase);
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = executablePath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = false,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            processStartInfo.ArgumentList.Add("-S");
+            processStartInfo.ArgumentList.Add(NormalizeSqlCmdServer(builder.DataSource));
+            processStartInfo.ArgumentList.Add("-d");
+            processStartInfo.ArgumentList.Add(builder.InitialCatalog);
+            processStartInfo.ArgumentList.Add("-U");
+            processStartInfo.ArgumentList.Add(builder.UserID);
+            if (isSqlCmd18)
+            {
+                processStartInfo.ArgumentList.Add(builder.Encrypt ? "-Nm" : "-No");
+                if (builder.TrustServerCertificate)
+                {
+                    processStartInfo.ArgumentList.Add("-C");
+                }
+            }
+            processStartInfo.ArgumentList.Add("-h");
+            processStartInfo.ArgumentList.Add("-1");
+            processStartInfo.ArgumentList.Add("-s");
+            processStartInfo.ArgumentList.Add("\t");
+            processStartInfo.ArgumentList.Add("-W");
+            processStartInfo.ArgumentList.Add("-Q");
+            processStartInfo.ArgumentList.Add(query);
+            processStartInfo.ArgumentList.Add("-l");
+            processStartInfo.ArgumentList.Add(Math.Max(builder.ConnectTimeout, 15).ToString(CultureInfo.InvariantCulture));
+
+            processStartInfo.Environment["SQLCMDPASSWORD"] = builder.Password;
+
+            _logger.LogInformation(
+                "Ejecutando fallback sqlcmd para contratos. Executable={Executable}; Server={Server}; Database={Database}; User={User}",
+                executablePath,
+                NormalizeSqlCmdServer(builder.DataSource),
+                builder.InitialCatalog,
+                builder.UserID);
+
+            using var process = new Process { StartInfo = processStartInfo };
+
+            if (!process.Start())
+            {
+                throw new InvalidOperationException("No se pudo iniciar el proceso sqlcmd para contratos.");
+            }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(token);
+            var stderrTask = process.StandardError.ReadToEndAsync(token);
+            await process.WaitForExitAsync(token);
+
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"sqlcmd finalizo con codigo {process.ExitCode}. stderr={TruncateSyncResult(stderr, 500)}");
+            }
+
+            _logger.LogInformation(
+                "Fallback sqlcmd ejecutado correctamente. StdoutLength={StdoutLength}; StderrLength={StderrLength}",
+                stdout.Length,
+                stderr.Length);
+
+            return ParseSqlCmdContratos(stdout);
+        }
+
+        private static string? ResolveSqlCmdPath()
+        {
+            foreach (var candidatePath in SqlCmdCandidatePaths)
+            {
+                if (File.Exists(candidatePath))
+                {
+                    return candidatePath;
+                }
+            }
+
+            return null;
+        }
+
+        private static string NormalizeSqlCmdServer(string dataSource)
+        {
+            if (dataSource.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase))
+            {
+                return dataSource;
+            }
+
+            return $"tcp:{dataSource}";
+        }
+
+        private List<SqlCmdContratoRow> ParseSqlCmdContratos(string stdout)
+        {
+            var rows = new List<SqlCmdContratoRow>();
+            var lines = Regex.Split(stdout ?? string.Empty, "\r?\n");
+
+            foreach (var rawLine in lines)
+            {
+                var line = rawLine?.TrimEnd();
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                var parts = line.Split('\t');
+                if (parts.Length < 4)
+                {
+                    _logger.LogWarning("Se omite una fila de sqlcmd por formato inesperado. RawLine={RawLine}", line);
+                    continue;
+                }
+
+                rows.Add(new SqlCmdContratoRow(
+                    parts[0].Trim(),
+                    parts[1].Trim(),
+                    parts[2].Trim(),
+                    parts[3].Trim()));
+            }
+
+            _logger.LogInformation("Fallback sqlcmd parseado correctamente. Count={Count}", rows.Count);
+            return rows;
+        }
+
+        private static string TruncateSyncResult(string value, int maxLength = 900)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Length <= maxLength)
+            {
+                return value;
+            }
+
+            return value[..maxLength];
+        }
+
+        private sealed record ContratosRemoteLoadResult(
+            List<Contratos> Contratos,
+            int TotalLeidos,
+            int FechasValidas,
+            int FechasInvalidasONulas);
+
+        private sealed record SqlCmdContratoRow(
+            string CodigoPlataforma,
+            string RazonSocial,
+            string Contrato,
+            string FechaAltaRaw);
     }
 }

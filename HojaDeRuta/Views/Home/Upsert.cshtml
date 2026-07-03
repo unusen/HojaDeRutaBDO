@@ -1,5 +1,6 @@
 @using HojaDeRuta.Models.DAO
 @using HojaDeRuta.Models.Enums
+@using System.Text.Json
 @model HojaDeRuta.Models.DAO.Hoja
 
 @{
@@ -11,6 +12,8 @@
     string rechazo = (ViewBag.Rechazo ?? "");
     var workflowStageOrder = new[] { "Reviso", "RevisionGerente", "EngagementPartner", "SocioFirmante" };
     var etapaActual = ViewBag.EtapaActual as string;
+    var maxUploadFileSizeBytes = Convert.ToInt64(ViewBag.MaxUploadFileSizeBytes ?? 60L * 1024L * 1024L);
+    var maxUploadFileSizeLabel = ViewBag.MaxUploadFileSizeLabel as string ?? "60 MB";
 
     if (string.IsNullOrWhiteSpace(etapaActual))
     {
@@ -95,6 +98,8 @@
                     <input type="hidden" id="Estado" asp-for="Estado" />
                     <input type="hidden" asp-for="ArchivoTemp" />
                     <input type="hidden" asp-for="ArchivoHash" />
+                    <input type="hidden" id="forceNumeroReassignment" name="forceNumeroReassignment" value="false" />
+                    <input type="hidden" id="reservedNumero" name="reservedNumero" value="" />
 
                     @if (Model.HojaEstados != null)
                     {
@@ -413,6 +418,8 @@
                                         <input type="file" id="archivoRutaDoc" name="archivoDoc" class="d-none">
                                     </label>
                                 </div>
+                                <small class="text-muted">Tamaño máximo permitido para adjuntos: @maxUploadFileSizeLabel.</small>
+                                <br />
                                 <span asp-validation-for="RutaDoc" class="text-danger small"></span>
                             </div>
                         </div>
@@ -611,6 +618,10 @@
     <script>
         const revisoresData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.RevisoresFull));
         const auditoriaNombreObjetivo = "Informe del auditor";
+        window.hojaUploadSettings = {
+            maxFileSizeBytes: @maxUploadFileSizeBytes,
+            maxFileSizeLabel: @Html.Raw(JsonSerializer.Serialize(maxUploadFileSizeLabel))
+        };
         var codClientePlataforma = "";
         const idHoja = document.getElementById("Id");
         let isInitialLoad = true;
@@ -641,14 +652,76 @@
         function inicializarValidacionArchivo() {
             const form = document.getElementById('hojaForm');
             const archivoRutaDoc = document.getElementById('archivoRutaDoc');
+            const forceNumeroReassignmentInput = document.getElementById('forceNumeroReassignment');
+            const reservedNumeroInput = document.getElementById('reservedNumero');
+            const numeroInput = document.getElementById('Numero');
 
             if (form && archivoRutaDoc) {
+                const validarNumeroCreate = async function () {
+                    const numeroValue = numeroInput?.value?.trim() || '';
+                    const token = form.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                    const formData = new FormData();
+                    formData.set('numero', numeroValue);
+
+                    if (token) {
+                        formData.set('__RequestVerificationToken', token);
+                    }
+
+                    const response = await fetch('@Url.Action("ValidarNumeroCreate", "Home")', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.toLowerCase().includes('application/json')) {
+                        throw new Error('Respuesta inesperada al validar numeracion.');
+                    }
+
+                    return await response.json();
+                };
+
+                const ejecutarOperacionUpsert = async function (submitter) {
+                    const operationMode = submitter?.dataset.operationMode || 'Update';
+                    const initialTitle = operationMode === 'Create' ? 'Creando hoja' : 'Guardando cambios';
+                    const initialMessage = operationMode === 'Create'
+                        ? 'Estamos preparando la nueva hoja de ruta...'
+                        : 'Estamos guardando los cambios realizados...';
+
+                    return await window.hojaUpsertProgress.runFormOperation({
+                        form: form,
+                        disableElements: [submitter],
+                        initialTitle: initialTitle,
+                        initialMessage: initialMessage,
+                        prepareFormData: function (formData) {
+                            const fileInput = document.getElementById('archivoRutaDoc');
+                            const hasDirtyFile = fileInput?.dataset.fileDirty === 'true';
+                            const hasSelectedFile = !!(fileInput && fileInput.files && fileInput.files.length > 0 && fileInput.files[0] && fileInput.files[0].size > 0);
+
+                            if (!hasDirtyFile || !hasSelectedFile) {
+                                formData.delete('archivoDoc');
+                            }
+
+                            formData.set('mode', operationMode);
+                            return true;
+                        },
+                        onPreflightError: function (payload) {
+                            return false;
+                        },
+                        onExecutionErrorClosed: function (payload) {
+                            mostrarErrorEnAlert(payload.message, payload.errors || []);
+                        }
+                    });
+                };
+
                 form.addEventListener('submit', async function (e) {
                     e.preventDefault();
-                    
+
                     const submitter = e.submitter;
                     const isBackAction = submitter && submitter.innerText.includes('Volver');
-                    
+
                     if (isBackAction) {
                         window.location.href = '@Url.Action("Index", "Home")';
                         return;
@@ -666,42 +739,44 @@
 
                     ocultarAlertErrores();
 
-                    // Validación básica de archivo antes de enviar
-                    if (false && (!archivoRutaDoc.files || archivoRutaDoc.files.length === 0)) {
-                        const adjuntosVal = document.getElementById('adjuntos')?.value;
-                        if (!adjuntosVal || adjuntosVal.trim() === '') {
-                             mostrarErrorEnAlert("Debe seleccionar el archivo el documento.");
-                             return;
+                    if (submitter?.dataset.operationMode === 'Create' && forceNumeroReassignmentInput?.value !== 'true') {
+                        try {
+                            const validationPayload = await validarNumeroCreate();
+                            if (validationPayload?.requiresNumeroConfirmation) {
+                                const requestedNumero = validationPayload.requestedNumero ?? (numeroInput?.value?.trim() || '');
+                                const continuar = confirm(`El numero de hoja ${requestedNumero} ya fue utilizado por otro usuario. La presente hoja se guardara con el proximo numero disponible. Desea continuar?`);
+                                if (!continuar) {
+                                    return;
+                                }
+
+                                if (forceNumeroReassignmentInput) {
+                                    forceNumeroReassignmentInput.value = 'true';
+                                }
+
+                                if (reservedNumeroInput) {
+                                    reservedNumeroInput.value = '';
+                                }
+                            }
+                        } catch (validationError) {
+                            mostrarErrorEnAlert('No pudimos validar la numeracion de la hoja en este momento.');
+                            return;
                         }
                     }
 
-                    const operationMode = submitter?.dataset.operationMode || 'Update';
-                    const initialTitle = operationMode === 'Create' ? 'Creando hoja' : 'Guardando cambios';
-                    const initialMessage = operationMode === 'Create'
-                        ? 'Estamos preparando la nueva hoja de ruta...'
-                        : 'Estamos guardando los cambios realizados...';
-
-                    const operationResult = await window.hojaUpsertProgress.runFormOperation({
-                        form: form,
-                        disableElements: [submitter],
-                        initialTitle: initialTitle,
-                        initialMessage: initialMessage,
-                        prepareFormData: function (formData) {
-                            const fileInput = document.getElementById('archivoRutaDoc');
-                            const hasDirtyFile = fileInput?.dataset.fileDirty === 'true';
-                            const hasSelectedFile = !!(fileInput && fileInput.files && fileInput.files.length > 0 && fileInput.files[0] && fileInput.files[0].size > 0);
-
-                            if (!hasDirtyFile || !hasSelectedFile) {
-                                formData.delete('archivoDoc');
-                            }
-
-                            formData.set('mode', operationMode);
-                            return true;
-                        },
-                        onExecutionErrorClosed: function (payload) {
-                            mostrarErrorEnAlert(payload.message, payload.errors || []);
+                    // Validacion basica de archivo antes de enviar
+                    if (false && (!archivoRutaDoc.files || archivoRutaDoc.files.length === 0)) {
+                        const adjuntosVal = document.getElementById('adjuntos')?.value;
+                        if (!adjuntosVal || adjuntosVal.trim() === '') {
+                            mostrarErrorEnAlert("Debe seleccionar el archivo el documento.");
+                            return;
                         }
-                    });
+                    }
+
+                    const operationResult = await ejecutarOperacionUpsert(submitter);
+
+                    if (submitter?.dataset.operationMode === 'Create' && forceNumeroReassignmentInput) {
+                        forceNumeroReassignmentInput.value = 'false';
+                    }
 
                     if (archivoRutaDoc && operationResult?.success && submitter?.dataset.operationMode && submitter.dataset.operationMode !== 'Create') {
                         archivoRutaDoc.dataset.fileDirty = 'false';
@@ -709,7 +784,6 @@
                 });
             }
         }
-
         function inicializarEventosArchivo() {
             const archivoRutaDoc = document.getElementById('archivoRutaDoc');
             const adjuntos = document.getElementById('adjuntos');
@@ -735,6 +809,10 @@
                         if (nombreAdjunto) nombreAdjunto.textContent = fileName;
                         if (contenedorAdjunto) contenedorAdjunto.classList.remove('d-none');
                     }
+
+                    if (typeof window.actualizarValidaciones === 'function') {
+                        window.actualizarValidaciones();
+                    }
                 });
             }
         }
@@ -753,6 +831,10 @@
             if (archivoRutaDoc) archivoRutaDoc.dataset.fileDirty = "false";
             if (adjuntos) adjuntos.value = "";
             if (contenedorAdjunto) contenedorAdjunto.classList.add('d-none');
+
+            if (typeof window.actualizarValidaciones === 'function') {
+                window.actualizarValidaciones();
+            }
         }
 
         function mostrarErrorEnAlert(mensaje, errores = []) {
@@ -778,6 +860,11 @@
 
             alertDiv.classList.remove('d-none');
             alertDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function obtenerMensajeTamanoArchivoExcedido() {
+            const maxLabel = window.hojaUploadSettings?.maxFileSizeLabel || "60 MB";
+            return `El archivo adjunto supera el máximo permitido de ${maxLabel}.`;
         }
 
         function ocultarAlertErrores() {
@@ -919,8 +1006,8 @@
             const preparoValue = preparoInput?.dataset.value || "";
             const preparoCargo = getReviewerCargo(preparoValue, revisoresFull);
 
-            const valorReviso = (document.getElementById("reviso").dataset.value || "").trim();
-            llenarSelect("reviso", preparoCargo, valorReviso, revisoresFull);
+            inicializarCadenaAprobadores(selects, preparoCargo, revisoresFull);
+            const valorReviso = getExistingSelectValue(document.getElementById("reviso"));
 
             const revisoSelect = document.getElementById("reviso");
             if (valorReviso) {
@@ -966,6 +1053,7 @@
                 }
             });
 
+            normalizarFlujoOpcional(selects, preparoCargo, revisoresFull, registroGuardado);
             marcarSiguientePendiente(selects);
 
             selects.forEach((sel, index) => {
@@ -978,6 +1066,67 @@
             });
 
             inicializarSindico();
+        }
+
+        function inicializarCadenaAprobadores(selects, preparoCargo, revisoresFull) {
+            let cargoBaseActual = preparoCargo;
+
+            selects.forEach(sel => {
+                if (sel.id === "revisoSocioFirmante") {
+                    return;
+                }
+
+                const selectElem = document.getElementById(sel.id);
+                if (!selectElem) {
+                    return;
+                }
+
+                const valorExistente = getExistingSelectValue(selectElem);
+                llenarSelect(sel.id, cargoBaseActual, valorExistente, revisoresFull);
+
+                const cargoSeleccionado = getReviewerCargo(valorExistente, revisoresFull);
+                if (cargoSeleccionado > 0) {
+                    cargoBaseActual = cargoSeleccionado;
+                }
+            });
+        }
+
+        function normalizarFlujoOpcional(selects, preparoCargo, revisoresFull, registroGuardado) {
+            let cargoBaseActual = preparoCargo;
+
+            selects.forEach(sel => {
+                const selectElem = document.getElementById(sel.id);
+                if (!selectElem) {
+                    return;
+                }
+
+                if (sel.id !== "revisoSocioFirmante") {
+                    const valorExistente = getExistingSelectValue(selectElem);
+                    llenarSelect(sel.id, cargoBaseActual, valorExistente, revisoresFull);
+
+                    const cargoSeleccionado = getReviewerCargo(valorExistente, revisoresFull);
+                    if (cargoSeleccionado > 0) {
+                        cargoBaseActual = cargoSeleccionado;
+                    }
+                }
+
+                const valorActual = getExistingSelectValue(selectElem);
+                if (valorActual) {
+                    asegurarOpcionExistenteEnSelect(selectElem, valorActual, revisoresFull);
+                    selectElem.value = valorActual;
+
+                    if (registroGuardado && sel.id !== "revisoSocioFirmante") {
+                        selectElem.classList.add("readonly");
+                        selectElem.disabled = true;
+                    } else {
+                        selectElem.classList.remove("readonly");
+                        selectElem.disabled = false;
+                    }
+                } else {
+                    selectElem.classList.remove("readonly");
+                    selectElem.disabled = false;
+                }
+            });
         }
 
         function manejarCambioSelect(current, sel, index, selects, nextElem, revisoresFull) {
@@ -1480,10 +1629,10 @@
 
                     data.forEach(function(contrato) {
                         var option = document.createElement('option');
-                        option.value = contrato;
-                        option.text = contrato;
+                        option.value = contrato.value;
+                        option.text = contrato.text;
 
-                        if (selectedContract && selectedContract === contrato) {
+                        if (selectedContract && selectedContract === contrato.value) {
                             option.selected = true;
                         }
 
@@ -1714,6 +1863,35 @@
 
             window.validarAdjuntoDocumento = validarAdjuntoDocumento;
 
+            function validarTamanoArchivoAdjunto() {
+                const archivoInput = document.getElementById("archivoRutaDoc");
+                const maxFileSizeBytes = window.hojaUploadSettings?.maxFileSizeBytes || 0;
+                const archivo = archivoInput?.files && archivoInput.files.length > 0
+                    ? archivoInput.files[0]
+                    : null;
+
+                if (!archivo || maxFileSizeBytes <= 0) {
+                    return {
+                        esValido: true,
+                        mensaje: ""
+                    };
+                }
+
+                if (archivo.size <= maxFileSizeBytes) {
+                    return {
+                        esValido: true,
+                        mensaje: ""
+                    };
+                }
+
+                return {
+                    esValido: false,
+                    mensaje: obtenerMensajeTamanoArchivoExcedido()
+                };
+            }
+
+            window.validarTamanoArchivoAdjunto = validarTamanoArchivoAdjunto;
+
             // Función global de validación (accesible desde reverificarArchivo)
             window.actualizarValidaciones = function() {
                 const contenedorErrores = document.getElementById("contenedorErroresUnificado");
@@ -1748,6 +1926,15 @@
                     if (!validacionAdjunto.esValido) {
                         const li = document.createElement("li");
                         li.textContent = validacionAdjunto.mensaje;
+                        li.className = "error-campo-js";
+                        listaErrores.appendChild(li);
+                        hayErroresDeCampos = true;
+                    }
+
+                    const validacionTamanoArchivo = validarTamanoArchivoAdjunto();
+                    if (!validacionTamanoArchivo.esValido) {
+                        const li = document.createElement("li");
+                        li.textContent = validacionTamanoArchivo.mensaje;
                         li.className = "error-campo-js";
                         listaErrores.appendChild(li);
                         hayErroresDeCampos = true;
@@ -1957,3 +2144,4 @@
         }
     </script>
 }
+

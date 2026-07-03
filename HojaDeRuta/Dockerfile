@@ -1,7 +1,7 @@
 # --- Runtime ---
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 
-# Certificados básicos
+# Certificados bÃ¡sicos
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
@@ -28,6 +28,8 @@ WORKDIR /app
 # DEPENDENCIAS NECESARIAS PARA CHROMIUM (PUPPETEER)
 # =====================================================
 RUN apt-get update && apt-get install -y \
+    apt-transport-https \
+    curl \
     wget \
     gnupg \
     fonts-liberation \
@@ -49,8 +51,15 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     libglib2.0-0 \
     libglib2.0-dev \
+    unixodbc \
+    unixodbc-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft-prod.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft-prod.list && \
+    apt-get update && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql17 mssql-tools && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ============================================
 # Certificado Avast
@@ -58,7 +67,8 @@ RUN apt-get update && apt-get install -y \
 COPY certs/avast-root.cer /usr/local/share/ca-certificates/avast.crt
 RUN update-ca-certificates
 
-# Copiar publicación
+# Copiar publicaciÃ³n
 COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "HojaDeRuta.dll"]
+

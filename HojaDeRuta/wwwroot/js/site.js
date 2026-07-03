@@ -492,7 +492,28 @@ window.hojaUpsertProgress = (function () {
                 }
             });
 
-            const data = await response.json();
+            const contentType = response.headers.get("content-type") || "";
+            const maxUploadLabel = options.maxUploadLabel
+                || window.hojaUploadSettings?.maxFileSizeLabel
+                || "60 MB";
+            let data = null;
+
+            if (contentType.toLowerCase().includes("application/json")) {
+                data = await response.json();
+            } else if (response.status === 413) {
+                data = {
+                    success: false,
+                    errorPhase: "preflight",
+                    message: "No se puede guardar la hoja porque el archivo adjunto supera el tamaño permitido.",
+                    errors: [
+                        `El archivo adjunto supera el máximo permitido de ${maxUploadLabel}.`
+                    ]
+                };
+            } else {
+                const fallbackText = await response.text();
+                throw new Error(`Respuesta inesperada del servidor. Status=${response.status}. BodyLength=${fallbackText ? fallbackText.length : 0}`);
+            }
+
             if (data.success) {
                 return data;
             }

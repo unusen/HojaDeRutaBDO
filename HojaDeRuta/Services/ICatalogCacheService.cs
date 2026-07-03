@@ -14,5 +14,6 @@ namespace HojaDeRuta.Services
         Task<List<Jurisdiccion>> GetJurisdiccionesAsync(CancellationToken cancellationToken = default);
         Task<List<Rutas>> GetRutasAsync(CancellationToken cancellationToken = default);
         Task<List<Contratos>> GetContratosByCodigoPlataformaAsync(string? codigoPlataforma, CancellationToken cancellationToken = default);
+        Task InvalidateContratosAsync(CancellationToken cancellationToken = default);
     }
 }

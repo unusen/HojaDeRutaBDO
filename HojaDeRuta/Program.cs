@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using Microsoft.Extensions.Options;
 
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
@@ -174,6 +175,7 @@ builder.Services.Configure<DBSettings>(builder.Configuration.GetSection("DBSetti
 builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
 builder.Services.Configure<MonedasSettings>(builder.Configuration.GetSection("MonedasSettings"));
 builder.Services.Configure<PathSetings>(builder.Configuration.GetSection("PathSetings"));
+builder.Services.Configure<UploadSettings>(builder.Configuration.GetSection("UploadSettings"));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<CreatioService>();
@@ -247,6 +249,32 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseForwardedHeaders();
+
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsPost(context.Request.Method)
+        && context.Request.Path.Equals("/Home/Upsert", StringComparison.OrdinalIgnoreCase))
+    {
+        var uploadSettings = context.RequestServices.GetRequiredService<IOptions<UploadSettings>>().Value;
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("UploadGuard");
+        var maxAllowedBytes = uploadSettings.GetMaxFileSizeBytes();
+        var contentLength = context.Request.ContentLength;
+
+        if (contentLength.HasValue && contentLength.Value > maxAllowedBytes)
+        {
+            logger.LogWarning(
+                "Carga detectada por encima del máximo configurado antes del controlador. Path={Path} ContentLength={ContentLength} MaxAllowed={MaxAllowed} RemoteIp={RemoteIp} UserAgent={UserAgent} Referer={Referer}",
+                context.Request.Path,
+                contentLength.Value,
+                maxAllowedBytes,
+                context.Connection.RemoteIpAddress?.ToString() ?? "(unknown)",
+                context.Request.Headers.UserAgent.ToString(),
+                context.Request.Headers.Referer.ToString());
+        }
+    }
+
+    await next();
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

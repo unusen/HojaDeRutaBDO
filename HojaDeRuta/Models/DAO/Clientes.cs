@@ -9,5 +9,6 @@ namespace HojaDeRuta.Models.DAO
         public int Id { get; set; }
         public string RazonSocial { get; set; }
         public string CodigoPlataforma { get; set; }
+        public bool EsManual { get; set; }
     }
 }

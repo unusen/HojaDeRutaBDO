@@ -6,16 +6,24 @@ namespace HojaDeRuta.Helpers.Validators
     {
         protected override ValidationResult IsValid(object value, ValidationContext validationContext)
         {
-            // Obtenemos la instancia del modelo completo
+            if (validationContext.ObjectInstance == null)
+            {
+                return ValidationResult.Success;
+            }
+
             var instance = validationContext.ObjectInstance;
             var tipo = instance.GetType();
 
-            // Obtenemos los valores de las otras propiedades
-            var pasivo = (decimal)tipo.GetProperty("Pasivo").GetValue(instance);
-            var patrimonioNeto = (decimal)tipo.GetProperty("PatrimonioNeto").GetValue(instance);
-            var activo = (decimal)value;
+            var pasivo = tipo.GetProperty("Pasivo")?.GetValue(instance) as decimal?;
+            var patrimonioNeto = tipo.GetProperty("PatrimonioNeto")?.GetValue(instance) as decimal?;
+            var activo = value as decimal?;
 
-            if (activo != pasivo + patrimonioNeto)
+            if (!activo.HasValue || !pasivo.HasValue || !patrimonioNeto.HasValue)
+            {
+                return ValidationResult.Success;
+            }
+
+            if (activo.Value != pasivo.Value + patrimonioNeto.Value)
             {
                 return new ValidationResult("El Activo debe ser igual a la suma de Pasivo + Patrimonio Neto.");
             }

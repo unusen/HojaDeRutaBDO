@@ -1,16 +1,12 @@
-ï»¿namespace HojaDeRuta.Services.LoginService
+namespace HojaDeRuta.Services.LoginService
 {
-    using DocumentFormat.OpenXml.Spreadsheet;
-    using DocumentFormat.OpenXml.Wordprocessing;
     using HojaDeRuta.Models.Config;
     using HojaDeRuta.Models.DAO;
     using HojaDeRuta.Models.DTO;
     using HojaDeRuta.Services.Repository;
-    using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Options;
     using Microsoft.Graph;
-    using Microsoft.Identity.Web;
-    using System.Linq.Expressions;
+    using System.Diagnostics;
 
     public class LoginService : ILoginService
     {
@@ -29,8 +25,7 @@
             IOptions<GroupsSettings> groupsSettings,
             SharedService sharedService,
             IGenericRepository<Revisores> revisorRepository,
-            IOptions<DBSettings> dbSettings
-            )
+            IOptions<DBSettings> dbSettings)
         {
             _logger = logger;
             _graphClient = graphClient;
@@ -39,7 +34,7 @@
             _revisorRepository = revisorRepository;
             _groupsSettings = groupsSettings.Value;
             _dbSettings = dbSettings.Value;
-        }       
+        }
 
         public string GetUserName()
         {
@@ -48,32 +43,18 @@
                 var user = _httpContextAccessor.HttpContext?.User;
 
                 var userResult = user?.Claims.FirstOrDefault(c => c.Type == "name")?.Value
-                       ?? user?.Identity?.Name
-                       ?? string.Empty;
+                    ?? user?.Identity?.Name
+                    ?? string.Empty;
 
-                _logger.LogInformation($"Usuario logueado: {userResult}");
-
+                _logger.LogInformation("Usuario logueado: {User}", userResult);
                 return userResult;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
-
-                throw new Exception($"No se pudo obtener el nombre del usuario logueado." +
-                    $" Consulte al dpto de Sistemas.");
-            }            
+                _logger.LogError(ex, "Error al intentar recuperar el nombre del usuario desde el HttpContext.");
+                throw new Exception("No se pudo obtener la identidad del usuario logueado. Por favor, reinicie su sesion.", ex);
+            }
         }
-
-        //public string GetUserId()
-        //{
-        //    var user = _httpContextAccessor.HttpContext?.User;
-
-        //    string type = "http://schemas.microsoft.com/identity/claims/objectidentifier";
-
-        //    return user?.Claims.FirstOrDefault(c => c.Type == type)?.Value
-        //           ?? user?.Identity?.Name
-        //           ?? string.Empty;
-        //}
 
         public string GetUserEmail()
         {
@@ -83,76 +64,76 @@
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
-
-                throw new Exception($"No se pudo obtener el email del usuario logueado." +
-                    $" Consulte al dpto de Sistemas.");
+                _logger.LogError(ex, "Error al intentar recuperar el email del usuario.");
+                throw new Exception("No se pudo identificar la direccion de correo del usuario actual.", ex);
             }
         }
 
         public async Task<string> GetUserAreaAsync()
         {
+            var stopwatch = Stopwatch.StartNew();
+
             try
             {
-                _logger.LogInformation($"Busqueda de area en AD para el user " +
-                    $" {GetUserName()}");
+                var userName = GetUserName();
+                _logger.LogInformation("Busqueda de area en AD para el user {UserName}", userName);
 
                 var user = await _graphClient.Me
-                                         .Request()
-                                         .Select(u => new { u.Department })
-                                         .GetAsync();
+                    .Request()
+                    .Select(u => new { u.Department })
+                    .GetAsync();
 
-                _logger.LogInformation($"Resultado area AD: {user.Department}");                
+                _logger.LogInformation("Resultado area AD: {Department}", user?.Department ?? "N/A");
 
-                var sector = await _sharedService.GetSectorByDetalle(user.Department);
-
+                var sector = await _sharedService.GetSectorByDetalle(user?.Department);
                 if (sector == null)
                 {
-                    _logger.LogError($"El sector {sector.Nombre} no se encontro en la BD");
-                    throw new Exception();                    
+                    _logger.LogError("El sector {Department} obtenido del AD no se encontro en la tabla de Sectores de la base de datos.", user?.Department ?? "N/A");
+                    throw new Exception($"Su departamento '{user?.Department ?? "Desconocido"}' no esta configurado en el sistema.");
                 }
 
-                _logger.LogInformation($"Sector encontrado en la BD: {sector.Nombre}");
-
+                stopwatch.Stop();
+                _logger.LogInformation("Area resuelta para el usuario {UserName}. Sector={Sector} DurationMs={DurationMs}", userName, sector.Nombre, stopwatch.ElapsedMilliseconds);
                 return sector.Nombre;
-                //return user.Department;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
-
-                throw new Exception($"No se pudo obtener el sector del usuario logueado." +
-                    $" Consulte al dpto de Sistemas.");
+                stopwatch.Stop();
+                _logger.LogError(ex, "Falla al consultar el departamento/area del usuario en Microsoft Graph.");
+                throw new Exception("No se pudo validar su area de trabajo en el Directorio Activo.", ex);
             }
         }
 
         public async Task<string> GetUserCargoAsync()
         {
             var user = await _graphClient.Me
-                                         .Request()
-                                         .Select(u => new { u.JobTitle })
-                                         .GetAsync();
+                .Request()
+                .Select(u => new { u.JobTitle })
+                .GetAsync();
+
             return user.JobTitle;
         }
 
         public async Task<IList<GroupConfig>> GetUserGroupsAsync()
         {
+            var stopwatch = Stopwatch.StartNew();
+
             try
             {
                 var userName = GetUserName();
+                _logger.LogInformation("Busqueda de grupos en AD para el user {UserName}", userName);
 
-                _logger.LogInformation($"Busqueda de grupos en AD para el user " +
-                    $" {userName}");
-
-                var user = _httpContextAccessor.HttpContext?.User;                
-
-                if (user == null) return new List<GroupConfig>();
+                var user = _httpContextAccessor.HttpContext?.User;
+                if (user == null)
+                {
+                    return new List<GroupConfig>();
+                }
 
                 var groupIds = _groupsSettings.Groups
-               .Select(g => g.GroupId)
-               .ToList();
+                    .Select(group => group.GroupId)
+                    .ToList();
 
-                _logger.LogInformation($"Se encontraron en la config {groupIds.Count} grupos");
+                _logger.LogInformation("Se encontraron en la config {Count} grupos", groupIds.Count);
 
                 var memberGroups = await _graphClient
                     .Me
@@ -160,102 +141,144 @@
                     .Request()
                     .PostAsync();
 
-                _logger.LogInformation( $"Se encontraron en AD {memberGroups.Count}" +
-                    $" grupos pertenecientes a HDR para el user {userName}");
-
                 var userRoles = _groupsSettings.Groups
-                .Where(cfg => memberGroups.Contains(cfg.GroupId))
-                .ToList();
+                    .Where(cfg => memberGroups != null && memberGroups.Contains(cfg.GroupId))
+                    .OrderByDescending(cfg => cfg.Nivel)
+                    .ToList();
 
                 foreach (var role in userRoles)
                 {
-                    _logger.LogInformation(
-                        $"Grupo encontrado para el user {userName}: {role.Name}");
+                    _logger.LogInformation("Grupo encontrado para el user {UserName}: {GroupName}", userName, role.Name);
                 }
 
+                stopwatch.Stop();
+                _logger.LogInformation(
+                    "Grupos resueltos para el usuario {UserName}. Count={Count} DurationMs={DurationMs}",
+                    userName,
+                    userRoles.Count,
+                    stopwatch.ElapsedMilliseconds);
+
                 return userRoles;
-
-                //if (!memberGroups.Any())
-                //{
-                //    return null;
-                //}                    
-
-                //// Si pertenece a varios, elegimos el de mayor Nivel
-                //var matchedGroup = _groupsSettings.Groups
-                //    .Where(g => memberGroups.Contains(g.GroupId))
-                //    .OrderByDescending(g => g.Nivel)
-                //    .FirstOrDefault();
-
-                //var groups = await _graphClient.Me.MemberOf.Request().GetAsync();
-
-                //_logger.LogInformation($"Se encontraron en AD {groups.Count} grupos" +
-                //    $" para el user {userName}");
-
-                //var userRoles = new List<GroupConfig>();
-                //foreach (var group in groups)
-                //{
-                //    _logger.LogInformation($"Busqueda de match para el grupo de AD" +
-                //        $" {group.Id}");
-
-                //    if (group is Microsoft.Graph.Group g)
-                //    {
-                //        var match = _groupsSettings.Groups
-                //            .FirstOrDefault(cfg => cfg.GroupId == g.Id);
-
-                //        if (match != null)
-                //        {
-                //            _logger.LogInformation($"Grupo encontrado para el user {userName}:" +
-                //                $" {match.Name}");
-                //            userRoles.Add(match);
-                //        }
-                //        else
-                //        {
-                //            string mensaje = $"E grupo de AD {group.Id} no tiene match" +
-                //                $" asociado en el appsettings";
-                //            _logger.LogError(mensaje);
-                //        }
-                //    }
-                //}
-                //return userRoles;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error al encontrar grupos para el user" +
-                    $" {GetUserName()}: {ex.Message}");
-
-                throw new Exception($"No se pudo obtener el grupo del usuario logueado." +
-                    $" Consulte al dpto de Sistemas.");
+                stopwatch.Stop();
+                _logger.LogError(ex, "Error critico al consultar grupos de seguridad en Microsoft Graph para el usuario {UserName}", GetUserName());
+                throw new Exception("No se pudieron validar sus permisos de acceso en Azure AD.", ex);
             }
         }
 
-        public async Task SyncUsuariosLogueados(UserContext CurrentUser)
+        public async Task SyncUsuariosLogueados(UserContext currentUser)
         {
+            var stopwatch = Stopwatch.StartNew();
+
             try
             {
-                _logger.LogInformation($"Inicio de SyncUsuariosLogueados");
+                _logger.LogInformation("Inicio de SyncUsuariosLogueados");
 
-                var spName = _dbSettings.Sp["sp_sync_usuarios"].ToString();
+                if (currentUser == null)
+                {
+                    throw new ArgumentNullException(nameof(currentUser));
+                }
 
-                _logger.LogInformation($"Llamada al sp {spName}");
+                if (!_dbSettings.Sp.TryGetValue("SyncUsuariosLogueados", out var spName) || string.IsNullOrWhiteSpace(spName))
+                {
+                    throw new InvalidOperationException("No se encontro configurado DBSettings:Sp:SyncUsuariosLogueados.");
+                }
+
+                var highestRole = currentUser.Roles?
+                    .OrderByDescending(role => role.Nivel)
+                    .FirstOrDefault();
 
                 var parameters = new Dictionary<string, object>
                 {
-                    { "username", CurrentUser.UserName },
-                    { "empleado ", CurrentUser.Empleado },
-                    { "area", CurrentUser.Area },
-                    { "nivel", CurrentUser.Roles.FirstOrDefault().Nivel}
+                    { "username", currentUser.UserName ?? string.Empty },
+                    { "empleado", currentUser.Empleado ?? string.Empty },
+                    { "email", currentUser.Email ?? string.Empty },
+                    { "area", currentUser.Area ?? string.Empty },
+                    { "nivel", highestRole?.Nivel ?? 0 }
                 };
 
-                _logger.LogInformation($"Envio de parametros {parameters}");
+                _logger.LogInformation(
+                    "Llamada al SP {StoredProcedure} para el usuario {UserName} con empleado {Empleado}, email {Email}, area {Area} y nivel {Nivel}",
+                    spName,
+                    currentUser.UserName,
+                    currentUser.Empleado,
+                    currentUser.Email,
+                    currentUser.Area,
+                    highestRole?.Nivel ?? 0);
 
-                var hojas = await _revisorRepository.ExecuteStoredProcedureDynamicAsync(spName, parameters);
+                var result = await _revisorRepository.ExecuteStoredProcedureWithReturnValueAsync(spName, parameters);
+
+                stopwatch.Stop();
+                _logger.LogInformation(
+                    "Resultado de SyncUsuariosLogueados para {UserName}: {Result} ({ResultDescription}). DurationMs={DurationMs}",
+                    currentUser.UserName,
+                    result,
+                    DescribeSyncUsuariosResult(result),
+                    stopwatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error al sincronizar nuevos usuarios. {ex.Message}");
-                throw new Exception();
+                stopwatch.Stop();
+                _logger.LogError(ex, "Error al ejecutar SyncUsuariosLogueados para el usuario {UserName}", currentUser?.UserName);
+                throw new Exception("Error al sincronizar la informacion del perfil de usuario.", ex);
             }
         }
-    }
 
+        private static string DescribeSyncUsuariosResult(int result)
+        {
+            return result switch
+            {
+                1 => "insertado",
+                2 => "actualizado",
+                0 => "sin cambios",
+                _ => "resultado no identificado"
+            };
+        }
+
+        public async Task<List<User>> TestGetAllUsersAsync()
+        {
+            var result = new List<User>();
+
+            try
+            {
+                _logger.LogInformation("===== Inicio TestGetAllUsersAsync =====");
+
+                var page = await _graphClient.Users
+                    .Request()
+                    .Select("id,department,displayName,givenName,jobTitle,mail,surname")
+                    .GetAsync();
+
+                while (page != null)
+                {
+                    result.AddRange(page.CurrentPage);
+
+                    _logger.LogInformation(
+                        "Se recuperaron {Count} usuarios en esta página. Total acumulado: {Total}",
+                        page.CurrentPage.Count,
+                        result.Count);
+
+                    if (page.NextPageRequest == null)
+                    {
+                        break;
+                    }
+
+                    page = await page.NextPageRequest.GetAsync();
+                }
+
+                _logger.LogInformation(
+                    "===== Fin TestGetAllUsersAsync. Total usuarios recuperados: {Total} =====",
+                    result.Count);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo usuarios desde Microsoft Graph.");
+                throw;
+            }
+        }
+
+    }
 }

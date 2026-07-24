@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700">
+  <rect width="1000" height="700" fill="#f4f7fb"/>
+  <rect x="120" y="90" width="760" height="500" rx="14" fill="#ffffff" stroke="#b8c4d6"/>
+  <rect x="120" y="90" width="760" height="54" rx="14" fill="#2f4b7c"/>
+  <text x="160" y="124" font-family="Arial, sans-serif" font-size="24" fill="#ffffff">Notificaciones</text>
+  <text x="630" y="124" font-family="Arial, sans-serif" font-size="16" fill="#dbe6f4">Estado del envio por hoja</text>
+
+  <rect x="150" y="175" width="700" height="72" rx="10" fill="#f8fafc" stroke="#d7e0eb"/>
+  <text x="180" y="205" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Notificacion al Revisor</text>
+  <text x="180" y="228" font-family="Arial, sans-serif" font-size="15" fill="#66758a">Destinatario: revisor@empresa.com</text>
+  <rect x="690" y="190" width="120" height="28" rx="14" fill="#ffe066"/>
+  <text x="725" y="209" font-family="Arial, sans-serif" font-size="14" fill="#5c4d00">Pendiente</text>
+
+  <rect x="150" y="265" width="700" height="72" rx="10" fill="#f8fafc" stroke="#d7e0eb"/>
+  <text x="180" y="295" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Solicitud de acceso cruzado</text>
+  <text x="180" y="318" font-family="Arial, sans-serif" font-size="15" fill="#66758a">Destinatarios: socio lider + IT</text>
+  <rect x="680" y="280" width="130" height="28" rx="14" fill="#74c0fc"/>
+  <text x="708" y="299" font-family="Arial, sans-serif" font-size="14" fill="#0b4f71">Procesando</text>
+
+  <rect x="150" y="355" width="700" height="72" rx="10" fill="#f8fafc" stroke="#d7e0eb"/>
+  <text x="180" y="385" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Notificacion de rechazo</text>
+  <text x="180" y="408" font-family="Arial, sans-serif" font-size="15" fill="#66758a">Destinatario: preparador@empresa.com</text>
+  <rect x="690" y="370" width="120" height="28" rx="14" fill="#51cf66"/>
+  <text x="728" y="389" font-family="Arial, sans-serif" font-size="14" fill="#ffffff">Enviada</text>
+
+  <rect x="150" y="445" width="700" height="92" rx="10" fill="#fff5f5" stroke="#f1aeb5"/>
+  <text x="180" y="475" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Notificacion de firma al gestor final</text>
+  <text x="180" y="498" font-family="Arial, sans-serif" font-size="15" fill="#66758a">Error: no se pudo conectar al servidor de correo</text>
+  <rect x="690" y="460" width="110" height="28" rx="14" fill="#fa5252"/>
+  <text x="722" y="479" font-family="Arial, sans-serif" font-size="14" fill="#ffffff">Fallida</text>
+  <rect x="700" y="500" width="110" height="28" rx="6" fill="#2f4b7c"/>
+  <text x="727" y="519" font-family="Arial, sans-serif" font-size="15" fill="#ffffff">Reintentar</text>
+
+  <text x="125" y="645" font-family="Arial, sans-serif" font-size="18" fill="#23395d">Referencia: el panel permite ver si el email fue programado, enviado o fallido, y reintentar cuando corresponda.</text>
+</svg>

@@ -23,4 +23,10 @@
     <PackageReference Include="PuppeteerSharp" Version="20.2.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="HojaDeRuta.Tests\\**\\*.cs" />
+    <EmbeddedResource Remove="HojaDeRuta.Tests\\**\\*" />
+    <None Remove="HojaDeRuta.Tests\\**\\*" />
+  </ItemGroup>
+
 </Project>

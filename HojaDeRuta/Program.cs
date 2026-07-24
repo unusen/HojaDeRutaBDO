@@ -1,4 +1,4 @@
-﻿using HojaDeRuta.DBContext;
+using HojaDeRuta.DBContext;
 using HojaDeRuta.Helpers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Services;
@@ -10,14 +10,28 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using Microsoft.Extensions.Options;
 
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
+
+var hojaDbConnection = builder.Configuration.GetConnectionString("hojaDB");
+var vistaContratosConnection = builder.Configuration.GetConnectionString("vistaContratos");
+
+if (string.IsNullOrWhiteSpace(hojaDbConnection))
+{
+    throw new InvalidOperationException("Falta configurar ConnectionStrings:hojaDB.");
+}
+
+if (string.IsNullOrWhiteSpace(vistaContratosConnection))
+{
+    throw new InvalidOperationException("Falta configurar ConnectionStrings:vistaContratos.");
+}
 
 //builder.Services.AddDbContext<HojasDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration.GetConnectionString("hojaDB")));
 builder.Services.AddDbContext<HojasDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("hojaDB"),
+        hojaDbConnection,
         sqlOptions =>
         {
             sqlOptions.EnableRetryOnFailure(
@@ -30,7 +44,7 @@ builder.Services.AddDbContext<HojasDbContext>(options =>
 
 builder.Services.AddDistributedSqlServerCache(options =>
 {
-    options.ConnectionString = builder.Configuration.GetConnectionString("hojaDB");
+    options.ConnectionString = hojaDbConnection;
     options.SchemaName = "dbo";
     options.TableName = "TokenCache";
 });
@@ -161,6 +175,7 @@ builder.Services.Configure<DBSettings>(builder.Configuration.GetSection("DBSetti
 builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
 builder.Services.Configure<MonedasSettings>(builder.Configuration.GetSection("MonedasSettings"));
 builder.Services.Configure<PathSetings>(builder.Configuration.GetSection("PathSetings"));
+builder.Services.Configure<UploadSettings>(builder.Configuration.GetSection("UploadSettings"));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<CreatioService>();
@@ -168,11 +183,21 @@ builder.Services.AddScoped<HojaDeRutaService>();
 builder.Services.AddScoped<SharedService>();
 builder.Services.AddScoped<ClienteService>();
 builder.Services.AddScoped<RevisorService>();
+builder.Services.AddScoped<IHojaWorkflowService, HojaWorkflowService>();
+builder.Services.AddScoped<IUserContextCacheService, UserContextCacheService>();
+builder.Services.AddScoped<ICatalogCacheService, CatalogCacheService>();
+builder.Services.AddScoped<IRutaDocumentoService, RutaDocumentoService>();
+builder.Services.AddScoped<IHojaAttachmentService, HojaAttachmentService>();
 builder.Services.AddScoped<MailService>();
+builder.Services.AddScoped<INotificationDeliveryService, NotificationDeliveryService>();
 builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<IOperationProgressService, OperationProgressService>();
+builder.Services.AddSingleton<NotificationQueueService>();
+builder.Services.AddSingleton<INotificationQueueService>(sp => sp.GetRequiredService<NotificationQueueService>());
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddHostedService<SyncService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NotificationQueueService>());
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAutoMapper(cfg =>
@@ -180,8 +205,12 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddProfile<MappingProfile>();
 });
 
-//TODO: QUITAR EN PROD
-//builder.Logging.AddConsole();
+// Configuración de Logging para incluir Fecha y Hora globalmente
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+    options.UseUtcTimestamp = false; // Usa la hora local
+});
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -196,7 +225,106 @@ builder.Configuration.AddEnvironmentVariables();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<HojasDbContext>();
+    var dbConnection = db.Database.GetDbConnection();
+    var configuredConnectionString = db.Database.GetConnectionString();
+    var runtimeConnectionString = dbConnection.ConnectionString;
+
+    if (string.IsNullOrWhiteSpace(configuredConnectionString))
+    {
+        throw new InvalidOperationException("HojasDbContext se inicializo sin cadena de conexion configurada.");
+    }
+
+    if (string.IsNullOrWhiteSpace(runtimeConnectionString))
+    {
+        throw new InvalidOperationException(
+            $"HojasDbContext tiene configuracion, pero DbConnection llego sin cadena. " +
+            $"Provider: {db.Database.ProviderName ?? "(null)"}. " +
+            $"ConnectionType: {dbConnection.GetType().FullName}");
+    }
+
+    await db.Database.CanConnectAsync();
+}
+
 app.UseForwardedHeaders();
+
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsPost(context.Request.Method)
+        && context.Request.Path.Equals("/Home/Upsert", StringComparison.OrdinalIgnoreCase))
+    {
+        var uploadSettings = context.RequestServices.GetRequiredService<IOptions<UploadSettings>>().Value;
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("UploadGuard");
+        var maxAllowedBytes = uploadSettings.GetMaxFileSizeBytes();
+        var contentLength = context.Request.ContentLength;
+
+        if (contentLength.HasValue && contentLength.Value > maxAllowedBytes)
+        {
+            logger.LogWarning(
+                "Carga detectada por encima del máximo configurado antes del controlador. Path={Path} ContentLength={ContentLength} MaxAllowed={MaxAllowed} RemoteIp={RemoteIp} UserAgent={UserAgent} Referer={Referer}",
+                context.Request.Path,
+                contentLength.Value,
+                maxAllowedBytes,
+                context.Connection.RemoteIpAddress?.ToString() ?? "(unknown)",
+                context.Request.Headers.UserAgent.ToString(),
+                context.Request.Headers.Referer.ToString());
+        }
+    }
+
+    await next();
+});
+
+app.Use(async (context, next) =>
+{
+    static bool IsTrackedPath(PathString path)
+    {
+        return path.StartsWithSegments("/Home/Upsert", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/Home/SaveAuditoria", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/Home/RevisarEtapa", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/Home/FirmarDoc", StringComparison.OrdinalIgnoreCase);
+    }
+
+    var isTrackedRequest = IsTrackedPath(context.Request.Path);
+    var hasRequestVerificationHeader = context.Request.Headers.ContainsKey("RequestVerificationToken");
+    var hasRequestVerificationCookie = context.Request.Cookies.Keys.Any(k =>
+        k.Contains("RequestVerification", StringComparison.OrdinalIgnoreCase));
+
+    if (isTrackedRequest && HttpMethods.IsPost(context.Request.Method))
+    {
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("HttpRequestDiagnostics");
+        logger.LogInformation(
+            "HDR_HTTP_REQUEST_START Method={Method} Path={Path} QueryString={QueryString} User={User} ContentType={ContentType} ContentLength={ContentLength} HasRequestVerificationHeader={HasRequestVerificationHeader} HasRequestVerificationCookie={HasRequestVerificationCookie} Referer={Referer}",
+            context.Request.Method,
+            context.Request.Path,
+            context.Request.QueryString.HasValue ? context.Request.QueryString.Value : string.Empty,
+            context.User?.Identity?.Name ?? "(anonymous)",
+            context.Request.ContentType ?? "(null)",
+            context.Request.ContentLength,
+            hasRequestVerificationHeader,
+            hasRequestVerificationCookie,
+            context.Request.Headers.Referer.ToString());
+    }
+
+    await next();
+
+    if (isTrackedRequest && context.Response.StatusCode == StatusCodes.Status400BadRequest)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("HttpRequestDiagnostics");
+        logger.LogWarning(
+            "HDR_HTTP_400_REJECTED Method={Method} Path={Path} QueryString={QueryString} User={User} Endpoint={Endpoint} HasRequestVerificationHeader={HasRequestVerificationHeader} HasRequestVerificationCookie={HasRequestVerificationCookie} Referer={Referer} UserAgent={UserAgent}",
+            context.Request.Method,
+            context.Request.Path,
+            context.Request.QueryString.HasValue ? context.Request.QueryString.Value : string.Empty,
+            context.User?.Identity?.Name ?? "(anonymous)",
+            context.GetEndpoint()?.DisplayName ?? "(no-endpoint)",
+            hasRequestVerificationHeader,
+            hasRequestVerificationCookie,
+            context.Request.Headers.Referer.ToString(),
+            context.Request.Headers.UserAgent.ToString());
+    }
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

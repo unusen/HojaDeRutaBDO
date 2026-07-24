@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+  <rect width="1400" height="820" fill="#f4f7fb"/>
+  <rect x="0" y="0" width="1400" height="70" fill="#23395d"/>
+  <text x="40" y="43" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">Hoja de Ruta</text>
+  <text x="1120" y="42" font-family="Arial, sans-serif" font-size="18" fill="#dbe6f4">Usuario autenticado</text>
+
+  <rect x="50" y="105" width="170" height="42" rx="6" fill="#2f9e44"/>
+  <text x="82" y="132" font-family="Arial, sans-serif" font-size="20" fill="#ffffff">Crear Hoja</text>
+  <rect x="240" y="105" width="200" height="42" rx="6" fill="#0c8599"/>
+  <text x="270" y="132" font-family="Arial, sans-serif" font-size="20" fill="#ffffff">Generar Reportes</text>
+
+  <rect x="50" y="175" width="1300" height="150" rx="10" fill="#ffffff" stroke="#b8c4d6"/>
+  <rect x="50" y="175" width="1300" height="42" rx="10" fill="#2f4b7c"/>
+  <text x="78" y="202" font-family="Arial, sans-serif" font-size="20" fill="#ffffff">Filtrar hojas de ruta</text>
+
+  <rect x="75" y="240" width="120" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="97" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Nro HR</text>
+  <rect x="215" y="240" width="180" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="275" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Cliente</text>
+  <rect x="415" y="240" width="180" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="478" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Estado</text>
+  <rect x="615" y="240" width="150" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="668" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Sector</text>
+  <rect x="785" y="240" width="180" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="854" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Socio</text>
+  <rect x="985" y="240" width="150" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="1025" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Fecha desde</text>
+  <rect x="1155" y="240" width="150" height="34" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="1198" y="263" font-family="Arial, sans-serif" font-size="16" fill="#44546a">Fecha hasta</text>
+
+  <rect x="75" y="285" width="160" height="34" rx="4" fill="#6c757d"/>
+  <text x="105" y="308" font-family="Arial, sans-serif" font-size="16" fill="#ffffff">Limpiar filtros</text>
+  <rect x="255" y="285" width="180" height="34" rx="4" fill="#2f9e44"/>
+  <text x="280" y="308" font-family="Arial, sans-serif" font-size="16" fill="#ffffff">Mostrar pendientes</text>
+  <text x="470" y="307" font-family="Arial, sans-serif" font-size="16" fill="#66758a">Resultados, paginacion y orden dinamico</text>
+
+  <rect x="50" y="355" width="1300" height="385" rx="10" fill="#ffffff" stroke="#b8c4d6"/>
+  <rect x="50" y="355" width="1300" height="44" rx="10" fill="#2f4b7c"/>
+  <text x="85" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Numero</text>
+  <text x="210" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Cliente</text>
+  <text x="460" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Tipo Documento</text>
+  <text x="710" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Sector</text>
+  <text x="840" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Socio Firmante</text>
+  <text x="1080" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Estado</text>
+  <text x="1210" y="382" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">Acciones</text>
+
+  <rect x="70" y="418" width="1260" height="58" fill="#f8fafc" stroke="#e0e7ef"/>
+  <text x="95" y="452" font-family="Arial, sans-serif" font-size="16" fill="#2b3645">000123</text>
+  <text x="210" y="452" font-family="Arial, sans-serif" font-size="16" fill="#2b3645">Cliente de ejemplo</text>
+  <text x="460" y="452" font-family="Arial, sans-serif" font-size="16" fill="#2b3645">Informe del auditor</text>
+  <text x="710" y="452" font-family="Arial, sans-serif" font-size="16" fill="#2b3645">BANK</text>
+  <text x="840" y="452" font-family="Arial, sans-serif" font-size="16" fill="#2b3645">Socio Firmante</text>
+  <rect x="1070" y="430" width="95" height="28" rx="14" fill="#ffe066"/>
+  <text x="1088" y="449" font-family="Arial, sans-serif" font-size="14" fill="#5c4d00">Pendiente</text>
+  <circle cx="1238" cy="445" r="11" fill="#2f9e44"/>
+  <circle cx="1276" cy="445" r="11" fill="#0c8599"/>
+
+  <text x="65" y="785" font-family="Arial, sans-serif" font-size="18" fill="#2f4b7c">Referencia: desde esta pantalla el usuario crea hojas, busca registros, ve estados y abre detalle o edicion.</text>
+</svg>

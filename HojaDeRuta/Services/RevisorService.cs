@@ -1,4 +1,4 @@
-﻿using HojaDeRuta.Controllers;
+using HojaDeRuta.Controllers;
 using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Services.Repository;
@@ -42,7 +42,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener la lista completa de revisores.");
+                throw new Exception("No se pudo cargar el listado de revisores.", ex);
             }
         }
 
@@ -69,7 +70,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al obtener revisores por nivel.");
+                throw new Exception("Ocurrió un error al filtrar los revisores por jerarquía.", ex);
             }
         }
 
@@ -142,7 +144,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al identificar el revisor actual para la hoja.");
+                throw new Exception("No se pudo determinar el revisor responsable en esta etapa.", ex);
             }
         }
 
@@ -235,8 +238,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error al obtener {(buscarAnterior ? "revisores anteriores" : "próximo revisor")} para la hoja {hoja.Id}. {ex.Message}");
-                throw new Exception($"Error al obtener revisores relacionados: {ex.Message}", ex);
+                _logger.LogError(ex, "Error al obtener revisores relacionados (buscando anterior: {BuscarAnterior}) para la hoja {HojaId}.", buscarAnterior, hoja?.Id ?? "N/A");
+                throw new Exception("Error al intentar identificar los responsables del flujo de firma.", ex);
             }
         }
 
@@ -268,14 +271,16 @@ namespace HojaDeRuta.Services
                 return false;
             }
 
-            bool result = false;
             Revisores revisor = await GetRevisorByName(revisorActual);
 
-            if (revisor != null)
+            if (revisor == null)
             {
-                _logger.LogInformation($"El revisor {revisorActual} fue encontrado. " +
-                    $" con el cargo {revisor.Cargo}");
+                _logger.LogWarning($"No se encontro configuracion de revisor para el empleado {revisorActual}.");
+                return false;
             }
+
+            _logger.LogInformation($"El revisor {revisorActual} fue encontrado. " +
+                $" con el cargo {revisor.Cargo}");
 
             var pasosFlujo = new List<string?>
             {
@@ -287,16 +292,22 @@ namespace HojaDeRuta.Services
                 hoja.GestorFinal
             };
 
+            bool participaEnLaHoja = pasosFlujo.Any(p =>
+                string.Equals(p, revisorActual, StringComparison.OrdinalIgnoreCase));
+
+            bool perteneceAlArea = string.Equals(revisor.Area, hoja.Sector, StringComparison.OrdinalIgnoreCase);
+
+            bool result;
             switch (revisor.Cargo)
             {
                 case 11:
                     result = true;
                     break;
                 case 10:
-                    result = revisor.Area == hoja.Sector;
+                    result = participaEnLaHoja || perteneceAlArea;
                     break;
                 default:
-                    result = pasosFlujo.Any(p => string.Equals(p, revisorActual, StringComparison.OrdinalIgnoreCase));
+                    result = participaEnLaHoja;
                     break;
             }
 

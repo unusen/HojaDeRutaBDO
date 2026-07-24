@@ -1,26 +1,30 @@
-﻿@{
+@{
     Layout = "~/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = "Home Page";
+    var estadosJson = System.Text.Json.JsonSerializer.Serialize(ViewBag.Estados);
 }
 
 <div class="container-fluid content-wrapper">
 
-    <div id="alertContainer" class="mt-2"></div>
-
-    @* <button class="btn btn-success" type="button" asp-controller="Home" asp-action="Upsert" asp-route-mode=0>
-        <i class="bi bi-plus-lg"></i>
-        Crear Hoja
-    </button> *@
+    <div id="alertContainer" class="mt-2">
+        @if (!string.IsNullOrWhiteSpace(ViewBag.IndexAlertMessage as string))
+        {
+            <div class="alert alert-@(ViewBag.IndexAlertType ?? "warning") alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>@ViewBag.IndexAlertMessage
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        }
+    </div>
 
     <div class="mt-3">
-        <a class="btn btn-sm btn-success" asp-controller="Home" asp-action="Upsert" asp-route-mode=0>
+        <a class="btn btn-sm btn-success" asp-controller="Home" asp-action="Upsert" asp-route-mode="0">
             <i class="bi bi-plus-lg"></i> Crear Hoja
         </a>
 
         <a class="btn btn-sm btn-info ms-2" asp-controller="Home" asp-action="Reportes">
             <i class="bi bi-bar-chart-fill"></i> Generar Reportes
         </a>
-    </div>  
+    </div>
 
     <div class="accordion mt-3 mb-3" id="accordionExample">
         <div class="accordion-item">
@@ -33,16 +37,15 @@
                 <div class="accordion-body p-0">
                     <div class="card mt-3 mb-3 border-0">
                         <div class="card-body py-1">
-                            <!-- Filtros dinamicos -->
                             <div class="row mb-3">
                                 <div class="col-md-1 mb-2">
-                                    <input type="text" id="filtroNumero" class="form-control" placeholder="N° HR" oninput="applyFilters()" />
+                                    <input type="text" id="filtroNumero" class="form-control" placeholder="N° HR" />
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <input type="text" id="filtroCliente" class="form-control" placeholder="Cliente" oninput="applyFilters()" />
+                                    <input type="text" id="filtroCliente" class="form-control" placeholder="Cliente" />
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <select id="filtroEstado" class="form-control" onchange="applyFilters()">
+                                    <select id="filtroEstado" class="form-control">
                                         <option value="">Todos los Estados</option>
                                         @foreach (var estado in ViewBag.Estados)
                                         {
@@ -51,51 +54,50 @@
                                     </select>
                                 </div>
                                 <div class="col-md-1 mb-2">
-                                    <input type="text" id="filtroSector" class="form-control" placeholder="Sector" oninput="applyFilters()" />
+                                    <input type="text" id="filtroSector" class="form-control" placeholder="Sector" />
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <input type="text" id="filtroSocio" class="form-control" placeholder="Socio" oninput="applyFilters()" />
+                                    <input type="text" id="filtroSocio" class="form-control" placeholder="Socio" />
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <input type="date" id="filtroDesde" class="form-control" placeholder="Fecha desde" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
+                                    <input type="date" id="filtroDesde" class="form-control" />
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <input type="date" id="filtroHasta" class="form-control" placeholder="Fecha hasta" onfocus="(this.type='date')" onblur="if(this.value===''){this.type='text'}" onchange="applyFilters()" />
+                                    <input type="date" id="filtroHasta" class="form-control" />
                                 </div>
                             </div>
-                            <!-- Filtros paginacion -->
+
                             <div class="row mb-3">
-                                <!-- Cantidad por pagina -->
                                 <div class="col-md-1 mb-2">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text" data-bs-toggle="tooltip" title="Registros por página">
                                             <i class="bi bi-list-nested"></i>
                                         </span>
-                                        <input type="number" min="1" class="form-control" id="inputPageSize" value="10" oninput="changePageSize()" />
+                                        <input type="number" min="1" class="form-control" id="inputPageSize" value="@(ViewBag.InitialPageSize ?? 10)" />
                                     </div>
                                 </div>
-                                <!-- Ir a pagina -->
                                 <div class="col-md-1 mb-2">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text" data-bs-toggle="tooltip" title="Ir a página Nro">
                                             <i class="bi bi-box-arrow-in-right"></i>
                                         </span>
-                                        <input type="number" min="1" class="form-control" id="inputGoToPage" value="1" oninput="goToInputPage()" />
+                                        <input type="number" min="1" class="form-control" id="inputGoToPage" value="1" />
                                     </div>
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
+                                    <button class="btn btn-sm btn-secondary" id="btnResetFilters" type="button">
                                         <i class="bi bi-trash3 me-2"></i>
                                         Limpiar Filtros
                                     </button>
                                 </div>
                                 <div class="col-md-2 mb-2">
-                                    <button id="btnTogglePendientes"
-                                            class="btn btn-success btn-sm"
-                                            onclick="togglePendientes()">
+                                    <button id="btnTogglePendientes" class="btn btn-success btn-sm" type="button">
                                         <i class="bi bi-eye"></i>
                                         @(ViewBag.Pendientes ? "Mostrar todas" : "Mostrar pendientes")
                                     </button>
+                                </div>
+                                <div class="col-md-4 mb-2 d-flex align-items-center">
+                                    <small id="indexStatus" class="text-muted"></small>
                                 </div>
                             </div>
                         </div>
@@ -105,402 +107,435 @@
         </div>
     </div>
 
-    <!-- Tabla resultados -->
-    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+    <div class="table-responsive position-relative" style="max-height: 400px; overflow-y: auto;">
+        <div id="tableLoading" class="position-absolute top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center bg-white bg-opacity-75" style="z-index: 2;">
+            <div class="text-center">
+                <div class="spinner-border text-secondary mb-2" role="status"></div>
+                <div class="small text-muted">Actualizando resultados...</div>
+            </div>
+        </div>
+
         <table class="table table-sm table-hover table-bordered mb-0">
             <thead class="bg-bdo text-white">
                 <tr>
-                    <th class="text-center fw-normal sortable" onclick="sortTableBy('Numero')">Número
-                        <span id="sort-icon-Numero"></span>
-                    </th>
-                    <th class="text-center fw-normal sortable" onclick="sortTableBy('ClienteName')">Cliente
-                        <span id="sort-icon-ClienteName"></span>
-                    </th>
-                    <th class="text-center fw-normal sortable" onclick="sortTableBy('NombreGenerico')">Tipo Documento
-                        <span id="sort-icon-NombreGenerico"></span>
-                    </th>
-                    <th class="text-center fw-normal sortable" onclick="sortTableBy('Sector')">Sector
-                        <span id="sort-icon-Sector"></span>
-                    </th>
-                    <th class="text-center fw-normal sortable" onclick="sortTableBy('SocioFirmante')">Socio Firmante
-                        <span id="sort-icon-SocioFirmante"></span>
-                    </th>
-                    <th class="text-center fw-normal sortable" onclick="sortTableBy('FechaDocumento')">Fecha
-                        <span id="sort-icon-FechaDocumento"></span>
-                    </th>
-                    <th class="text-center fw-normal">Estado</th>
+                    <th class="text-center fw-normal sortable" data-sort="Numero">Número <span id="sort-icon-Numero"></span></th>
+                    <th class="text-center fw-normal sortable" data-sort="ClienteName">Cliente <span id="sort-icon-ClienteName"></span></th>
+                    <th class="text-center fw-normal sortable" data-sort="NombreGenerico">Tipo Documento <span id="sort-icon-NombreGenerico"></span></th>
+                    <th class="text-center fw-normal sortable" data-sort="Sector">Sector <span id="sort-icon-Sector"></span></th>
+                    <th class="text-center fw-normal sortable" data-sort="SocioFirmanteDetalle">Socio Firmante <span id="sort-icon-SocioFirmanteDetalle"></span></th>
+                    <th class="text-center fw-normal sortable" data-sort="FechaDocumento">Fecha <span id="sort-icon-FechaDocumento"></span></th>
+                    <th class="text-center fw-normal sortable" data-sort="Estado">Estado <span id="sort-icon-Estado"></span></th>
                     <th class="text-center fw-normal">Acciones</th>
                 </tr>
             </thead>
-            <tbody id="hojasBody"> </tbody>
+            <tbody id="hojasBody"></tbody>
         </table>
     </div>
 
     <div class="card-footer text-end mt-2 bg-white">
         <nav>
-            <ul class="pagination justify-content-end mb-2" id="pagination">
-                <!-- Se completará dinámicamente -->
-            </ul>
+            <ul class="pagination justify-content-end mb-2" id="pagination"></ul>
         </nav>
     </div>
 </div>
 
-@{
-    var estadosJson = System.Text.Json.JsonSerializer.Serialize(ViewBag.Estados);
-}
-
 @section Scripts {
-
     <script>
-        const allHojas = @Html.Raw(ViewBag.HojasJson);
-        let filteredHojas = [...allHojas];
-
-        let currentSort = { field: '', direction: 'asc' };
-        let currentPage = 1;
-        let pageSize = parseInt(document.getElementById('inputPageSize')?.value) || 5;
-        
         const estadoMap = @Html.Raw(estadosJson);
+        const indexState = {
+            pageNumber: 1,
+            pageSize: parseInt(document.getElementById('inputPageSize').value || '10', 10),
+            sortField: 'Numero',
+            sortDirection: 'asc',
+            pendientes: @ViewBag.Pendientes.ToString().ToLowerInvariant(),
+            numero: '',
+            cliente: '',
+            estado: '',
+            sector: '',
+            socio: '',
+            fechaDesde: '',
+            fechaHasta: ''
+        };
 
-        function togglePendientes() {
-            debugger;
-            const pendientes = @ViewBag.Pendientes.ToString().ToLowerInvariant();
-            window.location.href = `/Home/Index?pendientes=${!pendientes}`;
-        }
+        const indexCache = new Map();
+        let activeAbortController = null;
+        let debounceHandle = null;
+        let lastResponse = null;
 
-        function sortTableBy(field) {
-            debugger;
-            if (currentSort.field === field) {
-                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSort.field = field;
-                currentSort.direction = 'asc';
-            }
+        document.addEventListener('DOMContentLoaded', function () {
+            wireIndexEvents();
+            fetchIndexData(true);
+        });
 
-            sortData();
-            renderTable();
-        }
+        function wireIndexEvents() {
+            document.querySelectorAll('.sortable').forEach(header => {
+                header.addEventListener('click', function () {
+                    const field = this.dataset.sort;
+                    if (!field) {
+                        return;
+                    }
 
-        function applyFilters() {
-            debugger;
-            const cliente = document.getElementById('filtroCliente').value.toLowerCase();
-            const estado = document.getElementById('filtroEstado').value;
-            const sector = document.getElementById('filtroSector').value.toLowerCase();
-            const socio = document.getElementById('filtroSocio').value.toLowerCase();
-            const numero = document.getElementById('filtroNumero').value.toLowerCase();
-            const desde = document.getElementById('filtroDesde').value;
-            const hasta = document.getElementById('filtroHasta').value;
+                    if (indexState.sortField === field) {
+                        indexState.sortDirection = indexState.sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        indexState.sortField = field;
+                        indexState.sortDirection = 'asc';
+                    }
 
-            filteredHojas = allHojas.filter(h => {
-                //const matchCliente = h.ClienteName.toLowerCase().includes(cliente);
-                const matchCliente = (h.ClienteName || "").toLowerCase().includes(cliente);
-
-                const matchEstado = estado === "" || h.Estado == estado;
-
-                //const matchSector = h.Sector.toLowerCase().includes(sector);
-                const matchSector = (h.Sector || "").toLowerCase().includes(sector);
-
-                //const matchSocio = h.SocioFirmanteDetalle.toLowerCase().includes(socio);
-                const matchSocio = (h.SocioFirmanteDetalle || "").toLowerCase().includes(socio);
-
-                //const matchNumero = h.Numero.toLowerCase().includes(numero);
-                const matchNumero = (h.Numero || "").toLowerCase().includes(numero);
-
-                const fechaStr = h.FechaDocumento ? h.FechaDocumento.substring(0, 10) : null;
-                const matchDesde = !desde || fechaStr >= desde;
-                const matchHasta = !hasta || fechaStr <= hasta;
-
-                return matchCliente && matchEstado && matchSector && matchSocio && matchNumero && matchDesde && matchHasta;
+                    indexState.pageNumber = 1;
+                    fetchIndexData(true);
+                });
             });
 
-            currentPage = 1;
-            renderTable();
+            bindDebouncedInput('filtroNumero', 'numero');
+            bindDebouncedInput('filtroCliente', 'cliente');
+            bindDebouncedInput('filtroSector', 'sector');
+            bindDebouncedInput('filtroSocio', 'socio');
+
+            bindImmediateInput('filtroEstado', 'estado');
+            bindImmediateInput('filtroDesde', 'fechaDesde');
+            bindImmediateInput('filtroHasta', 'fechaHasta');
+
+            document.getElementById('inputPageSize').addEventListener('change', function () {
+                const nextSize = parseInt(this.value || '10', 10);
+                indexState.pageSize = Number.isFinite(nextSize) && nextSize > 0 ? nextSize : 10;
+                this.value = indexState.pageSize;
+                indexState.pageNumber = 1;
+                fetchIndexData(true);
+            });
+
+            document.getElementById('inputGoToPage').addEventListener('change', function () {
+                const requestedPage = parseInt(this.value || '1', 10);
+                indexState.pageNumber = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+                fetchIndexData(true);
+            });
+
+            document.getElementById('btnResetFilters').addEventListener('click', resetFilters);
+            document.getElementById('btnTogglePendientes').addEventListener('click', togglePendientes);
+        }
+
+        function bindDebouncedInput(elementId, stateKey) {
+            const element = document.getElementById(elementId);
+            element.addEventListener('input', function () {
+                indexState[stateKey] = this.value.trim();
+                indexState.pageNumber = 1;
+                window.clearTimeout(debounceHandle);
+                debounceHandle = window.setTimeout(() => fetchIndexData(true), 300);
+            });
+        }
+
+        function bindImmediateInput(elementId, stateKey) {
+            const element = document.getElementById(elementId);
+            element.addEventListener('change', function () {
+                indexState[stateKey] = this.value.trim();
+                indexState.pageNumber = 1;
+                fetchIndexData(true);
+            });
         }
 
         function resetFilters() {
-            debugger;
-            document.getElementById('filtroCliente').value = '';
-            document.getElementById('filtroEstado').value = '';
-            document.getElementById('filtroSector').value = '';
-            document.getElementById('filtroSocio').value = '';
-            document.getElementById('filtroNumero').value = '';
-            document.getElementById('filtroDesde').value = '';
-            document.getElementById('filtroHasta').value = '';
+            ['filtroNumero', 'filtroCliente', 'filtroEstado', 'filtroSector', 'filtroSocio', 'filtroDesde', 'filtroHasta']
+                .forEach(id => document.getElementById(id).value = '');
 
-            filteredHojas = [...allHojas];
-            currentPage = 1;
-
-            renderTable();
+            indexState.numero = '';
+            indexState.cliente = '';
+            indexState.estado = '';
+            indexState.sector = '';
+            indexState.socio = '';
+            indexState.fechaDesde = '';
+            indexState.fechaHasta = '';
+            indexState.pageNumber = 1;
+            fetchIndexData(true);
         }
 
-        function sortData() {
-            if (!currentSort.field) return;
+        function togglePendientes() {
+            indexState.pendientes = !indexState.pendientes;
+            indexState.pageNumber = 1;
+            document.getElementById('btnTogglePendientes').innerHTML = `<i class="bi bi-eye"></i> ${indexState.pendientes ? 'Mostrar todas' : 'Mostrar pendientes'}`;
+            fetchIndexData(true);
+        }
 
-            filteredHojas.sort((a, b) => {
-                let valA = a[currentSort.field];
-                let valB = b[currentSort.field];
+        function goToPage(pageNumber) {
+            if (!lastResponse) {
+                return;
+            }
 
-                // Si es fecha
-                if (currentSort.field.toLowerCase().includes("fecha")) {
-                    valA = valA ? new Date(valA) : new Date(0);
-                    valB = valB ? new Date(valB) : new Date(0);
+            const totalPages = Math.max(1, Math.ceil((lastResponse.totalItems || 0) / Math.max(1, indexState.pageSize)));
+            if (pageNumber < 1 || pageNumber > totalPages) {
+                return;
+            }
+
+            indexState.pageNumber = pageNumber;
+            document.getElementById('inputGoToPage').value = pageNumber;
+            fetchIndexData(true);
+        }
+
+        async function fetchIndexData(showLoading) {
+            const cacheKey = buildCacheKey();
+            const cached = indexCache.get(cacheKey);
+            if (cached) {
+                renderIndexData(cached);
+                prefetchNeighborPages();
+                return;
+            }
+
+            if (activeAbortController) {
+                activeAbortController.abort();
+            }
+
+            activeAbortController = new AbortController();
+            setLoading(showLoading);
+            setStatus('Actualizando resultados...');
+
+            try {
+                const response = await fetch(`/Home/GetIndexData?${buildQueryString()}`, {
+                    signal: activeAbortController.signal,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('No pudimos cargar las hojas de ruta.');
                 }
 
-                // Normalizar valores
-                if (typeof valA === "string") valA = valA.toLowerCase();
-                if (typeof valB === "string") valB = valB.toLowerCase();
+                const payload = await response.json();
+                indexCache.set(cacheKey, payload);
+                renderIndexData(payload);
+                prefetchNeighborPages();
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    return;
+                }
 
-                if (valA < valB) return currentSort.direction === "asc" ? -1 : 1;
-                if (valA > valB) return currentSort.direction === "asc" ? 1 : -1;
-                return 0;
+                setStatus('No pudimos actualizar la lista en este momento.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function prefetchNeighborPages() {
+            if (!lastResponse) {
+                return;
+            }
+
+            const totalPages = Math.max(1, Math.ceil((lastResponse.totalItems || 0) / Math.max(1, indexState.pageSize)));
+            const nextPage = indexState.pageNumber + 1;
+            if (nextPage > totalPages) {
+                return;
+            }
+
+            const nextState = { ...indexState, pageNumber: nextPage };
+            const nextKey = JSON.stringify(nextState);
+            if (indexCache.has(nextKey)) {
+                return;
+            }
+
+            fetch(`/Home/GetIndexData?${new URLSearchParams(nextState).toString()}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(response => response.ok ? response.json() : null)
+                .then(payload => {
+                    if (payload) {
+                        indexCache.set(nextKey, payload);
+                    }
+                })
+                .catch(() => { });
+        }
+
+        function renderIndexData(payload) {
+            lastResponse = payload;
+            renderTable(payload.items || []);
+            renderPagination(payload.totalItems || 0);
+            renderSortIcons();
+            document.getElementById('inputGoToPage').value = indexState.pageNumber;
+
+            const totalItems = payload.totalItems || 0;
+            setStatus(`${totalItems} hoja${totalItems === 1 ? '' : 's'} encontrada${totalItems === 1 ? '' : 's'}.`);
+            syncUrl();
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('hojasBody');
+            tbody.innerHTML = '';
+
+            if (!items.length) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            No encontramos hojas de ruta para los filtros seleccionados.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            items.forEach(h => {
+                const id = encodeURIComponent(h.id);
+                const isDisabled = h.estado === 1 || h.estado === 2;
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="text-nowrap">
+                        <td class="text-center align-middle">${h.numero || ''}</td>
+                        <td class="text-center align-middle">
+                            <div class="text-truncate d-inline-block w-100" style="max-width: 200px;" title="${escapeHtml(h.clienteName || '')}">
+                                ${escapeHtml(h.clienteName || '')}
+                            </div>
+                        </td>
+                        <td class="text-center align-middle">
+                            <div class="text-truncate d-inline-block w-100" style="max-width: 220px;" title="${escapeHtml(h.nombreGenerico || '')}">
+                                ${escapeHtml(h.nombreGenerico || '')}
+                            </div>
+                        </td>
+                        <td class="text-center align-middle">${escapeHtml(h.sector || '')}</td>
+                        <td class="text-center align-middle">${escapeHtml(h.socioFirmanteDetalle || '')}</td>
+                        <td class="text-center align-middle">${parseFecha(h.fechaDocumento)}</td>
+                        <td class="text-center align-middle">
+                            <span class="badge ${getBadgeClass(h.estado)}">${getEstadoTexto(h.estado)}</span>
+                        </td>
+                        <td class="text-center align-middle">
+                            <a href="/Home/Upsert?mode=2&id=${id}" class="me-2 text-decoration-none icon-action" title="Ver detalles">
+                                <i class="bi bi-eye text-success fs-5"></i>
+                            </a>
+                            ${isDisabled
+                                ? `<span class="me-2 text-muted fs-5" title="Edición no permitida"><i class="bi bi-pencil text-black-50 opacity-75"></i></span>`
+                                : `<a href="/Home/Upsert?mode=1&id=${id}" class="me-2 text-decoration-none icon-action" title="Editar"><i class="bi bi-pencil text-info fs-5"></i></a>`
+                            }
+                        </td>
+                    </tr>`);
             });
         }
 
-        function renderTable() {
-            debugger;
-            let sorted = [...filteredHojas];
-
-            if (currentSort.field) {
-                sorted.sort((a, b) => {
-                    let valA = a[currentSort.field];
-                    let valB = b[currentSort.field];
-
-                    if (currentSort.field.toLowerCase().includes("fecha")) {
-                    //if (currentSort.field === 'FechaDocumento') {
-                        valA = new Date(valA);
-                        valB = new Date(valB);
-                    } else {
-                        valA = valA.toString().toLowerCase();
-                        valB = valB.toString().toLowerCase();
-                    }
-
-                    if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
-                    if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
-                    return 0;
-                });
-            }
-
-            debugger;
-            const start = (currentPage - 1) * pageSize;
-            const paged = sorted.slice(start, start + pageSize);
-
-            const tbody = document.getElementById('hojasBody');
-            tbody.innerHTML = '';            
-
-            paged.forEach(h => {                
-                const id = encodeURIComponent(h.Id);
-                const isDisabled = h.Estado === 1 || h.Estado === 2 ;
-
-                const row = `
-                    <tr class="text-nowrap">
-                        <td class="text-center align-middle">${h.Numero}</td>
-
-                        <td class="text-center align-middle">
-                            <div class="text-truncate d-inline-block w-100" style="max-width: 200px;" title="${h.ClienteName}">
-                                ${h.ClienteName}
-                            </div>
-                        </td>
-
-                        <td class="text-center align-middle">
-                            <div class="text-truncate d-inline-block w-100" style="max-width: 220px;" title="${h.NombreGenerico}">
-                                ${h.NombreGenerico}
-                            </div>
-                        </td>
-
-                        <td class="text-center align-middle">${h.Sector}</td>
-                        <td class="text-center align-middle">${h.SocioFirmanteDetalle}</td>
-                        <td class="text-center align-middle">${parseFecha(h.FechaDocumento)}</td>
-
-                        <td class="text-center align-middle">
-                            <span class="badge ${getBadgeClass(h.Estado)}">${getEstadoTexto(h.Estado)}</span>
-                        </td>
-
-                        <td class="text-center align-middle">
-                            <a href="/Home/Upsert?mode=2&id=${id}"
-                                class="me-2 text-decoration-none icon-action" title="Ver detalles">
-                                <i class="bi bi-eye text-success fs-5"></i>
-                            </a>
-
-                            ${
-                                isDisabled
-                                ? `<span class="me-2 text-muted fs-5" title="Edición no permitida">
-                                       <i class="bi bi-pencil text-black-50 opacity-75"></i>
-                                   </span>`
-                                : `<a href="/Home/Upsert?mode=1&id=${id}"
-                                      class="me-2 text-decoration-none icon-action" title="Editar">
-                                      <i class="bi bi-pencil text-info fs-5"></i>
-                                   </a>`
-                            }
-                        </td>
-                    </tr>`;
-                tbody.innerHTML += row;
-        });
-
-        renderPagination(sorted.length);
-
-        //ICONOS
-        const allSortIcons = document.querySelectorAll('[id^="sort-icon-"]');
-
-        allSortIcons.forEach(span => {
-            const fieldName = span.id.replace('sort-icon-', '');
-
-            let iconHtml = '';
-
-            if (fieldName === currentSort.field) {
-                if (currentSort.direction === 'asc') {
-                    iconHtml = ' ▲';
-                } else {
-                    iconHtml = ' ▼';
-                }
-                span.parentElement.classList.add('active-sort');
-            } else {
-                span.parentElement.classList.remove('active-sort');
-            }
-
-            span.innerHTML = iconHtml;
-        });
-
-        }
-
         function renderPagination(totalItems) {
-            const totalPages = Math.ceil(totalItems / pageSize);
+            const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(1, indexState.pageSize)));
             const pagination = document.getElementById('pagination');
             pagination.innerHTML = '';
 
+            if (totalItems === 0) {
+                return;
+            }
+
             const maxPagesToShow = 5;
-            let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+            let startPage = Math.max(1, indexState.pageNumber - Math.floor(maxPagesToShow / 2));
             let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
             if (endPage - startPage + 1 < maxPagesToShow) {
                 startPage = Math.max(1, endPage - maxPagesToShow + 1);
             }
 
-            // Botón Anterior
-            const prevDisabled = currentPage === 1 ? 'disabled' : '';
-            pagination.innerHTML += `
-                <li class="page-item ${prevDisabled}">
-                    <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">Anterior</a>
-                </li>
-            `;
+            addPaginationButton('Anterior', indexState.pageNumber - 1, indexState.pageNumber === 1);
 
-            // Botón para la primera página
             if (startPage > 1) {
-                pagination.innerHTML += `
-                    <li class="page-item">
-                        <a class="page-link" href="#" onclick="goToPage(1); return false;">1</a>
-                    </li>
-                    <li class="page-item disabled">
-                        <span class="page-link">...</span>
-                    </li>
-                `;
+                addPaginationButton('1', 1, false, false);
+                pagination.insertAdjacentHTML('beforeend', '<li class="page-item disabled"><span class="page-link">...</span></li>');
             }
 
-            // Números de página
-            for (let i = startPage; i <= endPage; i++) {
-                const active = currentPage === i ? 'active' : '';
-                pagination.innerHTML += `
-                    <li class="page-item ${active}">
-                        <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
-                    </li>
-                `;
+            for (let page = startPage; page <= endPage; page++) {
+                addPaginationButton(page.toString(), page, false, page === indexState.pageNumber);
             }
 
-            // Botón para la última página
             if (endPage < totalPages) {
-                pagination.innerHTML += `
-                    <li class="page-item disabled">
-                        <span class="page-link">...</span>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="#" onclick="goToPage(${totalPages}); return false;">${totalPages}</a>
-                    </li>
-                `;
+                pagination.insertAdjacentHTML('beforeend', '<li class="page-item disabled"><span class="page-link">...</span></li>');
+                addPaginationButton(totalPages.toString(), totalPages, false, false);
             }
 
-            // Botón Siguiente
-            const nextDisabled = currentPage === totalPages ? 'disabled' : '';
-            pagination.innerHTML += `
-                <li class="page-item ${nextDisabled}">
-                    <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">Siguiente</a>
-                </li>
-            `;
+            addPaginationButton('Siguiente', indexState.pageNumber + 1, indexState.pageNumber === totalPages);
         }
 
-        function goToPage(page) {
-            currentPage = page;
-            renderTable();
+        function addPaginationButton(label, pageNumber, disabled, active) {
+            const pagination = document.getElementById('pagination');
+            const disabledClass = disabled ? 'disabled' : '';
+            const activeClass = active ? 'active' : '';
+            pagination.insertAdjacentHTML('beforeend', `
+                <li class="page-item ${disabledClass} ${activeClass}">
+                    <a class="page-link" href="#" data-page="${pageNumber}">${label}</a>
+                </li>`);
+
+            pagination.lastElementChild.querySelector('a').addEventListener('click', function (event) {
+                event.preventDefault();
+                if (!disabled) {
+                    goToPage(pageNumber);
+                }
+            });
         }
 
-        window.onload = () => {
-            const input = document.getElementById('inputPageSize');
-            if (input && !isNaN(parseInt(input.value))) {
-                pageSize = parseInt(input.value);
-            }
-            debugger;
-            filteredHojas = [...allHojas];
-            renderTable();
-        };
-
-        function changePageSize() {
-            const input = document.getElementById('inputPageSize');
-            const newSize = parseInt(input.value);
-
-            if (!isNaN(newSize) && newSize > 0) {
-                pageSize = newSize;
-                currentPage = 1;
-                renderTable();
-            }
+        function renderSortIcons() {
+            document.querySelectorAll('[id^="sort-icon-"]').forEach(span => {
+                const fieldName = span.id.replace('sort-icon-', '');
+                if (fieldName === indexState.sortField) {
+                    span.innerHTML = indexState.sortDirection === 'asc' ? ' ▲' : ' ▼';
+                    span.parentElement.classList.add('active-sort');
+                } else {
+                    span.innerHTML = '';
+                    span.parentElement.classList.remove('active-sort');
+                }
+            });
         }
 
-        function goToInputPage() {
-            const input = document.getElementById('inputGoToPage');
-            const totalPages = Math.ceil(filteredHojas.length / pageSize);
-            let page = parseInt(input.value);
+        function buildQueryString() {
+            const params = new URLSearchParams();
+            Object.entries(indexState).forEach(([key, value]) => {
+                if (value !== '' && value !== null && value !== undefined) {
+                    params.set(key, value);
+                }
+            });
 
-            if (!isNaN(page) && page >= 1 && page <= totalPages) {
-                currentPage = page;
-                renderTable();
-                clearAlert();
-            } else {
-                showAlert(`Número de página inválido. Debe estar entre 1 y ${totalPages}.`);
-            }
+            return params.toString();
         }
 
-        function showAlert(message) {
-            const container = document.getElementById('alertContainer');
-            container.innerHTML = `
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                </div>
-            `;
+        function buildCacheKey() {
+            return JSON.stringify(indexState);
         }
 
-        function clearAlert() {
-            const container = document.getElementById('alertContainer');
-            container.innerHTML = '';
+        function syncUrl() {
+            const params = new URLSearchParams();
+            params.set('pendientes', indexState.pendientes);
+            history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
         }
 
-        function getEstadoTexto(estadoNumero) {
-            return estadoMap[estadoNumero]?.Desc || 'Desconocido';
-        }    
+        function setLoading(isLoading) {
+            const loading = document.getElementById('tableLoading');
+            loading.classList.toggle('d-none', !isLoading);
+            loading.classList.toggle('d-flex', isLoading);
+        }
 
-        function getBadgeClass(estado) {
-            const estadoNum = parseInt(estado);
-            switch(estadoNum) {
-                case 0: return "badge bg-warning text-dark";
-                case 1: return "badge bg-success";
-                case 2: return "badge bg-danger";
-                default: return "badge bg-link text-dark";
-            }
+        function setStatus(message) {
+            document.getElementById('indexStatus').textContent = message;
         }
 
         function parseFecha(fecha) {
-            if (!fecha)
+            if (!fecha) {
                 return '';
+            }
 
-            return new Date(fecha).toISOString().split('T')[0];
+            const date = new Date(fecha);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+
+            return date.toLocaleDateString('es-AR');
         }
 
+        function getEstadoTexto(estadoId) {
+            const estado = estadoMap.find(e => (e.id ?? e.Id) === estadoId);
+            return estado ? (estado.desc ?? estado.Desc) : 'Sin estado';
+        }
+
+        function getBadgeClass(estadoId) {
+            switch (estadoId) {
+                case 0: return 'bg-warning text-dark';
+                case 1: return 'bg-success';
+                case 2: return 'bg-danger';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function escapeHtml(value) {
+            return (value || '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
     </script>
 }
-

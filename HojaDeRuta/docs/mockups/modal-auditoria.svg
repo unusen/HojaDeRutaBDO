@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="760" viewBox="0 0 1100 760">
+  <rect width="1100" height="760" fill="#dfe7f1"/>
+  <rect x="120" y="70" width="860" height="560" rx="14" fill="#ffffff" stroke="#b8c4d6"/>
+  <rect x="120" y="70" width="860" height="56" rx="14" fill="#2f4b7c"/>
+  <text x="160" y="106" font-family="Arial, sans-serif" font-size="24" fill="#ffffff">Datos de Auditoria</text>
+
+  <text x="160" y="170" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Activo</text>
+  <rect x="160" y="182" width="220" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="430" y="170" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Pasivo</text>
+  <rect x="430" y="182" width="220" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="700" y="170" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Patrimonio Neto</text>
+  <rect x="700" y="182" width="220" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+
+  <text x="160" y="275" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Moneda</text>
+  <rect x="160" y="287" width="220" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="430" y="275" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Tipo Numeracion</text>
+  <rect x="430" y="287" width="220" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="700" y="275" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Resultado</text>
+  <rect x="700" y="287" width="220" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+
+  <text x="160" y="380" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Total Ingresos</text>
+  <rect x="160" y="392" width="350" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+  <text x="570" y="380" font-family="Arial, sans-serif" font-size="18" fill="#2b3645">Total Otros Ingresos</text>
+  <rect x="570" y="392" width="350" height="36" rx="4" fill="#eef3f9" stroke="#b8c4d6"/>
+
+  <rect x="160" y="470" width="760" height="72" rx="10" fill="#fff9db" stroke="#e6d58a"/>
+  <text x="190" y="510" font-family="Arial, sans-serif" font-size="18" fill="#5c4d00">Validacion clave: Activo debe ser igual a Pasivo + Patrimonio Neto.</text>
+
+  <rect x="710" y="570" width="110" height="38" rx="6" fill="#6c757d"/>
+  <text x="735" y="595" font-family="Arial, sans-serif" font-size="18" fill="#ffffff">Cancelar</text>
+  <rect x="840" y="570" width="110" height="38" rx="6" fill="#2f9e44"/>
+  <text x="870" y="595" font-family="Arial, sans-serif" font-size="18" fill="#ffffff">Guardar</text>
+</svg>

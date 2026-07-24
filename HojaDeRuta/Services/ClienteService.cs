@@ -1,4 +1,4 @@
-﻿using HojaDeRuta.Models.DAO;
+using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Services.Repository;
 
 namespace HojaDeRuta.Services
@@ -6,10 +6,12 @@ namespace HojaDeRuta.Services
     public class ClienteService
     {
         private readonly IGenericRepository<Clientes> _clientesRepository;
+        private readonly ILogger<ClienteService> _logger;
 
-        public ClienteService(IGenericRepository<Clientes> clientesRepository)
+        public ClienteService(IGenericRepository<Clientes> clientesRepository, ILogger<ClienteService> logger)
         {
             _clientesRepository = clientesRepository;
+            _logger = logger;
         }
 
         public async Task<List<Clientes>> GetClientes()
@@ -21,7 +23,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al recuperar el listado completo de clientes.");
+                throw new Exception("No se pudo cargar el listado de clientes desde la base de datos.", ex);
             }
         }
 
@@ -34,7 +37,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al buscar el cliente con ID {ClienteId}", Id);
+                throw new Exception("Error al recuperar la información del cliente.", ex);
             }
         }
 
@@ -46,7 +50,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al crear un nuevo cliente individual.");
+                throw new Exception("No se pudo registrar el nuevo cliente.", ex);
             }
         }
 
@@ -58,7 +63,8 @@ namespace HojaDeRuta.Services
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                _logger.LogError(ex, "Error al crear un rango de clientes (sincronización masiva).");
+                throw new Exception("Error al intentar guardar múltiples clientes en la base de datos.", ex);
             }
         }
     }

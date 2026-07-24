@@ -37,7 +37,23 @@
                         <a class="navbar-brand fw-bolder text-white mb-0 me-0" asp-area="" asp-controller="Home" asp-action="Index">
                             Hoja de Ruta
                         </a>
-                        <small class="text-white-50 d-inline"> <i class="bi bi-person-fill"></i> @User.Identity.Name</small>
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-white-50 d-inline">
+                                <i class="bi bi-person-fill"></i> @User.Identity?.Name
+                            </small>
+                            @if (User.Identity?.IsAuthenticated ?? false)
+                            {
+                                <form asp-controller="Home" asp-action="SignOut" method="post" class="m-0" id="signOutForm">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit"
+                                            class="btn btn-sm text-white-50 border-0 bg-transparent p-0 d-inline-flex align-items-center"
+                                            title="Cerrar sesión"
+                                            aria-label="Cerrar sesión">
+                                        <i class="bi bi-box-arrow-right"></i>
+                                    </button>
+                                </form>
+                            }
+                        </div>
                     </div>
 
                 </div>
@@ -47,6 +63,7 @@
 
     <main role="main">
         <div class="content-wrapper container">
+            <div id="globalAlertContainer" class="mt-2"></div>
             @RenderBody()
         </div>
     </main>
@@ -61,6 +78,35 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            const signOutForm = document.getElementById('signOutForm');
+            const alertContainer = document.getElementById('globalAlertContainer');
+
+            if (!signOutForm || !alertContainer) {
+                return;
+            }
+
+            signOutForm.addEventListener('submit', function (event) {
+                if (signOutForm.dataset.submitting === 'true') {
+                    return;
+                }
+
+                event.preventDefault();
+                signOutForm.dataset.submitting = 'true';
+
+                alertContainer.innerHTML = `
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        Cerrando sesión...
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>`;
+
+                window.setTimeout(function () {
+                    signOutForm.submit();
+                }, 250);
+            });
+        })();
+    </script>
 
     @RenderSection("Scripts", required: false)
 </body>

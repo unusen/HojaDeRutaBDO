@@ -1,46 +1,43 @@
-﻿namespace HojaDeRuta.Helpers
-{
-    using HojaDeRuta.Services.LoginService;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.AspNetCore.Mvc.Filters;
+using HojaDeRuta.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
+namespace HojaDeRuta.Helpers
+{
     public class RequireGroupsFilter : IAsyncAuthorizationFilter
     {
-        private readonly ILoginService _loginService;
+        private readonly IUserContextCacheService _userContextCacheService;
+        private readonly ILogger<RequireGroupsFilter> _logger;
 
-        public RequireGroupsFilter(ILoginService loginService)
+        public RequireGroupsFilter(
+            IUserContextCacheService userContextCacheService,
+            ILogger<RequireGroupsFilter> logger)
         {
-            _loginService = loginService;
+            _userContextCacheService = userContextCacheService;
+            _logger = logger;
         }
 
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
         {
-            // No aplicar la validación en ErrorController
             var controller = context.RouteData.Values["controller"]?.ToString();
             if (controller == "Error")
             {
-                return; 
+                return;
             }
 
-            var name =  _loginService.GetUserName();
-            var groups = await _loginService.GetUserGroupsAsync();
+            var userContext = await _userContextCacheService.GetCurrentUserAsync(context.HttpContext.RequestAborted);
 
-            if (!groups.Any())
+            if (userContext.Roles == null || !userContext.Roles.Any())
             {
-                context.Result = new RedirectToActionResult("AccessDenied", "Error",
-                    new { message = $"El usuario {name} no tiene permisos para Hoja de Ruta." }
-                );
-            }
+                _logger.LogWarning(
+                    "Acceso denegado para el usuario {User}. No posee grupos configurados en Azure AD.",
+                    userContext.UserName);
 
-            //TODO: QUITAR VALIDACION DE MAS DE UN PERMISO POR USUARIO
-            //if (groups.Count > 1)
-            //{
-            //    context.Result = new RedirectToActionResult("AccessDenied", "Error",
-            //        new { message = $"Solo es posible un permiso por usuario." +
-            //        $"El usuario {name} tiene {groups.Count} permisos para Hoja de Ruta." }
-            //    );
-            //}
+                context.Result = new RedirectToActionResult(
+                    "AccessDenied",
+                    "Error",
+                    new { message = $"El usuario {userContext.UserName} no tiene permisos para Hoja de Ruta." });
+            }
         }
     }
-
 }

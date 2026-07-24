@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -560,6 +561,16 @@ namespace HojaDeRuta.Controllers
 
             try
             {
+                LogTrackedPostEntry("HDR_CTRL_UPSERT_POST_ENTRY", hoja?.Id, operationId, new
+                {
+                    Mode = mode.ToString(),
+                    ForceNumeroReassignment = forceNumeroReassignment,
+                    ReservedNumero = reservedNumero,
+                    HasArchivo = archivoDoc != null,
+                    ArchivoNombre = archivoDoc?.FileName,
+                    ArchivoLength = archivoDoc?.Length
+                });
+
                 _logger.LogInformation("Ingreso al metodo Upsert. Modo: {Mode}. IdHoja: {HojaId}", 
                     mode.ToString(), hoja?.Id ?? "N/A");
 
@@ -812,6 +823,14 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(
+                    ex,
+                    "HDR_CTRL_UPSERT_UNHANDLED_EXCEPTION HojaId={HojaId} OperationId={OperationId} Mode={Mode} RequestPath={RequestPath} QueryString={QueryString}",
+                    hoja?.Id ?? "N/A",
+                    operationId ?? "(null)",
+                    mode.ToString(),
+                    Request.Path,
+                    Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty);
                 _logger.LogError(ex, "Error crítico al intentar guardar/actualizar la hoja {HojaId}", hoja?.Id ?? "N/A");
 
                 const string message = "No pudimos procesar la solicitud. Intenta nuevamente en unos instantes.";
@@ -926,6 +945,13 @@ namespace HojaDeRuta.Controllers
 
             try
             {
+                LogTrackedPostEntry("HDR_CTRL_FIRMAR_DOC_POST_ENTRY", Id, operationId, new
+                {
+                    HasArchivo = archivoDoc != null,
+                    ArchivoNombre = archivoDoc?.FileName,
+                    ArchivoLength = archivoDoc?.Length
+                });
+
                 _logger.LogInformation($"Firma - Inicio de proceso en FirmarDoc para la hoja {Id}."
                     + $" Revisor: {CurrentUser.UserName}.");
 
@@ -1176,6 +1202,13 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(
+                    ex,
+                    "HDR_CTRL_FIRMAR_DOC_UNHANDLED_EXCEPTION HojaId={HojaId} OperationId={OperationId} RequestPath={RequestPath} QueryString={QueryString}",
+                    Id,
+                    operationId ?? "(null)",
+                    Request.Path,
+                    Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty);
                 _logger.LogError(ex, "Error en la firma final para la hoja {HojaId}. Revisor: {User}", Id, CurrentUser?.UserName);
                 const string message = "No pudimos completar la firma en este momento. Intentá nuevamente en unos instantes.";
                 if (executionStarted)
@@ -1198,6 +1231,15 @@ namespace HojaDeRuta.Controllers
 
             try
             {
+                LogTrackedPostEntry("HDR_CTRL_REVISAR_ETAPA_POST_ENTRY", Id, operationId, new
+                {
+                    Accion = accion,
+                    MotivoRechazoLength = motivoRechazo?.Length,
+                    HasArchivo = archivoDoc != null,
+                    ArchivoNombre = archivoDoc?.FileName,
+                    ArchivoLength = archivoDoc?.Length
+                });
+
                 _logger.LogInformation($"Firma - RevisarEtapa llamada para la hoja {Id} con acción {accion}.");
 
                 if (accion == "FIRMAR")
@@ -1376,6 +1418,14 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(
+                    ex,
+                    "HDR_CTRL_REVISAR_ETAPA_UNHANDLED_EXCEPTION HojaId={HojaId} OperationId={OperationId} Accion={Accion} RequestPath={RequestPath} QueryString={QueryString}",
+                    Id,
+                    operationId ?? "(null)",
+                    accion,
+                    Request.Path,
+                    Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty);
                 _logger.LogError(ex, "Error al revisar etapa para la hoja {HojaId}. Revisor: {User}, Acción: {Accion}", Id, CurrentUser?.UserName, accion);
                 const string message = "No pudimos procesar la revisión de esta etapa. Intentá nuevamente en unos instantes.";
                 if (executionStarted)
@@ -1923,6 +1973,12 @@ namespace HojaDeRuta.Controllers
 
             try
             {
+                LogTrackedPostEntry("HDR_CTRL_SAVE_AUDITORIA_POST_ENTRY", auditoria?.HojaId, operationId, new
+                {
+                    Moneda = auditoria?.Moneda,
+                    TipoNumeracion = auditoria?.TipoNumeracion
+                });
+
                 Hoja hoja = await ValidarAccesoAuditoriaAsync(auditoria?.HojaId);
 
                 if (!RequiereAuditoria(hoja))
@@ -1999,6 +2055,13 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(
+                    ex,
+                    "HDR_CTRL_SAVE_AUDITORIA_UNHANDLED_EXCEPTION HojaId={HojaId} OperationId={OperationId} RequestPath={RequestPath} QueryString={QueryString}",
+                    auditoria?.HojaId ?? "N/A",
+                    operationId ?? "(null)",
+                    Request.Path,
+                    Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty);
                 _logger.LogError(ex, "Error al guardar la auditoría para la hoja {HojaId}", auditoria?.HojaId);
                 const string message = "No pudimos guardar la información de auditoría. Intentá nuevamente en unos instantes.";
 
@@ -2423,6 +2486,34 @@ namespace HojaDeRuta.Controllers
                 errorPhase,
                 operationId
             });
+        }
+
+        private void LogTrackedPostEntry(string eventCode, string? hojaId, string? operationId, object? extra = null)
+        {
+            var hasFormContentType = Request.HasFormContentType;
+            var formKeyCount = 0;
+            var hasRequestVerificationToken = false;
+
+            if (hasFormContentType)
+            {
+                formKeyCount = Request.Form.Keys.Count;
+                hasRequestVerificationToken = Request.Form.ContainsKey("__RequestVerificationToken");
+            }
+
+            _logger.LogInformation(
+                "{EventCode} HojaId={HojaId} OperationId={OperationId} User={User} Method={Method} Path={Path} QueryString={QueryString} HasFormContentType={HasFormContentType} FormKeyCount={FormKeyCount} HasRequestVerificationToken={HasRequestVerificationToken} ModelStateValid={ModelStateValid} Extra={@Extra}",
+                eventCode,
+                hojaId ?? "N/A",
+                operationId ?? "(null)",
+                CurrentUser?.UserName ?? User?.Identity?.Name ?? "(anonymous)",
+                Request.Method,
+                Request.Path,
+                Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty,
+                hasFormContentType,
+                formKeyCount,
+                hasRequestVerificationToken,
+                ModelState.IsValid,
+                extra);
         }
 
         private void ConfigurarViewBagUploadLimits()

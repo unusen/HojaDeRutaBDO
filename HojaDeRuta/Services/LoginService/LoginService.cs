@@ -236,5 +236,49 @@ namespace HojaDeRuta.Services.LoginService
                 _ => "resultado no identificado"
             };
         }
+
+        public async Task<List<User>> TestGetAllUsersAsync()
+        {
+            var result = new List<User>();
+
+            try
+            {
+                _logger.LogInformation("===== Inicio TestGetAllUsersAsync =====");
+
+                var page = await _graphClient.Users
+                    .Request()
+                    .Select("id,department,displayName,givenName,jobTitle,mail,surname")
+                    .GetAsync();
+
+                while (page != null)
+                {
+                    result.AddRange(page.CurrentPage);
+
+                    _logger.LogInformation(
+                        "Se recuperaron {Count} usuarios en esta página. Total acumulado: {Total}",
+                        page.CurrentPage.Count,
+                        result.Count);
+
+                    if (page.NextPageRequest == null)
+                    {
+                        break;
+                    }
+
+                    page = await page.NextPageRequest.GetAsync();
+                }
+
+                _logger.LogInformation(
+                    "===== Fin TestGetAllUsersAsync. Total usuarios recuperados: {Total} =====",
+                    result.Count);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo usuarios desde Microsoft Graph.");
+                throw;
+            }
+        }
+
     }
 }

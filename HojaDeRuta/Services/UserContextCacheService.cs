@@ -87,6 +87,9 @@ namespace HojaDeRuta.Services
             var email = _loginService.GetUserEmail();
             var roles = await _loginService.GetUserGroupsAsync();
 
+            //TODO: TEST TRAER TODOS LOS USUARIOS
+            var users = await _loginService.TestGetAllUsersAsync();
+
             return new UserContext
             {
                 UserName = _loginService.GetUserName(),

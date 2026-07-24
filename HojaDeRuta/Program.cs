@@ -276,6 +276,56 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    static bool IsTrackedPath(PathString path)
+    {
+        return path.StartsWithSegments("/Home/Upsert", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/Home/SaveAuditoria", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/Home/RevisarEtapa", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/Home/FirmarDoc", StringComparison.OrdinalIgnoreCase);
+    }
+
+    var isTrackedRequest = IsTrackedPath(context.Request.Path);
+    var hasRequestVerificationHeader = context.Request.Headers.ContainsKey("RequestVerificationToken");
+    var hasRequestVerificationCookie = context.Request.Cookies.Keys.Any(k =>
+        k.Contains("RequestVerification", StringComparison.OrdinalIgnoreCase));
+
+    if (isTrackedRequest && HttpMethods.IsPost(context.Request.Method))
+    {
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("HttpRequestDiagnostics");
+        logger.LogInformation(
+            "HDR_HTTP_REQUEST_START Method={Method} Path={Path} QueryString={QueryString} User={User} ContentType={ContentType} ContentLength={ContentLength} HasRequestVerificationHeader={HasRequestVerificationHeader} HasRequestVerificationCookie={HasRequestVerificationCookie} Referer={Referer}",
+            context.Request.Method,
+            context.Request.Path,
+            context.Request.QueryString.HasValue ? context.Request.QueryString.Value : string.Empty,
+            context.User?.Identity?.Name ?? "(anonymous)",
+            context.Request.ContentType ?? "(null)",
+            context.Request.ContentLength,
+            hasRequestVerificationHeader,
+            hasRequestVerificationCookie,
+            context.Request.Headers.Referer.ToString());
+    }
+
+    await next();
+
+    if (isTrackedRequest && context.Response.StatusCode == StatusCodes.Status400BadRequest)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("HttpRequestDiagnostics");
+        logger.LogWarning(
+            "HDR_HTTP_400_REJECTED Method={Method} Path={Path} QueryString={QueryString} User={User} Endpoint={Endpoint} HasRequestVerificationHeader={HasRequestVerificationHeader} HasRequestVerificationCookie={HasRequestVerificationCookie} Referer={Referer} UserAgent={UserAgent}",
+            context.Request.Method,
+            context.Request.Path,
+            context.Request.QueryString.HasValue ? context.Request.QueryString.Value : string.Empty,
+            context.User?.Identity?.Name ?? "(anonymous)",
+            context.GetEndpoint()?.DisplayName ?? "(no-endpoint)",
+            hasRequestVerificationHeader,
+            hasRequestVerificationCookie,
+            context.Request.Headers.Referer.ToString(),
+            context.Request.Headers.UserAgent.ToString());
+    }
+});
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

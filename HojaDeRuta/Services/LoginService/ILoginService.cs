@@ -13,5 +13,6 @@ namespace HojaDeRuta.Services.LoginService
         Task<string> GetUserCargoAsync();
         Task<IList<GroupConfig>> GetUserGroupsAsync();
         Task SyncUsuariosLogueados (UserContext CurrentUser);
+        Task<List<User>> TestGetAllUsersAsync();
     }
 }

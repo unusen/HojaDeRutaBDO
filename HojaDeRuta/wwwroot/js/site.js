@@ -511,6 +511,13 @@ window.hojaUpsertProgress = (function () {
                 };
             } else {
                 const fallbackText = await response.text();
+                console.error("HDR_UI_UPSERT_NON_JSON_RESPONSE", {
+                    url: requestUrl,
+                    status: response.status,
+                    bodyLength: fallbackText ? fallbackText.length : 0,
+                    operationId: operationId || null,
+                    formAction: form.action || null
+                });
                 throw new Error(`Respuesta inesperada del servidor. Status=${response.status}. BodyLength=${fallbackText ? fallbackText.length : 0}`);
             }
 
@@ -550,6 +557,13 @@ window.hojaUpsertProgress = (function () {
             }
 
             if (typeof window.mostrarErrorEnAlert === "function") {
+                console.warn("HDR_UI_UPSERT_PRECHECK_ERROR", {
+                    url: requestUrl,
+                    operationId: operationId || null,
+                    message: data.message || "No pudimos procesar la solicitud.",
+                    errorPhase: data.errorPhase || null,
+                    errors: data.errors || []
+                });
                 window.mostrarErrorEnAlert(data.message || "No pudimos procesar la solicitud.", data.errors || []);
             }
 
@@ -559,6 +573,13 @@ window.hojaUpsertProgress = (function () {
             hideOverlay();
             restoreUi();
             clearActiveContext();
+
+            console.error("HDR_UI_UPSERT_FETCH_FAILED", {
+                url: requestUrl,
+                operationId: operationId || null,
+                formAction: form.action || null,
+                message: error && error.message ? error.message : String(error)
+            });
 
             if (typeof window.mostrarErrorEnAlert === "function") {
                 window.mostrarErrorEnAlert("No pudimos procesar la solicitud. Intentá nuevamente en unos instantes.");

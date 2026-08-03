@@ -1,0 +1,106 @@
+CREATE PROCEDURE dbo.sp_get_hojas_by_nivel
+    @Nivel INT,
+    @Sector NVARCHAR(50),
+    @Usuario NVARCHAR(255),
+    @Id NVARCHAR(50) = NULL,
+    @Pendientes INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    CREATE TABLE #r
+    (
+        id NVARCHAR(MAX) NULL,
+        usuario NVARCHAR(MAX) NULL,
+        equipo NVARCHAR(MAX) NULL,
+        cliente INT NULL,
+        sector NVARCHAR(MAX) NULL,
+        subarea NVARCHAR(MAX) NULL,
+        numeracion NVARCHAR(MAX) NULL,
+        descripcion NVARCHAR(MAX) NULL,
+        socio_firmante NVARCHAR(MAX) NULL,
+        sindica NVARCHAR(MAX) NULL,
+        contrato NVARCHAR(MAX) NULL,
+        preparo NVARCHAR(MAX) NULL,
+        reviso NVARCHAR(MAX) NULL,
+        revisogte NVARCHAR(MAX) NULL,
+        revisosocio NVARCHAR(MAX) NULL,
+        rutapapeles NVARCHAR(MAX) NULL,
+        rutadoc NVARCHAR(MAX) NULL,
+        observaciones NVARCHAR(MAX) NULL,
+        preparo_fecha NVARCHAR(MAX) NULL,
+        reviso_fecha NVARCHAR(MAX) NULL,
+        revisogte_fecha NVARCHAR(MAX) NULL,
+        revisosocio_fecha NVARCHAR(MAX) NULL,
+        fecha_modif NVARCHAR(MAX) NULL,
+        hora_modif NVARCHAR(MAX) NULL,
+        estado INT NULL,
+        mailasociado NVARCHAR(MAX) NULL,
+        generico NVARCHAR(MAX) NULL,
+        revisoengagement NVARCHAR(MAX) NULL,
+        nivel_doc INT NULL,
+        manejador NVARCHAR(MAX) NULL,
+        fecha_limite NVARCHAR(MAX) NULL,
+        lugar_firma NVARCHAR(MAX) NULL,
+        manejador_final NVARCHAR(MAX) NULL,
+        revisoengagement_fecha NVARCHAR(MAX) NULL,
+        Fecha DATE NULL,
+        fecha_cierre DATE NULL,
+        adjuntos NVARCHAR(MAX) NULL,
+        archivo_temp NVARCHAR(MAX) NULL,
+        archivo_hash NVARCHAR(MAX) NULL,
+        ClienteName NVARCHAR(MAX) NULL
+    );
+
+    INSERT INTO #r
+    EXEC dbo.sp_get_hojas_by_nivel_base
+        @Nivel = @Nivel,
+        @Sector = @Sector,
+        @Usuario = @Usuario,
+        @Id = @Id,
+        @Pendientes = @Pendientes;
+
+    SELECT
+        ISNULL(id, '') AS id,
+        ISNULL(usuario, '') AS usuario,
+        ISNULL(equipo, '') AS equipo,
+        cliente,
+        ISNULL(sector, '') AS sector,
+        ISNULL(subarea, '') AS subarea,
+        ISNULL(numeracion, '') AS numeracion,
+        ISNULL(descripcion, '') AS descripcion,
+        ISNULL(socio_firmante, '') AS socio_firmante,
+        ISNULL(sindica, '') AS sindica,
+        ISNULL(contrato, '') AS contrato,
+        ISNULL(preparo, '') AS preparo,
+        ISNULL(reviso, '') AS reviso,
+        ISNULL(revisogte, '') AS revisogte,
+        ISNULL(revisosocio, '') AS revisosocio,
+        ISNULL(rutapapeles, '') AS rutapapeles,
+        ISNULL(rutadoc, '') AS rutadoc,
+        ISNULL(observaciones, '') AS observaciones,
+        ISNULL(preparo_fecha, '') AS preparo_fecha,
+        ISNULL(reviso_fecha, '') AS reviso_fecha,
+        ISNULL(revisogte_fecha, '') AS revisogte_fecha,
+        ISNULL(revisosocio_fecha, '') AS revisosocio_fecha,
+        ISNULL(fecha_modif, '') AS fecha_modif,
+        ISNULL(hora_modif, '') AS hora_modif,
+        estado,
+        ISNULL(mailasociado, '') AS mailasociado,
+        ISNULL(generico, '') AS generico,
+        ISNULL(revisoengagement, '') AS revisoengagement,
+        nivel_doc,
+        ISNULL(manejador, '') AS manejador,
+        ISNULL(fecha_limite, '') AS fecha_limite,
+        ISNULL(lugar_firma, '') AS lugar_firma,
+        ISNULL(manejador_final, '') AS manejador_final,
+        ISNULL(revisoengagement_fecha, '') AS revisoengagement_fecha,
+        Fecha,
+        fecha_cierre,
+        ISNULL(adjuntos, '') AS adjuntos,
+        ISNULL(archivo_temp, '') AS archivo_temp,
+        ISNULL(archivo_hash, '') AS archivo_hash,
+        ISNULL(ClienteName, '') AS ClienteName
+    FROM #r;
+END
+GO

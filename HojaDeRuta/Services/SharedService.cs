@@ -137,7 +137,14 @@ namespace HojaDeRuta.Services
             try
             {
                 IEnumerable<Socios> socios = await sociosRepository.GetAllAsync();
-                return socios.OrderBy(r => r.Detalle).ToList();
+                return socios
+                    .GroupBy(GetSocioIdentity, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group
+                        .OrderByDescending(socio => socio.Hdr_Activo)
+                        .ThenBy(socio => socio.Sector)
+                        .First())
+                    .OrderBy(socio => socio.Detalle)
+                    .ToList();
             }
             catch (Exception ex)
             {
@@ -176,6 +183,81 @@ namespace HojaDeRuta.Services
                 _logger.LogError(ex, "Error al obtener socio líder mediante procedimiento almacenado.");
                 throw new Exception("No se pudo identificar al socio líder del área.", ex);
             }
+        }
+
+        public async Task<IReadOnlyCollection<string>> GetSectoresLideradosAsync(string? mail)
+        {
+            if (string.IsNullOrWhiteSpace(mail))
+            {
+                return Array.Empty<string>();
+            }
+
+            try
+            {
+                var sociosTask = sociosRepository.GetAllAsync();
+                var sectoresTask = sectorRepository.GetAllAsync();
+                await Task.WhenAll(sociosTask, sectoresTask);
+
+                var sectoresActivos = sectoresTask.Result
+                    .Where(sector => sector.Hdr_Activo && !string.IsNullOrWhiteSpace(sector.Nombre))
+                    .Select(sector => sector.Nombre.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                return sociosTask.Result
+                    .Where(socio =>
+                        socio.Hdr_Activo &&
+                        socio.LiderDeArea &&
+                        SameMail(socio.Mail, mail) &&
+                        !string.IsNullOrWhiteSpace(socio.Sector) &&
+                        sectoresActivos.Contains(socio.Sector.Trim()))
+                    .Select(socio => socio.Sector!.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(sector => sector)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al recuperar los sectores liderados para el socio {Mail}.", mail);
+                throw new Exception("No se pudieron recuperar las áreas lideradas por el socio.", ex);
+            }
+        }
+
+        private static string GetSocioIdentity(Socios socio)
+        {
+            if (!string.IsNullOrWhiteSpace(socio.EntraObjectId))
+            {
+                return $"entra:{socio.EntraObjectId.Trim()}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(socio.Mail))
+            {
+                return $"mail:{socio.Mail.Trim()}";
+            }
+
+            return $"socio:{socio.Socio?.Trim()}";
+        }
+
+        private static bool SameMail(string? first, string? second)
+        {
+            if (string.Equals(first?.Trim(), second?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var firstAlias = GetMailAlias(first);
+            var secondAlias = GetMailAlias(second);
+            return !string.IsNullOrWhiteSpace(firstAlias)
+                && string.Equals(firstAlias, secondAlias, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? GetMailAlias(string? mail)
+        {
+            if (string.IsNullOrWhiteSpace(mail))
+            {
+                return null;
+            }
+
+            return mail.Trim().Split('@', 2)[0];
         }
 
         public async Task<List<Contratos>> GetContratos()

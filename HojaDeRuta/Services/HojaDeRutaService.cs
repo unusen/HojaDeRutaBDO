@@ -26,6 +26,7 @@ namespace HojaDeRuta.Services
         private readonly MonedasSettings _monedasSettings;
         private readonly IMapper _mapper;
         private readonly ICatalogCacheService _catalogCacheService;
+        private readonly SharedService _sharedService;
 
         public HojaDeRutaService(
             ILogger<HojaDeRutaService> logger,
@@ -37,7 +38,8 @@ namespace HojaDeRuta.Services
             IOptions<MailSettings> mailSettings,
             IOptions<MonedasSettings> monedasSettings,
             IMapper mapper,
-            ICatalogCacheService catalogCacheService
+            ICatalogCacheService catalogCacheService,
+            SharedService sharedService
             )
         {
             _logger = logger;
@@ -50,6 +52,7 @@ namespace HojaDeRuta.Services
             _monedasSettings = monedasSettings.Value;
             _mapper = mapper;
             _catalogCacheService = catalogCacheService;
+            _sharedService = sharedService;
         }
 
         public async Task<List<Hoja>> GetHojas(Dictionary<string, object> parameters)
@@ -116,11 +119,12 @@ namespace HojaDeRuta.Services
                     _dbSettings.Sp.TryGetValue("GetHojasIndexPaged", out var spName) &&
                     !string.IsNullOrWhiteSpace(spName))
                 {
-                    var parameters = new Dictionary<string, object>
-                    {
-                        { "Nivel", currentUser.HighestRole },
-                        { "Sector", currentUser.Area },
-                        { "Usuario", currentUser.Empleado },
+                var parameters = new Dictionary<string, object>
+                {
+                    { "Nivel", currentUser.HighestRole },
+                    { "Sector", currentUser.Area },
+                    { "Sectores", await GetSectoresAutorizadosCsvAsync(currentUser) },
+                    { "Usuario", currentUser.Empleado },
                         { "Pendientes", query.Pendientes ? 1 : 0 },
                         { "Numero", query.Numero },
                         { "Cliente", query.Cliente },
@@ -441,6 +445,7 @@ namespace HojaDeRuta.Services
             {
                 { "Nivel", currentUser.HighestRole.ToString() },
                 { "Sector", currentUser.Area },
+                { "Sectores", await GetSectoresAutorizadosCsvAsync(currentUser) },
                 { "Usuario", currentUser.Empleado },
                 { "Id", null! },
                 { "Pendientes", query.Pendientes ? 1 : 0 }
@@ -455,6 +460,11 @@ namespace HojaDeRuta.Services
                 opt.Items["Clientes"] = clientes;
                 opt.Items["Socios"] = socios;
             });
+
+            foreach (var hoja in mapped)
+            {
+                hoja.FechaDocumento = hoja.PreparoFecha;
+            }
 
             mapped = mapped
                 .GroupBy(h => h.Id, StringComparer.OrdinalIgnoreCase)
@@ -483,9 +493,51 @@ namespace HojaDeRuta.Services
                 (!query.Estado.HasValue || (int?)h.Estado == query.Estado) &&
                 Matches(h.Sector, query.Sector) &&
                 Matches(h.SocioFirmanteDetalle, query.Socio) &&
-                (!query.FechaDesde.HasValue || (h.FechaDocumento?.Date ?? DateTime.MinValue) >= query.FechaDesde.Value.Date) &&
-                (!query.FechaHasta.HasValue || (h.FechaDocumento?.Date ?? DateTime.MinValue) <= query.FechaHasta.Value.Date))
+                (!query.FechaDesde.HasValue || (h.PreparoFecha?.Date ?? DateTime.MinValue) >= query.FechaDesde.Value.Date) &&
+                (!query.FechaHasta.HasValue || (h.PreparoFecha?.Date ?? DateTime.MinValue) <= query.FechaHasta.Value.Date))
                 .ToList();
+        }
+
+        private async Task<string> GetSectoresAutorizadosCsvAsync(UserContext currentUser)
+        {
+            if (currentUser.HighestRole != 10)
+            {
+                return string.Empty;
+            }
+
+            var sectores = await _sharedService.GetSectoresLideradosAsync(currentUser.Email);
+            return string.Join(',', sectores);
+        }
+
+        public async Task CreateHojaConAuditoriaAsync(Hoja hoja, Auditoria auditoria)
+        {
+            try
+            {
+                var executionStrategy = _context.Database.CreateExecutionStrategy();
+                await executionStrategy.ExecuteAsync(async () =>
+                {
+                    await using var transaction = await _context.Database.BeginTransactionAsync();
+                _logger.LogInformation(
+                    "Creando hoja y auditoría en una única transacción. HojaId={HojaId}",
+                    hoja.Id);
+
+                await _context.Hojas.AddAsync(hoja);
+                await _context.AUDITORIAS.AddAsync(auditoria);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                });
+
+                _logger.LogInformation(
+                    "Hoja y auditoría creadas correctamente en una única transacción. HojaId={HojaId}",
+                    hoja.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error al crear la hoja y su auditoría; se revirtieron los cambios. HojaId={HojaId}",
+                    hoja.Id);
+                throw new Exception("No se pudo persistir la hoja y su auditoría asociada.", ex);
+            }
         }
 
         private static List<HojaViewModel> ApplyIndexSort(IEnumerable<HojaViewModel> hojas, HojaIndexQuery query)
@@ -576,6 +628,7 @@ namespace HojaDeRuta.Services
                     Sindico = GetValue<string>(map, "Sindico"),
                     ContratoPlataforma = GetValue<string>(map, "ContratoPlataforma") ?? string.Empty,
                     Preparo = GetValue<string>(map, "Preparo"),
+                    PreparoFecha = GetValue<DateTime?>(map, "PreparoFecha"),
                     Reviso = GetValue<string>(map, "Reviso") ?? string.Empty,
                     RevisionGerente = GetValue<string>(map, "RevisionGerente"),
                     EngagementPartner = GetValue<string>(map, "EngagementPartner"),

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HojaDeRuta.Controllers
@@ -8,25 +7,22 @@ namespace HojaDeRuta.Controllers
     public class ErrorController : Controller
     {
         [Route("Error")]
-        public IActionResult Index(string message)
+        public IActionResult Index(string? message, string? incidentId)
         {
             if (!string.IsNullOrEmpty(message))
             {
                 ViewBag.Message = message;
-                return View();
             }
-
-            var exceptionFeature = HttpContext.Features.Get<IExceptionHandlerFeature>();
-
-            if (exceptionFeature != null)
+            else if (!string.IsNullOrWhiteSpace(incidentId))
             {
-                var exception = exceptionFeature.Error;
-                ViewBag.Message = exception.Message;
+                ViewBag.Message = "Ocurrió un error inesperado al procesar la solicitud. Intentá nuevamente en unos instantes.";
             }
             else
             {
                 ViewBag.Message = "Ocurrio un error inesperado. Consulte a su administrador.";
             }
+
+            ViewBag.IncidentId = incidentId;
 
             return View();
         }

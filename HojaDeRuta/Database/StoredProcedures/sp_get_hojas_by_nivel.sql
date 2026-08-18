@@ -1,6 +1,7 @@
-CREATE PROCEDURE dbo.sp_get_hojas_by_nivel
+CREATE OR ALTER PROCEDURE dbo.sp_get_hojas_by_nivel
     @Nivel INT,
     @Sector NVARCHAR(50),
+    @Sectores NVARCHAR(MAX) = NULL,
     @Usuario NVARCHAR(255),
     @Id NVARCHAR(50) = NULL,
     @Pendientes INT = 0
@@ -28,7 +29,7 @@ BEGIN
         rutapapeles NVARCHAR(MAX) NULL,
         rutadoc NVARCHAR(MAX) NULL,
         observaciones NVARCHAR(MAX) NULL,
-        preparo_fecha NVARCHAR(MAX) NULL,
+        preparo_fecha DATE NULL,
         reviso_fecha NVARCHAR(MAX) NULL,
         revisogte_fecha NVARCHAR(MAX) NULL,
         revisosocio_fecha NVARCHAR(MAX) NULL,
@@ -56,6 +57,7 @@ BEGIN
     EXEC dbo.sp_get_hojas_by_nivel_base
         @Nivel = @Nivel,
         @Sector = @Sector,
+        @Sectores = @Sectores,
         @Usuario = @Usuario,
         @Id = @Id,
         @Pendientes = @Pendientes;
@@ -79,7 +81,7 @@ BEGIN
         ISNULL(rutapapeles, '') AS rutapapeles,
         ISNULL(rutadoc, '') AS rutadoc,
         ISNULL(observaciones, '') AS observaciones,
-        ISNULL(preparo_fecha, '') AS preparo_fecha,
+        preparo_fecha,
         ISNULL(reviso_fecha, '') AS reviso_fecha,
         ISNULL(revisogte_fecha, '') AS revisogte_fecha,
         ISNULL(revisosocio_fecha, '') AS revisosocio_fecha,

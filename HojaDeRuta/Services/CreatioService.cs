@@ -39,21 +39,27 @@ namespace HojaDeRuta.Services
             GetConnectionBPM();
         }
 
-        public List<Account> GetClientesActivos()
+        public List<Account> GetClientesSincronizables(string? codigoPlataforma = null)
         {
-            const string activeFilter = "BGEstado eq 'Activo'";
-            return FetchAccounts(activeFilter);
-        }
-
-        public Account? GetClienteActivoByCodigoPlataforma(string? codigoPlataforma)
-        {
-            if (string.IsNullOrWhiteSpace(codigoPlataforma) || !int.TryParse(codigoPlataforma.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var bgClienteId))
+            if (codigoPlataforma is null)
             {
-                return null;
+                return FetchAccounts(BuildClientesSincronizablesFilter());
             }
 
-            var matches = FetchAccounts($"BGClienteID eq {bgClienteId} and BGEstado eq 'Activo'", pageSize: 1, stopAfterFirstPage: true);
-            return matches.FirstOrDefault();
+            if (!int.TryParse(codigoPlataforma.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var bgClienteId))
+            {
+                return new List<Account>();
+            }
+
+            return FetchAccounts(BuildClientesSincronizablesFilter(bgClienteId), pageSize: 1, stopAfterFirstPage: true);
+        }
+
+        internal static string BuildClientesSincronizablesFilter(int? bgClienteId = null)
+        {
+            const string baseFilter = "BGClienteID ne null and BGClienteID ne 0 and (BGEstado eq 'Activo' or BGEstado eq null or BGEstado eq '')";
+            return bgClienteId.HasValue
+                ? $"{baseFilter} and BGClienteID eq {bgClienteId.Value.ToString(CultureInfo.InvariantCulture)}"
+                : baseFilter;
         }
 
         private List<Account> FetchAccounts(string filter, int pageSize = 40, bool stopAfterFirstPage = false)
@@ -95,7 +101,7 @@ namespace HojaDeRuta.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener clientes de Creatio mediante OData. Filter: {Filter}", filter);
-                return new List<Account>();
+                throw;
             }
             finally
             {

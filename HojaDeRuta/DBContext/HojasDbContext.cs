@@ -24,6 +24,7 @@ namespace HojaDeRuta.DBContext
         public DbSet<HojaEstado> Hoja_Estado { get; set; }
         public DbSet<Jurisdiccion> Jurisdiccion { get; set; }
         public DbSet<Rutas> RUTAS { get; set; }
+        public DbSet<ErrorLog> ErrorLogs { get; set; }
 
 
 

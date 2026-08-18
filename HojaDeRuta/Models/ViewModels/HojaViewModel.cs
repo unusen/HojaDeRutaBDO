@@ -71,7 +71,9 @@ namespace HojaDeRuta.Models.ViewModels
         public string? Preparo { get; set; }
 
         [Column("preparo_fecha")]
-        public string? PreparoFecha { get; set; }
+        [DataType(DataType.Date)]
+        [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
+        public DateTime? PreparoFecha { get; set; }
 
         [Column("reviso")]
         public string Reviso { get; set; }

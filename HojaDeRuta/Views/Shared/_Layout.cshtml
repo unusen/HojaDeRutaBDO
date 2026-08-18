@@ -17,7 +17,6 @@
                     <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
                         <img src="~/img/bdo.svg" style="max-height: 50px;" alt="HojaDeRuta">
                     </a>
-
                     @if (ViewBag.CurrentSection == "Home")
                     {
                         <div class="collapse navbar-collapse justify-content-center">
@@ -78,35 +77,7 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-    <script>
-        (function () {
-            const signOutForm = document.getElementById('signOutForm');
-            const alertContainer = document.getElementById('globalAlertContainer');
-
-            if (!signOutForm || !alertContainer) {
-                return;
-            }
-
-            signOutForm.addEventListener('submit', function (event) {
-                if (signOutForm.dataset.submitting === 'true') {
-                    return;
-                }
-
-                event.preventDefault();
-                signOutForm.dataset.submitting = 'true';
-
-                alertContainer.innerHTML = `
-                    <div class="alert alert-info alert-dismissible fade show" role="alert">
-                        Cerrando sesión...
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                    </div>`;
-
-                window.setTimeout(function () {
-                    signOutForm.submit();
-                }, 250);
-            });
-        })();
-    </script>
+    <script src="~/js/layout.js" asp-append-version="true"></script>
 
     @RenderSection("Scripts", required: false)
 </body>

@@ -57,3 +57,10 @@
 - Si hay pruebas relevantes, ejecutarlas; no afirmar que algo fue probado si no se ejecutó.
 - Para cambios del flujo, cubrir según corresponda: alta válida e inválida, jerarquía de revisores, autorización del actor actual, rechazo, firma, integridad del adjunto, auditoría de `Informe del auditor` y programación/reintento de notificaciones.
 - Informar en la entrega: qué se cambió, cómo se verificó y cualquier limitación o paso pendiente.
+
+## Nueva versión v2
+- Cuando estes trabajando en la rama v2 significa que estamos agregando o modificando funcionalidad por pedido del cliente.
+- La rama master, que se usó de base para la v2 y donde luego se mergeará v2 esta funcionando actualmente en producción.
+- Cada agregado o modificación tiene que verificar que no rompa ninguna funcionalidad anterior, dado que cada funcionalidad anterior es productiva.
+- Si consideras que el agregado o modificación debe replicarse en otro sector de la app debes consultarlo.
+- Cada funcionalidad debe tener un log detallado de lo que realiza, para ayudar en un futuro debug.

@@ -75,6 +75,14 @@ window.hojaUpsertProgress = (function () {
         return "op-" + Date.now() + "-" + Math.random().toString(16).slice(2);
     }
 
+    function withIncidentId(message, incidentId) {
+        if (!incidentId) {
+            return message;
+        }
+
+        return `${message}\nCódigo de soporte: ${incidentId}`;
+    }
+
     function showOverlay(title, message) {
         const elements = getElements();
         if (!elements.overlay || !elements.title || !elements.message || !elements.steps || !elements.closeButton) {
@@ -537,7 +545,7 @@ window.hojaUpsertProgress = (function () {
 
                 if (activeContext) {
                     activeContext.executionError = {
-                        message: data.message || "La operación falló.",
+                        message: withIncidentId(data.message || "La operación falló.", data.incidentId),
                         errors: data.errors || []
                     };
                 }
@@ -564,7 +572,7 @@ window.hojaUpsertProgress = (function () {
                     errorPhase: data.errorPhase || null,
                     errors: data.errors || []
                 });
-                window.mostrarErrorEnAlert(data.message || "No pudimos procesar la solicitud.", data.errors || []);
+                window.mostrarErrorEnAlert(withIncidentId(data.message || "No pudimos procesar la solicitud.", data.incidentId), data.errors || []);
             }
 
             return data;
@@ -843,9 +851,11 @@ window.hojaNotificationStatus = (function () {
 
             const payload = await response.json().catch(function () { return null; });
             if (!response.ok || !payload || payload.success === false) {
-                throw new Error(payload && payload.message
-                    ? payload.message
-                    : "No pudimos reintentar el email en este momento.");
+                throw new Error(withIncidentId(
+                    payload && payload.message
+                        ? payload.message
+                        : "No pudimos reintentar el email en este momento.",
+                    payload && payload.incidentId));
             }
 
             startPolling();

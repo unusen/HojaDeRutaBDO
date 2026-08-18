@@ -65,7 +65,9 @@ namespace HojaDeRuta.Models.DAO
         public string? Preparo { get; set; }
 
         [Column("preparo_fecha")]
-        public string? PreparoFecha { get; set; }
+        [DataType(DataType.Date)]
+        [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
+        public DateTime? PreparoFecha { get; set; }
 
         [Column("reviso")]
         public string? Reviso { get; set; }
@@ -125,6 +127,9 @@ namespace HojaDeRuta.Models.DAO
 
         [NotMapped]
         public List<HojaArchivoDescriptor> ArchivosAdjuntos { get; set; } = new();
+
+        [NotMapped]
+        public AuditoriaInputModel? Auditoria { get; set; }
 
         [Column("observaciones")]
         public string? Observaciones { get; set; }

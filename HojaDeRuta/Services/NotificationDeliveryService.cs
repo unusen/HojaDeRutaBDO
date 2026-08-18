@@ -52,6 +52,15 @@ namespace HojaDeRuta.Services
 
         public async Task SendCrossAccessAsync(Hoja hoja, string urlRedireccion)
         {
+            if (!_mailSettings.HabilitarNotificacionCruzadas)
+            {
+                _logger.LogInformation(
+                    "Se omite la entrega de notificación de acceso cruzado por configuración. HojaId={HojaId}; HabilitarNotificacionCruzadas={HabilitarNotificacionCruzadas}",
+                    hoja?.Id ?? "(sin hoja)",
+                    _mailSettings.HabilitarNotificacionCruzadas);
+                return;
+            }
+
             var subject = "Solicitud de acceso para Hoja de Ruta";
             var socioLider = await _sharedService.GetSocioLiderByArea(new Dictionary<string, string>
             {

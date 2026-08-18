@@ -11,6 +11,11 @@
 
 <p class="mb-2 mt-2 fs-3 text-center color-bdo">@ViewBag.Message</p>
 
+@if (!string.IsNullOrWhiteSpace(ViewBag.IncidentId as string))
+{
+    <p class="mb-2 text-center text-muted">Código de soporte: <strong>@ViewBag.IncidentId</strong></p>
+}
+
 <div class="col-12 mt-5 text-center">
     <a asp-controller="Home" asp-action="Index" class="btn bg-bdo me-2 text-center">
         <i class="bi bi-arrow-90deg-left"></i> Volver al Inicio

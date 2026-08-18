@@ -1,0 +1,1 @@
+IF COL_LENGTH('dbo.SOCIOS', 'entra_object_id') IS NULL ALTER TABLE dbo.SOCIOS ADD entra_object_id NVARCHAR(100) NULL; IF COL_LENGTH('dbo.REVISORES', 'entra_object_id') IS NULL ALTER TABLE dbo.REVISORES ADD entra_object_id NVARCHAR(100) NULL;

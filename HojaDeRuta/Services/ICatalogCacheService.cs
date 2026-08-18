@@ -8,6 +8,7 @@ namespace HojaDeRuta.Services
         Task InvalidateClientesAsync(CancellationToken cancellationToken = default);
         Task<List<Socios>> GetSociosAsync(CancellationToken cancellationToken = default);
         Task<List<Revisores>> GetRevisoresAsync(CancellationToken cancellationToken = default);
+        Task InvalidateUsuariosAsync(CancellationToken cancellationToken = default);
         Task<List<TipoDocumento>> GetTipoDocumentosAsync(CancellationToken cancellationToken = default);
         Task<List<Sector>> GetSectoresAsync(CancellationToken cancellationToken = default);
         Task<List<SubArea>> GetSubAreasAsync(CancellationToken cancellationToken = default);

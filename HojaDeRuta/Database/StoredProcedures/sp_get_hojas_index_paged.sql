@@ -1,6 +1,7 @@
-CREATE PROCEDURE dbo.sp_get_hojas_index_paged
+CREATE or ALTER PROCEDURE dbo.sp_get_hojas_index_paged
     @Nivel INT,
     @Sector NVARCHAR(50),
+    @Sectores NVARCHAR(MAX) = NULL,
     @Usuario NVARCHAR(100),
     @Pendientes BIT,
     @Numero NVARCHAR(50) = NULL,
@@ -55,7 +56,7 @@ BEGIN
         rutapapeles NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
         rutadoc NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
         observaciones NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
-        preparo_fecha NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
+        preparo_fecha DATE NULL,
         reviso_fecha NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
         revisogte_fecha NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
         revisosocio_fecha NVARCHAR(MAX) COLLATE DATABASE_DEFAULT NULL,
@@ -83,6 +84,7 @@ BEGIN
     EXEC dbo.sp_get_hojas_by_nivel_base
         @Nivel = @Nivel,
         @Sector = @Sector,
+        @Sectores = @Sectores,
         @Usuario = @Usuario,
         @Id = NULL,
         @Pendientes = @PendientesInt;
@@ -106,7 +108,7 @@ BEGIN
             h.numeracion AS Numero,
             h.generico AS NombreGenerico,
             h.descripcion AS Descripcion,
-            h.Fecha AS FechaDocumento,
+            h.preparo_fecha AS FechaDocumento,
             h.revisosocio AS SocioFirmante,
             sf.Detalle AS SocioFirmanteDetalle,
             h.sindica AS Sindico,
@@ -141,8 +143,8 @@ BEGIN
             AND (@Estado IS NULL OR h.estado = @Estado)
             AND (@SectorFiltro IS NULL OR h.sector LIKE '%' + @SectorFiltro + '%')
             AND (@Socio IS NULL OR sf.Detalle LIKE '%' + @Socio + '%')
-            AND (@FechaDesde IS NULL OR h.Fecha >= @FechaDesde)
-            AND (@FechaHasta IS NULL OR h.Fecha <= @FechaHasta)
+            AND (@FechaDesde IS NULL OR h.preparo_fecha >= @FechaDesde)
+            AND (@FechaHasta IS NULL OR h.preparo_fecha <= @FechaHasta)
     ),
     Ordered AS
     (

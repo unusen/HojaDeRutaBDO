@@ -231,7 +231,7 @@ namespace HojaDeRuta.Services.Repository
                 var command = $"EXEC {spName}";
                 if (sqlParams.Length > 0)
                 {
-                    command += " " + string.Join(", ", sqlParams.Select(p => p.ParameterName));
+                    command += " " + string.Join(", ", sqlParams.Select(p => $"{p.ParameterName} = {p.ParameterName}"));
                 }
 
                 return await _context.Set<T>().FromSqlRaw(command, sqlParams).ToListAsync();

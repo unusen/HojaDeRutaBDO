@@ -6,6 +6,8 @@ using HojaDeRuta.Models.DAO;
 using HojaDeRuta.Models.DTO;
 using HojaDeRuta.Models.Enums;
 using HojaDeRuta.Models.ViewModels;
+using HojaDeRuta.Helpers;
+using HojaDeRuta.DBContext;
 using HojaDeRuta.Services;
 using HojaDeRuta.Services.LoginService;
 using Microsoft.AspNetCore.Authentication;
@@ -23,6 +25,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 
 namespace HojaDeRuta.Controllers
 {
@@ -45,6 +48,7 @@ namespace HojaDeRuta.Controllers
         private readonly IUserContextCacheService _userContextCacheService;
         private readonly FileService _fileService;
         private readonly IOperationProgressService _operationProgressService;
+        private readonly IErrorIncidentService _errorIncidentService;
         private readonly IMapper _mapper;
         private readonly IRazorViewEngine _viewEngine;
         private readonly ITempDataProvider _tempDataProvider;
@@ -70,6 +74,7 @@ namespace HojaDeRuta.Controllers
             IRutaDocumentoService rutaDocumentoService,
             FileService fileService,
             IOperationProgressService operationProgressService,
+            IErrorIncidentService errorIncidentService,
             IMapper mapper,
             IRazorViewEngine viewEngine,
             ITempDataProvider tempDataProvider,
@@ -92,6 +97,7 @@ namespace HojaDeRuta.Controllers
             _userContextCacheService = userContextCacheService;
             _fileService = fileService;
             _operationProgressService = operationProgressService;
+            _errorIncidentService = errorIncidentService;
             _mapper = mapper;
             _viewEngine = viewEngine;
             _tempDataProvider = tempDataProvider;
@@ -129,7 +135,9 @@ namespace HojaDeRuta.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult SignOut()
         {
-            var redirectUrl = Url.Action(nameof(Index), "Home") ?? "/";
+            const string redirectUrl = "/MicrosoftIdentity/Account/SignIn?redirectUri=%2F";
+
+            _logger.LogInformation("Cierre de sesión solicitado por {User}.", User.Identity?.Name ?? "(anonymous)");
 
             return SignOut(
                 new AuthenticationProperties
@@ -161,7 +169,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error crítico en Index para el usuario {User}", CurrentUser?.UserName ?? "N/A");
-                return RedirectToAction("Index", "Error", new { message = "Ocurrió un error inesperado al cargar la lista de hojas de ruta. Por favor, intente nuevamente." });
+                return await RedirigirErrorInesperadoAsync(ex, "HDR-INDEX-LOAD-001", "No pudimos cargar las hojas de ruta. Intentá nuevamente en unos instantes.");
             }
 
             //TODO: VER QUE SOLO HAGA LOG CON LOS LOGS ESCRITOS, NO CON TODOS LOS DE SISTEMA
@@ -257,7 +265,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error crítico en el Index para el usuario {User}", CurrentUser?.UserName ?? "N/A");
-                return RedirectToAction("Index", "Error", new { message = "Ocurrió un error inesperado al cargar la lista de hojas de ruta. Por favor, intente nuevamente." });
+                return await RedirigirErrorInesperadoAsync(ex, "HDR-INDEX-LOAD-001", "No pudimos cargar las hojas de ruta. Intentá nuevamente en unos instantes.");
             }
         }
 
@@ -298,10 +306,8 @@ namespace HojaDeRuta.Controllers
                     "Error al obtener datos del Index. User={User} DurationMs={DurationMs}",
                     CurrentUser?.UserName ?? "N/A",
                     sw.ElapsedMilliseconds);
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    message = "No pudimos cargar las hojas de ruta en este momento."
-                });
+                Response.StatusCode = StatusCodes.Status500InternalServerError;
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-INDEX-LOAD-001", "No pudimos cargar las hojas de ruta en este momento.");
             }
         }
 
@@ -310,6 +316,7 @@ namespace HojaDeRuta.Controllers
             ViewBag.CurrentSection = "Home";
             ViewBag.InitialPageSize = pageSize;
             ViewBag.Pendientes = pendientes;
+            ViewBag.CurrentEmpleado = CurrentUser?.Empleado ?? string.Empty;
             ViewBag.Estados = Enum.GetValues(typeof(Estado))
                 .Cast<Estado>()
                 .Select(e => new { Id = (int)e, Desc = e.ToString() })
@@ -389,6 +396,10 @@ namespace HojaDeRuta.Controllers
                     hoja.Manejador = await _hojaWorkflowService.ResolveCurrentHandlerAsync(hoja) ?? hoja.Manejador;
                 }
 
+                var puedeModificar = mode != ViewMode.Create
+                    && await _hojaWorkflowService.CanActOnCurrentStageAsync(hoja, CurrentUser, null);
+                ViewBag.PuedeModificar = puedeModificar;
+
                 ViewBag.CurrentSection = "Upsert";
                 ViewBag.Detail = false;
 
@@ -414,7 +425,7 @@ namespace HojaDeRuta.Controllers
                     ModelState.Clear();
 
                     hoja.Preparo = CurrentUser.Empleado;
-                    hoja.PreparoFecha = DateTime.Now.ToShortDateString();
+                    hoja.PreparoFecha = DateTime.Today;
                     hoja.FechaDocumento = DateTime.Now;
 
                     int proximoNumero = await _hojaDeRutaService.GetProximoNumero();
@@ -441,7 +452,21 @@ namespace HojaDeRuta.Controllers
                         return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
                     }
 
-                    ViewBag.HabilitarBotones = await _hojaWorkflowService.CanActOnCurrentStageAsync(hoja, CurrentUser, null);
+                    if (!puedeModificar)
+                    {
+                        var etapaActual = await _hojaWorkflowService.ResolveCurrentStageAsync(hoja);
+                        _logger.LogWarning(
+                            "Edición de hoja denegada. HojaId={HojaId}; Usuario={Usuario}; Empleado={Empleado}; EtapaActual={EtapaActual}; Manejador={Manejador}",
+                            hoja.Id,
+                            CurrentUser.UserName,
+                            CurrentUser.Empleado,
+                            etapaActual?.StageKey ?? "(sin etapa activa)",
+                            etapaActual?.ReviewerEmployee ?? hoja.Manejador ?? "(sin manejador)");
+
+                        return RedirectToAction(nameof(Upsert), new { mode = ViewMode.Visualize, id = hoja.Id });
+                    }
+
+                    ViewBag.HabilitarBotones = puedeModificar;
                 }
 
                 await CargarViewBags(hoja, mode);
@@ -514,7 +539,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar Upsert (GET) para la hoja {HojaId} en modo {Mode}", id ?? "N/A", mode);
-                return RedirectToAction("Index", "Error", new { message = "No se pudo cargar la información de la hoja de ruta solicitada." });
+                return await RedirigirErrorInesperadoAsync(ex, "HDR-HOJA-LOAD-001", "No pudimos abrir la hoja en este momento. Intentá nuevamente.", id);
             }
         }
 
@@ -547,7 +572,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al validar numeración tentativa para el usuario {User}", CurrentUser?.UserName ?? "N/A");
-                return CrearRespuestaErrorFlujo("No pudimos validar la numeración de la hoja en este momento.");
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-HOJA-NUMBER-001", "No pudimos obtener el próximo número de hoja. Intentá nuevamente en unos instantes.");
             }
         }
 
@@ -558,6 +583,7 @@ namespace HojaDeRuta.Controllers
             var executionStarted = false;
             var currentStepKey = string.Empty;
             Hoja? existingHoja = null;
+            Auditoria? auditoriaPendiente = null;
 
             try
             {
@@ -576,9 +602,42 @@ namespace HojaDeRuta.Controllers
 
                 ViewBag.Detail = false;
 
-                if (mode == ViewMode.Update && !string.IsNullOrWhiteSpace(hoja?.Id))
+                if (mode == ViewMode.Update)
                 {
+                    if (string.IsNullOrWhiteSpace(hoja?.Id))
+                    {
+                        return CrearRespuestaErrorFlujo(
+                            "No se indicó la hoja que querés modificar.",
+                            errorPhase: ErrorPhasePreflight,
+                            operationId: operationId);
+                    }
+
                     existingHoja = await _hojaDeRutaService.GetHojaByIdAsync(hoja.Id);
+                    if (existingHoja == null)
+                    {
+                        return CrearRespuestaErrorFlujo(
+                            "No encontramos la hoja que querés modificar.",
+                            errorPhase: ErrorPhasePreflight,
+                            operationId: operationId);
+                    }
+
+                    var puedeModificar = await _hojaWorkflowService.CanActOnCurrentStageAsync(existingHoja, CurrentUser, null);
+                    if (!puedeModificar)
+                    {
+                        var etapaActual = await _hojaWorkflowService.ResolveCurrentStageAsync(existingHoja);
+                        _logger.LogWarning(
+                            "Guardado de hoja denegado. HojaId={HojaId}; Usuario={Usuario}; Empleado={Empleado}; EtapaActual={EtapaActual}; Manejador={Manejador}",
+                            existingHoja.Id,
+                            CurrentUser.UserName,
+                            CurrentUser.Empleado,
+                            etapaActual?.StageKey ?? "(sin etapa activa)",
+                            etapaActual?.ReviewerEmployee ?? existingHoja.Manejador ?? "(sin manejador)");
+
+                        return CrearRespuestaErrorFlujo(
+                            "No podés modificar esta hoja porque ya no sos el responsable de la etapa actual.",
+                            errorPhase: ErrorPhasePreflight,
+                            operationId: operationId);
+                    }
                 }
 
                 if (!ValidarTamanoArchivoAdjunto(hoja, archivoDoc, out var errorTamanoArchivo))
@@ -713,6 +772,21 @@ namespace HojaDeRuta.Controllers
                         return CrearRespuestaErrorFlujo("Revisa los campos obligatorios antes de continuar.", erroresModelo, ErrorPhasePreflight, operationId);
                     }
 
+                    if (RequiereAuditoria(hoja)
+                        && !AuditoriaInputValidator.TryCreate(hoja.Auditoria, string.Empty, out auditoriaPendiente, out var erroresAuditoria))
+                    {
+                        _logger.LogWarning(
+                            "La auditoría en borrador no superó las validaciones al crear la hoja. Usuario={Usuario}; Sector={Sector}; Numero={Numero}",
+                            CurrentUser.UserName,
+                            hoja.Sector,
+                            hoja.Numero);
+                        return CrearRespuestaErrorFlujo(
+                            "Revisá los datos de auditoría antes de crear la hoja.",
+                            erroresAuditoria.Values.SelectMany(errores => errores).ToList(),
+                            ErrorPhasePreflight,
+                            operationId);
+                    }
+
                     hoja.Preparo = CurrentUser.Empleado;
                     var numeroSolicitado = int.TryParse(hoja.Numero, out var numeroTentativo) ? numeroTentativo : 0;
                     _logger.LogInformation("Create numeracion - inicio POST. User={User} Empleado={Empleado} NumeroSolicitado={NumeroSolicitado} ForceNumeroReassignment={ForceNumeroReassignment} OperationId={OperationId}", CurrentUser.UserName, CurrentUser.Empleado, numeroSolicitado, forceNumeroReassignment, operationId ?? "(sin operationId)");
@@ -744,6 +818,10 @@ namespace HojaDeRuta.Controllers
                     }
 
                     hoja.Id = $"{hoja.Sector}{hoja.Numero}";
+                    if (auditoriaPendiente != null)
+                    {
+                        auditoriaPendiente.HojaId = hoja.Id;
+                    }
                     _logger.LogInformation("Create numeracion - persistencia final. User={User} HojaId={HojaId} NumeroFinal={NumeroFinal} Sector={Sector} Cliente={Cliente} OperationId={OperationId}", CurrentUser.UserName, hoja.Id, hoja.Numero, hoja.Sector, hoja.Cliente, operationId ?? "(sin operationId)");
                     hoja.Estado = (int)Estado.Pendiente;
                     hoja.Manejador = string.Empty;
@@ -764,7 +842,14 @@ namespace HojaDeRuta.Controllers
 
                     currentStepKey = "creando-hoja";
                     await MarcarPasoEnCursoAsync(operationId, currentStepKey, "Creando la hoja de ruta...");
-                    await _hojaDeRutaService.CreateHoja(hoja);
+                    if (auditoriaPendiente != null)
+                    {
+                        await _hojaDeRutaService.CreateHojaConAuditoriaAsync(hoja, auditoriaPendiente);
+                    }
+                    else
+                    {
+                        await _hojaDeRutaService.CreateHoja(hoja);
+                    }
                     await MarcarPasoCompletadoAsync(operationId, currentStepKey);
 
                     currentStepKey = "generando-estados";
@@ -805,9 +890,24 @@ namespace HojaDeRuta.Controllers
                             url,
                             ObtenerTituloNotificacionEtapa(hoja, revisorActual?.Empleado));
 
-                        if (revisorActual.Area != hoja.Sector)
+                        if (RevisorService.TieneAreaDistintaDelSector(revisorActual, hoja.Sector))
                         {
+                            _logger.LogInformation(
+                                "Se programa notificaci\u00f3n de acceso cruzado. HojaId={HojaId}; Revisor={Revisor}; AreaRevisor={AreaRevisor}; SectorHoja={SectorHoja}",
+                                hoja.Id,
+                                revisorActual.Empleado,
+                                revisorActual.Area ?? "(sin \u00e1rea)",
+                                hoja.Sector);
                             await _notificationQueueService.QueueCrossAccessAsync(hoja, url);
+                        }
+                        else
+                        {
+                            _logger.LogInformation(
+                                "Se omite notificaci\u00f3n de acceso cruzado porque el revisor pertenece al sector de la hoja. HojaId={HojaId}; Revisor={Revisor}; AreaRevisor={AreaRevisor}; SectorHoja={SectorHoja}",
+                                hoja.Id,
+                                revisorActual.Empleado,
+                                revisorActual.Area,
+                                hoja.Sector);
                         }
                     }
 
@@ -837,10 +937,10 @@ namespace HojaDeRuta.Controllers
                 if (executionStarted)
                 {
                     await RegistrarFallaOperacionAsync(operationId, currentStepKey, message, ex.Message);
-                    return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhaseExecution, operationId: operationId);
+                    return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-HOJA-SAVE-001", "No pudimos guardar la hoja. No se confirmaron los cambios.", hoja?.Id, operationId, ErrorPhaseExecution);
                 }
 
-                return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhasePreflight, operationId: operationId);
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-HOJA-SAVE-001", "No pudimos guardar la hoja. No se confirmaron los cambios.", hoja?.Id, operationId);
             }
         }
 
@@ -855,9 +955,23 @@ namespace HojaDeRuta.Controllers
 
                 List<Socios> socios = await _sharedService.GetAllSocios();
 
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<HojasDbContext>();
+                var sociosFirmantesHistoricos = await db.Hojas.AsNoTracking()
+                    .Where(hoja => !string.IsNullOrWhiteSpace(hoja.SocioFirmante))
+                    .Select(hoja => hoja.SocioFirmante.Trim())
+                    .ToListAsync();
+                var sindicosHistoricos = await db.Hojas.AsNoTracking()
+                    .Where(hoja => !string.IsNullOrWhiteSpace(hoja.Sindico))
+                    .Select(hoja => hoja.Sindico.Trim())
+                    .ToListAsync();
+                var sociosHistoricos = new HashSet<string>(sociosFirmantesHistoricos.Concat(sindicosHistoricos), StringComparer.OrdinalIgnoreCase);
+
                 _logger.LogInformation("Se encontraron {Count} socios para filtrar.", socios?.Count ?? 0);
 
-                ViewBag.Socios = (socios ?? new List<Socios>()).Select(c => new SelectListItem
+                ViewBag.Socios = (socios ?? new List<Socios>())
+                    .Where(socio => socio.Hdr_Activo || sociosHistoricos.Contains(socio.Mail) || sociosHistoricos.Contains(socio.Socio))
+                    .Select(c => new SelectListItem
                 {
                     Value = c.Mail,
                     Text = c.Detalle
@@ -868,7 +982,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al acceder a la sección de reportes");
-                return RedirectToAction("Index", "Error", new { message = "No se pudo cargar la sección de reportes." });
+                return await RedirigirErrorInesperadoAsync(ex, "HDR-REPORTS-LOAD-001", "No pudimos preparar la sección de reportes. Intentá nuevamente.");
             }
 
         }
@@ -913,7 +1027,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al procesar/generar reporte para el socio {Socio}", socio);
-                return RedirectToAction("Index", "Error", new { message = "Ocurrió un error inesperado al generar el reporte solicitado." });
+                return await RedirigirErrorInesperadoAsync(ex, "HDR-REPORTS-GENERATE-001", "No pudimos generar el reporte solicitado. Verificá los filtros e intentá nuevamente.");
             }
         }
 
@@ -1057,7 +1171,7 @@ namespace HojaDeRuta.Controllers
                 var finalizeResult = await _hojaAttachmentService.FinalizeSignatureAsync(hoja, hojaFile.Sector);
                 if (!finalizeResult.Success)
                 {
-                    _logger.LogError("Firma - Error en la gestiÃ³n de archivos para la hoja {HojaId}: {Message}", hoja.Id, finalizeResult.Message);
+                    _logger.LogError("Firma - Error en la gestión de archivos para la hoja {HojaId}: {Message}", hoja.Id, finalizeResult.Message);
                     await RegistrarFallaOperacionAsync(operationId, currentStepKey, finalizeResult.Message, finalizeResult.Message);
                     return CrearRespuestaErrorFlujo(finalizeResult.Message, errorPhase: ErrorPhaseExecution, operationId: operationId);
                 }
@@ -1214,10 +1328,10 @@ namespace HojaDeRuta.Controllers
                 if (executionStarted)
                 {
                     await RegistrarFallaOperacionAsync(operationId, currentStepKey, message, ex.Message);
-                    return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhaseExecution, operationId: operationId);
+                    return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-SIGN-UNEXPECTED-001", message, Id, operationId, ErrorPhaseExecution);
                 }
 
-                return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhasePreflight, operationId: operationId);
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-SIGN-UNEXPECTED-001", message, Id, operationId);
             }
         }
 
@@ -1394,9 +1508,24 @@ namespace HojaDeRuta.Controllers
                                 eMailBody,
                                 url,
                                 ObtenerTituloNotificacionEtapa(hoja, revisor?.Empleado));
-                            if (revisor.Area != hoja.Sector)
+                            if (RevisorService.TieneAreaDistintaDelSector(revisor, hoja.Sector))
                             {
+                                _logger.LogInformation(
+                                    "Se programa notificaci\u00f3n de acceso cruzado. HojaId={HojaId}; Revisor={Revisor}; AreaRevisor={AreaRevisor}; SectorHoja={SectorHoja}",
+                                    hoja.Id,
+                                    revisor.Empleado,
+                                    revisor.Area ?? "(sin \u00e1rea)",
+                                    hoja.Sector);
                                 await _notificationQueueService.QueueCrossAccessAsync(hoja, url);
+                            }
+                            else
+                            {
+                                _logger.LogInformation(
+                                    "Se omite notificaci\u00f3n de acceso cruzado porque el revisor pertenece al sector de la hoja. HojaId={HojaId}; Revisor={Revisor}; AreaRevisor={AreaRevisor}; SectorHoja={SectorHoja}",
+                                    hoja.Id,
+                                    revisor.Empleado,
+                                    revisor.Area,
+                                    hoja.Sector);
                             }
 
                             break;
@@ -1431,10 +1560,10 @@ namespace HojaDeRuta.Controllers
                 if (executionStarted)
                 {
                     await RegistrarFallaOperacionAsync(operationId, currentStepKey, message, ex.Message);
-                    return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhaseExecution, operationId: operationId);
+                    return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-WORKFLOW-ACTION-001", message, Id, operationId, ErrorPhaseExecution);
                 }
 
-                return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhasePreflight, operationId: operationId);
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-WORKFLOW-ACTION-001", message, Id, operationId);
             }
         }
 
@@ -1486,10 +1615,10 @@ namespace HojaDeRuta.Controllers
                     if (estado == null)
                     {
                         _logger.LogWarning(
-                            "No se encontrÃ³ estado para la etapa activa {StageKey} de la hoja {HojaId}.",
+                            "No se encontró estado para la etapa activa {StageKey} de la hoja {HojaId}.",
                             currentStage.StageKey,
                             Id);
-                        validarRevision.Error = "No pudimos validar el estado actual de la hoja. RecargÃ¡ la pantalla e intentÃ¡ nuevamente.";
+                        validarRevision.Error = "No pudimos validar el estado actual de la hoja. Recargá la pantalla e intentá nuevamente.";
                         validarRevision.Hoja = hoja;
                         return validarRevision;
                     }
@@ -1565,7 +1694,7 @@ namespace HojaDeRuta.Controllers
                 {
                     return RedirectToAction("AccessDenied", "Error", new
                     {
-                        message = $"Tu usuario no tiene permiso para abrir el adjunto de la HDR NÂº {hoja.Numero}."
+                        message = $"Tu usuario no tiene permiso para abrir el adjunto de la HDR número {hoja.Numero}."
                     });
                 }
 
@@ -1586,7 +1715,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al abrir el adjunto principal de la hoja {HojaId}", id);
-                return RedirectToAction("Index", "Error", new { message = "No pudimos abrir el archivo adjunto en este momento." });
+                return await RedirigirErrorInesperadoAsync(ex, "HDR-FILE-OPEN-001", "No pudimos abrir el documento adjunto. Intentá nuevamente.", id);
             }
         }
 
@@ -1677,7 +1806,59 @@ namespace HojaDeRuta.Controllers
             List<Jurisdiccion> jurisdicciones = await _catalogCacheService.GetJurisdiccionesAsync();
             List<Contratos> contratosPlataforma = new List<Contratos>();
 
+            var sociosHistoricos = new HashSet<string>(
+                new[] { hoja.SocioFirmante, hoja.Sindico }
+                    .Where(valor => !string.IsNullOrWhiteSpace(valor))
+                    .Select(valor => valor.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            var revisoresHistoricos = new HashSet<string>(
+                new[]
+                {
+                    hoja.Preparo,
+                    hoja.Reviso,
+                    hoja.RevisionGerente,
+                    hoja.EngagementPartner,
+                    hoja.SocioFirmante,
+                    hoja.GestorFinal
+                }
+                .Where(valor => !string.IsNullOrWhiteSpace(valor))
+                .Select(valor => valor.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            var sociosSeleccionables = socios
+                .Where(socio => socio.Hdr_Activo || sociosHistoricos.Contains(socio.Mail))
+                .ToList();
+            var revisoresSeleccionables = gestores
+                .Where(revisor => revisor.Hdr_Activo ||
+                    (!string.IsNullOrWhiteSpace(revisor.Empleado) && revisoresHistoricos.Contains(revisor.Empleado)) ||
+                    (!string.IsNullOrWhiteSpace(revisor.Mail) && revisoresHistoricos.Contains(revisor.Mail)))
+                .ToList();
+
+            _logger.LogInformation(
+                "Selectores de socios y revisores. HojaId={HojaId}; Mode={ViewMode}; SociosTotal={SociosTotal}; SociosMostrados={SociosMostrados}; RevisoresTotal={RevisoresTotal}; RevisoresMostrados={RevisoresMostrados}",
+                hoja.Id,
+                viewMode,
+                socios.Count,
+                sociosSeleccionables.Count,
+                gestores.Count,
+                revisoresSeleccionables.Count);
+
             var clienteActual = clientes.FirstOrDefault(c => c.Id == hoja.Cliente);
+            var clientesSeleccionables = clientes
+                .Where(cliente => cliente.Hdr_Activo || cliente.Id == hoja.Cliente)
+                .ToList();
+            var clientesActivos = clientes.Count(cliente => cliente.Hdr_Activo);
+            var clienteInactivoActualIncluido = clienteActual is { Hdr_Activo: false };
+            var clientesInactivosOmitidos = clientes.Count(cliente => !cliente.Hdr_Activo && cliente.Id != hoja.Cliente);
+
+            _logger.LogInformation(
+                "Selector de clientes. HojaId={HojaId}; Mode={ViewMode}; Total={Total}; Activos={Activos}; InactivoActualIncluido={InactivoActualIncluido}; Mostrados={Mostrados}; InactivosOmitidos={InactivosOmitidos}",
+                hoja.Id,
+                viewMode,
+                clientes.Count,
+                clientesActivos,
+                clienteInactivoActualIncluido,
+                clientesSeleccionables.Count,
+                clientesInactivosOmitidos);
             if (clienteActual != null)
             {
                 hoja.CodCliente = clienteActual.CodigoPlataforma;
@@ -1692,13 +1873,13 @@ namespace HojaDeRuta.Controllers
                 });
             }
 
-            ViewBag.Clientes = clientes.Select(c => new SelectListItem
+            ViewBag.Clientes = clientesSeleccionables.Select(c => new SelectListItem
             {
                 Value = c.Id.ToString(),
                 Text = c.RazonSocial
             }).ToList();
 
-            ViewBag.ClientesJson = System.Text.Json.JsonSerializer.Serialize(clientes);
+            ViewBag.ClientesJson = System.Text.Json.JsonSerializer.Serialize(clientesSeleccionables);
 
             ViewBag.NombreGenerico = tiposDocumento.Select(c => new SelectListItem
             {
@@ -1709,7 +1890,24 @@ namespace HojaDeRuta.Controllers
 
             ViewBag.NombreGenericoFull = tiposDocumento;
 
-            ViewBag.Sectores = sectores.Select(c => new SelectListItem
+            var sectorActual = hoja.Sector?.Trim();
+            var sectoresSeleccionables = sectores
+                .Where(sector => sector.Hdr_Activo ||
+                    (!string.IsNullOrWhiteSpace(sectorActual) &&
+                     string.Equals(sector.Nombre, sectorActual, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            _logger.LogInformation(
+                "Selector de sectores. HojaId={HojaId}; Mode={ViewMode}; Total={Total}; Activos={Activos}; InactivoActualIncluido={InactivoActualIncluido}; Mostrados={Mostrados}; InactivosOmitidos={InactivosOmitidos}",
+                hoja.Id,
+                viewMode,
+                sectores.Count,
+                sectores.Count(sector => sector.Hdr_Activo),
+                sectores.Any(sector => !sector.Hdr_Activo && string.Equals(sector.Nombre, sectorActual, StringComparison.OrdinalIgnoreCase)),
+                sectoresSeleccionables.Count,
+                sectores.Count(sector => !sector.Hdr_Activo && !string.Equals(sector.Nombre, sectorActual, StringComparison.OrdinalIgnoreCase)));
+
+            ViewBag.Sectores = sectoresSeleccionables.Select(c => new SelectListItem
             {
                 Value = c.Nombre,
                 Text = c.Nombre
@@ -1717,7 +1915,7 @@ namespace HojaDeRuta.Controllers
 
             ViewBag.Subareas = System.Text.Json.JsonSerializer.Serialize(subAreas);
 
-            ViewBag.Sindicos = socios.Select(c => new SelectListItem
+            ViewBag.Sindicos = sociosSeleccionables.Select(c => new SelectListItem
             {
                 Value = c.Mail,
                 Text = c.Detalle
@@ -1744,10 +1942,14 @@ namespace HojaDeRuta.Controllers
 
             ViewBag.CampoHabilitado = await _revisorService.GetCampoHabilitado(hoja);
 
-            List<Revisores> revisoresPermitidos = await _hojaWorkflowService.GetAllowedReviewersForStageAsync(
+            List<Revisores> revisoresPermitidos = (await _hojaWorkflowService.GetAllowedReviewersForStageAsync(
                 hoja,
                 nameof(Hoja.Reviso),
-                hoja.Reviso);
+                hoja.Reviso))
+                .Where(revisor => revisor.Hdr_Activo ||
+                    (!string.IsNullOrWhiteSpace(revisor.Empleado) && revisoresHistoricos.Contains(revisor.Empleado)) ||
+                    (!string.IsNullOrWhiteSpace(revisor.Mail) && revisoresHistoricos.Contains(revisor.Mail)))
+                .ToList();
 
             ViewBag.Revisores = revisoresPermitidos.Any()
                 ? revisoresPermitidos.Select(c => new SelectListItem
@@ -1766,8 +1968,8 @@ namespace HojaDeRuta.Controllers
 
             var textInfo = new CultureInfo("es-ES").TextInfo;
 
-            ViewBag.Socios = (from s in socios
-                              join r in gestores on s.Mail equals r.Mail into sr
+            ViewBag.Socios = (from s in sociosSeleccionables
+                               join r in revisoresSeleccionables on s.Mail equals r.Mail into sr
                               from r in sr.DefaultIfEmpty()
                               select new SelectListItem
                               {
@@ -1778,13 +1980,13 @@ namespace HojaDeRuta.Controllers
                               }).ToList();
             
 
-            ViewBag.Gestores = gestores.Select(c => new SelectListItem
+            ViewBag.Gestores = revisoresSeleccionables.Select(c => new SelectListItem
             {
                 Value = c.Empleado,
                 Text = c.Detalle
             }).ToList();
 
-            ViewBag.RevisoresFull = gestores;
+            ViewBag.RevisoresFull = revisoresSeleccionables;
 
             ViewBag.ViewMode = viewMode;
 
@@ -1918,11 +2120,8 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "No se pudo reintentar la notificacion {JobId} para la hoja {HojaId}", jobId, hojaId);
-                return BadRequest(new
-                {
-                    success = false,
-                    message = ex.Message
-                });
+                Response.StatusCode = StatusCodes.Status500InternalServerError;
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-NOTIFY-RETRY-001", "No pudimos programar el reintento del email. Intentá nuevamente.", hojaId);
             }
         }
 
@@ -1960,26 +2159,27 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener auditoría para la hoja {HojaId}", IdHoja);
-                return Json(new { success = false, message = "No pudimos recuperar la información de auditoría en este momento." });
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-AUDIT-LOAD-001", "No pudimos recuperar la información de auditoría en este momento.", IdHoja);
             }
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SaveAuditoria(Auditoria auditoria, string? operationId)
+        public async Task<IActionResult> SaveAuditoria(AuditoriaInputModel auditoriaInput, string? operationId)
         {
             var executionStarted = false;
             var currentStepKey = string.Empty;
+            Auditoria? auditoria = null;
 
             try
             {
-                LogTrackedPostEntry("HDR_CTRL_SAVE_AUDITORIA_POST_ENTRY", auditoria?.HojaId, operationId, new
+                LogTrackedPostEntry("HDR_CTRL_SAVE_AUDITORIA_POST_ENTRY", auditoriaInput?.HojaId, operationId, new
                 {
-                    Moneda = auditoria?.Moneda,
-                    TipoNumeracion = auditoria?.TipoNumeracion
+                    Moneda = auditoriaInput?.Moneda,
+                    TipoNumeracion = auditoriaInput?.TipoNumeracion
                 });
 
-                Hoja hoja = await ValidarAccesoAuditoriaAsync(auditoria?.HojaId);
+                Hoja hoja = await ValidarAccesoAuditoriaAsync(auditoriaInput?.HojaId);
 
                 if (!RequiereAuditoria(hoja))
                 {
@@ -1997,17 +2197,18 @@ namespace HojaDeRuta.Controllers
                         operationId: operationId);
                 }
 
-                if (!ModelState.IsValid)
+                if (!AuditoriaInputValidator.TryCreate(auditoriaInput, hoja.Id!, out auditoria, out var erroresAuditoria, requerirCarga: true))
                 {
-                    var errores = ModelState
-                        .Where(x => x.Value.Errors.Count > 0)
-                        .Select(x => new
-                        {
-                            Campo = x.Key,
-                            Errores = x.Value.Errors.Select(e => e.ErrorMessage).ToArray()
-                        });
-
+                    var errores = erroresAuditoria.Select(error => new { Campo = error.Key, Errores = error.Value });
                     return Json(new { success = false, validationErrors = errores, errorPhase = ErrorPhasePreflight, operationId });
+                }
+
+                if (auditoria == null)
+                {
+                    return CrearRespuestaErrorFlujo(
+                        "Completá la información de auditoría antes de guardar.",
+                        errorPhase: ErrorPhasePreflight,
+                        operationId: operationId);
                 }
 
                 executionStarted = !string.IsNullOrWhiteSpace(operationId);
@@ -2068,10 +2269,10 @@ namespace HojaDeRuta.Controllers
                 if (executionStarted)
                 {
                     await RegistrarFallaOperacionAsync(operationId, currentStepKey, message, ex.Message);
-                    return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhaseExecution, operationId: operationId);
+                    return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-AUDIT-SAVE-001", "No pudimos guardar la auditoría. No se confirmaron los cambios.", auditoria?.HojaId, operationId, ErrorPhaseExecution);
                 }
 
-                return CrearRespuestaErrorFlujo(message, errorPhase: ErrorPhasePreflight, operationId: operationId);
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-AUDIT-SAVE-001", "No pudimos guardar la auditoría. No se confirmaron los cambios.", auditoria?.HojaId, operationId);
             }
         }
 
@@ -2113,7 +2314,7 @@ namespace HojaDeRuta.Controllers
                 var hoja = await _hojaDeRutaService.GetHojaByIdAsync(id);
                 if (hoja == null)
                 {
-                    return Json(new { success = false, message = "TodavÃ­a faltan datos del documento adjunto para poder validarlo.", severity = "error" });
+                    return Json(new { success = false, message = "Todavía faltan datos del documento adjunto para poder validarlo.", severity = "error" });
                 }
 
                 var validationResult = await _hojaAttachmentService.ValidatePrimaryAttachmentAsync(hoja);
@@ -2126,8 +2327,8 @@ namespace HojaDeRuta.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error inesperado en la verificaciÃ³n del archivo principal para la hoja {HojaId}", id);
-                return Json(new { success = false, message = "No pudimos verificar el archivo en este momento. ReintentÃ¡ en unos instantes.", severity = "error" });
+                _logger.LogError(ex, "Error inesperado en la verificación del archivo principal para la hoja {HojaId}", id);
+                return Json(new { success = false, message = "No pudimos verificar el archivo en este momento. Reintentá en unos instantes.", severity = "error" });
             }
         }
 
@@ -2197,7 +2398,7 @@ namespace HojaDeRuta.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error inesperado en la verificación de archivo para la hoja {HojaId}", id);
-                return Json(new { success = false, message = "No pudimos verificar el archivo en este momento. Reintentá en unos instantes.", severity = "error" });
+                return await CrearRespuestaErrorInesperadoAsync(ex, "HDR-FILE-VERIFY-001", "No pudimos verificar el archivo en este momento. Reintentá en unos instantes.", id);
             }
         }
 
@@ -2486,6 +2687,62 @@ namespace HojaDeRuta.Controllers
                 errorPhase,
                 operationId
             });
+        }
+
+        private async Task<JsonResult> CrearRespuestaErrorInesperadoAsync(
+            Exception exception,
+            string errorCode,
+            string userMessage,
+            string? hojaId = null,
+            string? operationId = null,
+            string errorPhase = ErrorPhasePreflight)
+        {
+            var incidentId = await _errorIncidentService.ReportAsync(
+                exception,
+                errorCode,
+                userMessage,
+                new ErrorIncidentContext
+                {
+                    UserName = CurrentUser?.UserName ?? User.Identity?.Name,
+                    HojaId = hojaId,
+                    OperationId = operationId,
+                    Endpoint = Request.Path.Value,
+                    TraceId = HttpContext.TraceIdentifier
+                },
+                HttpContext.RequestAborted);
+
+            return Json(new
+            {
+                success = false,
+                message = userMessage,
+                incidentId,
+                errorPhase,
+                operationId
+            });
+        }
+
+        private async Task<IActionResult> RedirigirErrorInesperadoAsync(
+            Exception exception,
+            string errorCode,
+            string userMessage,
+            string? hojaId = null,
+            string? operationId = null)
+        {
+            var incidentId = await _errorIncidentService.ReportAsync(
+                exception,
+                errorCode,
+                userMessage,
+                new ErrorIncidentContext
+                {
+                    UserName = CurrentUser?.UserName ?? User.Identity?.Name,
+                    HojaId = hojaId,
+                    OperationId = operationId,
+                    Endpoint = Request.Path.Value,
+                    TraceId = HttpContext.TraceIdentifier
+                },
+                HttpContext.RequestAborted);
+
+            return RedirectToAction("Index", "Error", new { incidentId });
         }
 
         private void LogTrackedPostEntry(string eventCode, string? hojaId, string? operationId, object? extra = null)

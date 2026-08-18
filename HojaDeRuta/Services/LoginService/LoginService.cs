@@ -6,7 +6,10 @@ namespace HojaDeRuta.Services.LoginService
     using HojaDeRuta.Services.Repository;
     using Microsoft.Extensions.Options;
     using Microsoft.Graph;
+    using Microsoft.Identity.Web;
     using System.Diagnostics;
+    using System.Net;
+    using System.Net.Http.Headers;
 
     public class LoginService : ILoginService
     {
@@ -17,6 +20,7 @@ namespace HojaDeRuta.Services.LoginService
         private readonly IGenericRepository<Revisores> _revisorRepository;
         private readonly GroupsSettings _groupsSettings;
         private readonly DBSettings _dbSettings;
+        private readonly ITokenAcquisition _tokenAcquisition;
 
         public LoginService(
             ILogger<LoginService> logger,
@@ -25,7 +29,8 @@ namespace HojaDeRuta.Services.LoginService
             IOptions<GroupsSettings> groupsSettings,
             SharedService sharedService,
             IGenericRepository<Revisores> revisorRepository,
-            IOptions<DBSettings> dbSettings)
+            IOptions<DBSettings> dbSettings,
+            ITokenAcquisition tokenAcquisition)
         {
             _logger = logger;
             _graphClient = graphClient;
@@ -34,6 +39,7 @@ namespace HojaDeRuta.Services.LoginService
             _revisorRepository = revisorRepository;
             _groupsSettings = groupsSettings.Value;
             _dbSettings = dbSettings.Value;
+            _tokenAcquisition = tokenAcquisition;
         }
 
         public string GetUserName()
@@ -237,27 +243,28 @@ namespace HojaDeRuta.Services.LoginService
             };
         }
 
-        public async Task<List<User>> TestGetAllUsersAsync()
+        public async Task<IReadOnlyList<DirectoryUserSyncRecord>> GetDirectoryUsersForSyncAsync(CancellationToken cancellationToken = default)
         {
-            var result = new List<User>();
+            var users = new List<User>();
 
             try
             {
-                _logger.LogInformation("===== Inicio TestGetAllUsersAsync =====");
+                _logger.LogInformation("Inicio de lectura completa de usuarios Entra para sincronizacion.");
 
-                var page = await _graphClient.Users
+                var graphClient = CreateApplicationGraphClient();
+                var page = await graphClient.Users
                     .Request()
-                    .Select("id,department,displayName,givenName,jobTitle,mail,surname")
+                    .Select("id,department,givenName,mail,surname")
                     .GetAsync();
 
                 while (page != null)
                 {
-                    result.AddRange(page.CurrentPage);
+                    users.AddRange(page.CurrentPage);
 
                     _logger.LogInformation(
-                        "Se recuperaron {Count} usuarios en esta p·gina. Total acumulado: {Total}",
+                        "Se recuperaron {Count} usuarios en esta p√°gina. Total acumulado: {Total}",
                         page.CurrentPage.Count,
-                        result.Count);
+                        users.Count);
 
                     if (page.NextPageRequest == null)
                     {
@@ -267,16 +274,88 @@ namespace HojaDeRuta.Services.LoginService
                     page = await page.NextPageRequest.GetAsync();
                 }
 
-                _logger.LogInformation(
-                    "===== Fin TestGetAllUsersAsync. Total usuarios recuperados: {Total} =====",
-                    result.Count);
+                var configuredGroups = _groupsSettings.Groups ?? new List<GroupConfig>();
+                if (configuredGroups.Count == 0)
+                {
+                    throw new InvalidOperationException("No hay grupos HDR configurados en GroupsSettings:Groups.");
+                }
 
-                return result;
+                var records = new DirectoryUserSyncRecord[users.Count];
+                await Parallel.ForEachAsync(
+                    Enumerable.Range(0, users.Count),
+                    new ParallelOptions { MaxDegreeOfParallelism = 6, CancellationToken = cancellationToken },
+                    async (index, token) =>
+                    {
+                        var user = users[index];
+                        var memberGroupIds = await CheckMemberGroupsWithRetryAsync(graphClient, user.Id, configuredGroups.Select(group => group.GroupId).ToList(), token);
+                        var highestGroup = configuredGroups
+                            .Where(group => memberGroupIds.Contains(group.GroupId, StringComparer.OrdinalIgnoreCase))
+                            .OrderByDescending(group => group.Nivel)
+                            .FirstOrDefault();
+
+                        records[index] = new DirectoryUserSyncRecord
+                        {
+                            Id = user.Id,
+                            GivenName = user.GivenName,
+                            Surname = user.Surname,
+                            Mail = user.Mail,
+                            Department = user.Department,
+                            HighestGroup = highestGroup
+                        };
+                    });
+
+                _logger.LogInformation(
+                    "Fin de lectura completa de usuarios Entra. Total={Total}; ConGrupoHdr={ConGrupoHdr}",
+                    records.Length,
+                    records.Count(record => record.HighestGroup != null));
+
+                return records;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error obteniendo usuarios desde Microsoft Graph.");
+                _logger.LogError(ex, "Error obteniendo usuarios o grupos desde Microsoft Graph para la sincronizacion.");
                 throw;
+            }
+        }
+
+        private GraphServiceClient CreateApplicationGraphClient()
+        {
+            return new GraphServiceClient(new DelegateAuthenticationProvider(async requestMessage =>
+            {
+                var accessToken = await _tokenAcquisition.GetAccessTokenForAppAsync("https://graph.microsoft.com/.default");
+                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            }));
+        }
+
+        private async Task<IList<string>> CheckMemberGroupsWithRetryAsync(
+            GraphServiceClient graphClient,
+            string? userId,
+            IList<string> groupIds,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Array.Empty<string>();
+            }
+
+            const int maxAttempts = 4;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    return await graphClient.Users[userId]
+                        .CheckMemberGroups(groupIds)
+                        .Request()
+                        .PostAsync(cancellationToken);
+                }
+                catch (ServiceException ex) when (
+                    attempt < maxAttempts &&
+                    (ex.StatusCode == HttpStatusCode.TooManyRequests || ex.StatusCode == HttpStatusCode.ServiceUnavailable || ex.StatusCode == HttpStatusCode.GatewayTimeout))
+                {
+                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
+                    _logger.LogWarning(ex, "Graph devolvio {StatusCode} al consultar grupos de {UserId}. Reintento {Attempt}/{MaxAttempts} en {DelaySeconds}s.", ex.StatusCode, userId, attempt, maxAttempts, delay.TotalSeconds);
+                    await Task.Delay(delay, cancellationToken);
+                }
             }
         }
 

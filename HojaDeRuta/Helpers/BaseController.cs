@@ -35,6 +35,15 @@ public abstract class BaseController : Controller, IAsyncActionFilter
             return;
         }
 
+        var controller = context.RouteData.Values["controller"]?.ToString();
+        var action = context.RouteData.Values["action"]?.ToString();
+        if (string.Equals(controller, "Home", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(action, "SignOut", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
         try
         {
             CurrentUser = await _userContextCacheService.GetCurrentUserAsync(context.HttpContext.RequestAborted);

@@ -61,7 +61,7 @@ namespace HojaDeRuta.Services
                 {
                     Success = false,
                     Severity = "error",
-                    Message = "TodavÃ­a faltan datos del documento adjunto para poder validarlo."
+                    Message = "Todavía faltan datos del documento adjunto para poder validarlo."
                 };
             }
 
@@ -86,7 +86,7 @@ namespace HojaDeRuta.Services
                 {
                     Success = false,
                     Severity = "error",
-                    Message = "No pudimos acceder a la carpeta del documento adjunto. RevisÃ¡ la ruta configurada e intentÃ¡ nuevamente."
+                    Message = "No pudimos acceder a la carpeta del documento adjunto. Revisá la ruta configurada e intentá nuevamente."
                 };
             }
             else
@@ -105,7 +105,7 @@ namespace HojaDeRuta.Services
                     {
                         Success = false,
                         Severity = "error",
-                        Message = "No encontramos el archivo adjunto en la carpeta indicada. VerificÃ¡ el nombre y volvÃ© a intentarlo."
+                        Message = "No encontramos el archivo adjunto en la carpeta indicada. Verificá el nombre y volvé a intentarlo."
                     };
             }
 
@@ -121,7 +121,7 @@ namespace HojaDeRuta.Services
             if (sw.ElapsedMilliseconds > 1000)
             {
                 _logger.LogWarning(
-                    "ValidaciÃ³n de archivo lenta. HojaId={HojaId} Path={Path} DurationMs={DurationMs}",
+                    "Validación de archivo lenta. HojaId={HojaId} Path={Path} DurationMs={DurationMs}",
                     hojaId,
                     resolvedPath,
                     sw.ElapsedMilliseconds);

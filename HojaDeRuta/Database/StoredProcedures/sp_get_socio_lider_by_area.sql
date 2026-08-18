@@ -5,9 +5,8 @@ BEGIN
     SELECT
         s.*
     FROM socios s
-    INNER JOIN revisores r
-        ON r.mail = s.mail
     WHERE
-        r.area = @Area
-        AND s.liderDeArea = 1;
+        s.sector = @Area
+        AND s.liderDeArea = 1
+        AND s.Hdr_Activo = 1;
 END;

@@ -94,12 +94,21 @@ namespace HojaDeRuta.Services
                 return;
             }
 
+            if (!_mailSettings.HabilitarNotificacionCruzadas)
+            {
+                _logger.LogInformation(
+                    "Se omite la notificación de acceso cruzado por configuración. HojaId={HojaId}; HabilitarNotificacionCruzadas={HabilitarNotificacionCruzadas}",
+                    hoja.Id,
+                    _mailSettings.HabilitarNotificacionCruzadas);
+                return;
+            }
+
             var dedupKey = GetCrossAccessDedupKey(hoja.Id);
             var alreadyQueued = await _cache.GetStringAsync(dedupKey);
             if (!string.IsNullOrWhiteSpace(alreadyQueued))
             {
                 _logger.LogInformation(
-                    "Se omite la notificaciÃ³n de acceso cruzado porque ya fue programada para la hoja {HojaId}.",
+                    "Se omite la notificación de acceso cruzado porque ya fue programada para la hoja {HojaId}.",
                     hoja.Id);
                 return;
             }

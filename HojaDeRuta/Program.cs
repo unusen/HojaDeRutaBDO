@@ -68,18 +68,6 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
             return Task.CompletedTask;
         };
 
-        options.Events.OnTokenValidated = async context =>
-        {
-            var _loginService = context.HttpContext.RequestServices.
-                GetRequiredService<ILoginService>();
-
-            var _userService = context.HttpContext.RequestServices
-                .GetRequiredService<UserService>();
-
-            var userName = _loginService.GetUserName();
-
-            await _userService.ValidateUserAsync(userName);
-        };
     })
     .EnableTokenAcquisitionToCallDownstreamApi()
     .AddMicrosoftGraph(builder.Configuration.GetSection("MicrosoftGraph"))
@@ -195,6 +183,7 @@ builder.Services.AddScoped<IOperationProgressService, OperationProgressService>(
 builder.Services.AddSingleton<NotificationQueueService>();
 builder.Services.AddSingleton<INotificationQueueService>(sp => sp.GetRequiredService<NotificationQueueService>());
 builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<IErrorIncidentService, ErrorIncidentService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddHostedService<SyncService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NotificationQueueService>());
@@ -334,7 +323,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseExceptionHandler("/Error");
+app.UseMiddleware<ErrorIncidentMiddleware>();
 
 //TODO: SOLO DESACTIVADO PARA EL CONTENEDOR, ACTIVAR LOCALMENTE
 //app.UseHttpsRedirection();

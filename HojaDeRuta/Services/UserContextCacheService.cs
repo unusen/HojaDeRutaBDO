@@ -60,8 +60,6 @@ namespace HojaDeRuta.Services
                 ?.Nivel ?? 0;
             userContext.FetchedAtUtc = DateTimeOffset.UtcNow;
 
-            await _loginService.SyncUsuariosLogueados(userContext);
-
             await _cache.SetStringAsync(
                 cacheKey,
                 JsonSerializer.Serialize(userContext, SerializerOptions),
@@ -86,9 +84,6 @@ namespace HojaDeRuta.Services
         {
             var email = _loginService.GetUserEmail();
             var roles = await _loginService.GetUserGroupsAsync();
-
-            //TODO: TEST TRAER TODOS LOS USUARIOS
-            var users = await _loginService.TestGetAllUsersAsync();
 
             return new UserContext
             {

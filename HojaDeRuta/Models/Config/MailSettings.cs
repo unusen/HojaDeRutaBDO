@@ -9,6 +9,7 @@
         public string Pass { get; set; }
         public string Dominio { get; set; }
         public string Mail_IT { get; set; }
+        public bool HabilitarNotificacionCruzadas { get; set; } = false;
         public string? EnviarPendientesDesde { get; set; }
         public List<string> OverrideRecipients { get; set; } = new();
     }

@@ -1,6 +1,5 @@
 ﻿using HojaDeRuta.Models.Config;
 using HojaDeRuta.Models.DTO;
-using Microsoft.Graph;
 
 namespace HojaDeRuta.Services.LoginService
 {
@@ -12,7 +11,7 @@ namespace HojaDeRuta.Services.LoginService
         Task<string> GetUserAreaAsync();
         Task<string> GetUserCargoAsync();
         Task<IList<GroupConfig>> GetUserGroupsAsync();
-        Task SyncUsuariosLogueados (UserContext CurrentUser);
-        Task<List<User>> TestGetAllUsersAsync();
+        Task SyncUsuariosLogueados(UserContext currentUser);
+        Task<IReadOnlyList<DirectoryUserSyncRecord>> GetDirectoryUsersForSyncAsync(CancellationToken cancellationToken = default);
     }
 }

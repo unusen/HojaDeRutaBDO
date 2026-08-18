@@ -53,7 +53,9 @@ namespace HojaDeRuta.Models.DTO
         [Column("preparo_fecha")]
 
         [Display(Name = "Preparo Fecha")]
-        public string? PreparoFecha { get; set; }
+        [DataType(DataType.Date)]
+        [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
+        public DateTime? PreparoFecha { get; set; }
 
         [Column("reviso")]
         public string? Reviso { get; set; }

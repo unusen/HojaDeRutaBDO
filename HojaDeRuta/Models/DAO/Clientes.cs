@@ -10,5 +10,6 @@ namespace HojaDeRuta.Models.DAO
         public string RazonSocial { get; set; }
         public string CodigoPlataforma { get; set; }
         public bool EsManual { get; set; }
+        public bool Hdr_Activo { get; set; } = true;
     }
 }

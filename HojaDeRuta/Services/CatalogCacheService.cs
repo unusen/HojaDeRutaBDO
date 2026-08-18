@@ -12,6 +12,8 @@ namespace HojaDeRuta.Services
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
         private static readonly SemaphoreSlim FactoryExecutionGate = new(1, 1);
         private const string ClientesCacheKey = "catalog:clientes:v1";
+        private const string SociosCacheKey = "catalog:socios:v1";
+        private const string RevisoresCacheKey = "catalog:revisores:v1";
         private const string ContratosCacheVersionKey = "catalog:contratos:version";
         private const string DefaultContratosCacheVersion = "v1";
 
@@ -39,10 +41,16 @@ namespace HojaDeRuta.Services
             => _cache.RemoveAsync(ClientesCacheKey, cancellationToken);
 
         public Task<List<Socios>> GetSociosAsync(CancellationToken cancellationToken = default)
-            => GetOrCreateAsync("catalog:socios:v1", StandardCatalogTtl, _sharedService.GetAllSocios, cancellationToken);
+            => GetOrCreateAsync(SociosCacheKey, StandardCatalogTtl, _sharedService.GetAllSocios, cancellationToken);
 
         public Task<List<Revisores>> GetRevisoresAsync(CancellationToken cancellationToken = default)
-            => GetOrCreateAsync("catalog:revisores:v1", StandardCatalogTtl, _revisorService.GetAllRevisores, cancellationToken);
+            => GetOrCreateAsync(RevisoresCacheKey, StandardCatalogTtl, _revisorService.GetAllRevisores, cancellationToken);
+
+        public async Task InvalidateUsuariosAsync(CancellationToken cancellationToken = default)
+        {
+            await _cache.RemoveAsync(SociosCacheKey, cancellationToken);
+            await _cache.RemoveAsync(RevisoresCacheKey, cancellationToken);
+        }
 
         public Task<List<TipoDocumento>> GetTipoDocumentosAsync(CancellationToken cancellationToken = default)
             => GetOrCreateAsync("catalog:tipos-documento:v1", StandardCatalogTtl, _sharedService.GetTipoDocumentos, cancellationToken);

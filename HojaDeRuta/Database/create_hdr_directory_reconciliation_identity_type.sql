@@ -1,0 +1,1 @@
+IF TYPE_ID(N'dbo.HDR_DirectoryReconciliationIdentity') IS NULL EXEC(N'CREATE TYPE dbo.HDR_DirectoryReconciliationIdentity AS TABLE (EntraObjectId NVARCHAR(100) NULL, Mail NVARCHAR(150) NULL, AllowMailFallback BIT NOT NULL)');

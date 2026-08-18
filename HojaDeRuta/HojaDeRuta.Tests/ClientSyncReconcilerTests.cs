@@ -13,7 +13,8 @@ namespace HojaDeRuta.Tests
             var remote = new List<Account>
             {
                 new() { BGClienteID = 100, AlternativeName = "Cliente 100", BGEstado = "Activo" },
-                new() { BGClienteID = 200, AlternativeName = "Cliente 200", BGEstado = "Activo" }
+                new() { BGClienteID = 200, AlternativeName = "Cliente 200", BGEstado = string.Empty },
+                new() { BGClienteID = 400, AlternativeName = "Cliente 400", BGEstado = null! }
             };
             var local = new List<Clientes>
             {
@@ -23,10 +24,10 @@ namespace HojaDeRuta.Tests
 
             var plan = reconciler.BuildPlan(remote, local);
 
-            Assert.Equal(2, plan.RemoteActiveCount);
+            Assert.Equal(3, plan.RemoteActiveCount);
             Assert.Equal(2, plan.LocalCount);
-            Assert.Single(plan.ClientsToInsert);
-            Assert.Equal("200", plan.ClientsToInsert[0].CodigoPlataforma);
+            Assert.Equal(2, plan.ClientsToInsert.Count);
+            Assert.Equal(new[] { "200", "400" }, plan.ClientsToInsert.Select(cliente => cliente.CodigoPlataforma));
             Assert.Single(plan.ClientsCandidateToDelete);
             Assert.Equal("300", plan.ClientsCandidateToDelete[0].CodigoPlataforma);
         }
@@ -68,6 +69,55 @@ namespace HojaDeRuta.Tests
             var result = reconciler.ShouldBlockDeletions(remoteCount, localCount);
 
             Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void BuildClientesSincronizablesFilter_IncludesAllowedStatusesAndNonNullClientId()
+        {
+            var filter = CreatioService.BuildClientesSincronizablesFilter();
+
+            Assert.Equal("BGClienteID ne null and BGClienteID ne 0 and (BGEstado eq 'Activo' or BGEstado eq null or BGEstado eq '')", filter);
+        }
+
+        [Fact]
+        public void BuildClientesSincronizablesFilter_WithClientId_AddsSpecificClientCondition()
+        {
+            var filter = CreatioService.BuildClientesSincronizablesFilter(123);
+
+            Assert.Equal("BGClienteID ne null and BGClienteID ne 0 and (BGEstado eq 'Activo' or BGEstado eq null or BGEstado eq '') and BGClienteID eq 123", filter);
+        }
+
+        [Fact]
+        public void BuildPlan_ReactivatesRemoteClientAndDoesNotRetryInactiveClientForInactivation()
+        {
+            var reconciler = new ClientSyncReconciler();
+            var remote = new List<Account>
+            {
+                new() { BGClienteID = 100, AlternativeName = "Cliente reactivado" }
+            };
+            var local = new List<Clientes>
+            {
+                new() { Id = 1, CodigoPlataforma = "100", Hdr_Activo = false },
+                new() { Id = 2, CodigoPlataforma = "200", Hdr_Activo = false },
+                new() { Id = 3, CodigoPlataforma = "300", Hdr_Activo = true }
+            };
+
+            var plan = reconciler.BuildPlan(remote, local);
+
+            Assert.Single(plan.ClientsToReactivate);
+            Assert.Equal(1, plan.ClientsToReactivate[0].Id);
+            Assert.Single(plan.ClientsCandidateToDelete);
+            Assert.Equal(3, plan.ClientsCandidateToDelete[0].Id);
+            Assert.Equal(1, plan.LocalCount);
+        }
+
+        [Fact]
+        public void TruncateSyncControlResult_LimitsValueToTwoHundredAndFiftyFiveCharacters()
+        {
+            var truncated = SyncService.TruncateSyncControlResult(new string('x', 300));
+
+            Assert.Equal(255, truncated.Length);
+            Assert.Equal(new string('x', 255), truncated);
         }
     }
 }

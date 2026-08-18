@@ -20,7 +20,12 @@ namespace HojaDeRuta.Helpers
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
         {
             var controller = context.RouteData.Values["controller"]?.ToString();
-            if (controller == "Error")
+            var action = context.RouteData.Values["action"]?.ToString();
+            var area = context.RouteData.Values["area"]?.ToString();
+            if (string.Equals(controller, "Error", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(area, "MicrosoftIdentity", StringComparison.OrdinalIgnoreCase)
+                || (string.Equals(controller, "Home", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(action, "SignOut", StringComparison.OrdinalIgnoreCase)))
             {
                 return;
             }
@@ -37,7 +42,9 @@ namespace HojaDeRuta.Helpers
                     "AccessDenied",
                     "Error",
                     new { message = $"El usuario {userContext.UserName} no tiene permisos para Hoja de Ruta." });
+                return;
             }
+
         }
     }
 }

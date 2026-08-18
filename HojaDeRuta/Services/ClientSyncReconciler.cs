@@ -23,7 +23,14 @@ namespace HojaDeRuta.Services
                 .Where(cliente => cliente != null && !string.IsNullOrWhiteSpace(cliente.CodigoPlataforma))
                 .GroupBy(cliente => NormalizeCode(cliente.CodigoPlataforma))
                 .Where(group => !string.IsNullOrWhiteSpace(group.Key))
-                .ToDictionary(group => group.Key!, group => group.OrderBy(cliente => cliente.Id).First(), StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(
+                    group => group.Key!,
+                    group => group.OrderByDescending(cliente => cliente.Hdr_Activo).ThenBy(cliente => cliente.Id).First(),
+                    StringComparer.OrdinalIgnoreCase);
+
+            var activeLocalByCode = localByCode
+                .Where(pair => pair.Value.Hdr_Activo)
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
             var inserts = remoteByCode
                 .Where(pair => !localByCode.ContainsKey(pair.Key))
@@ -36,16 +43,23 @@ namespace HojaDeRuta.Services
                 .ToList();
 
             var deletions = localByCode
-                .Where(pair => !remoteByCode.ContainsKey(pair.Key))
+                .Where(pair => pair.Value.Hdr_Activo && !remoteByCode.ContainsKey(pair.Key))
                 .Select(pair => pair.Value)
+                .OrderBy(cliente => cliente.CodigoPlataforma, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var reactivations = remoteByCode
+                .Where(pair => localByCode.TryGetValue(pair.Key, out var cliente) && !cliente.Hdr_Activo)
+                .Select(pair => localByCode[pair.Key])
                 .OrderBy(cliente => cliente.CodigoPlataforma, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             return new ClientSyncPlan
             {
                 RemoteActiveCount = remoteByCode.Count,
-                LocalCount = localByCode.Count,
+                LocalCount = activeLocalByCode.Count,
                 ClientsToInsert = inserts,
+                ClientsToReactivate = reactivations,
                 ClientsCandidateToDelete = deletions,
                 InvalidRemoteCount = remoteList.Count(account => account == null || account.BGClienteID <= 0),
                 InvalidLocalCount = localList.Count(cliente => cliente == null || string.IsNullOrWhiteSpace(cliente.CodigoPlataforma))
@@ -82,6 +96,7 @@ namespace HojaDeRuta.Services
         public int InvalidRemoteCount { get; init; }
         public int InvalidLocalCount { get; init; }
         public List<Clientes> ClientsToInsert { get; init; } = new();
+        public List<Clientes> ClientsToReactivate { get; init; } = new();
         public List<Clientes> ClientsCandidateToDelete { get; init; } = new();
     }
 }

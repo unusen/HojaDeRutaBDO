@@ -9,5 +9,8 @@ namespace HojaDeRuta.Models.DAO
 
         [Column("detalle")]
         public string Detalle { get; set; }
+
+        [Column("Hdr_Activo")]
+        public bool Hdr_Activo { get; set; } = true;
     }
 }

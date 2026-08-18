@@ -21,5 +21,10 @@ namespace HojaDeRuta.Models.DAO
 
         [Column("subarea")]
         public string? Subarea { get; set; }
+
+        [Column("entra_object_id")]
+        public string? EntraObjectId { get; set; }
+
+        public bool Hdr_Activo { get; set; } = true;
     }
 }

@@ -14,16 +14,19 @@ namespace HojaDeRuta.Services
         private readonly ILogger<RevisorService> _logger;
         private readonly IGenericRepository<Revisores> revisoresRepository;
         private readonly DBSettings dbSettings;
+        private readonly SharedService _sharedService;
 
         public RevisorService(
             ILogger<RevisorService> logger,
             IGenericRepository<Revisores> revisoresRepository,
-            IOptions<DBSettings> dbSettings
+            IOptions<DBSettings> dbSettings,
+            SharedService sharedService
             )
         {
             _logger = logger;
             this.revisoresRepository = revisoresRepository;
             this.dbSettings = dbSettings.Value;
+            _sharedService = sharedService;
         }
 
         public async Task<List<Revisores>> GetAllRevisores()
@@ -295,7 +298,7 @@ namespace HojaDeRuta.Services
             bool participaEnLaHoja = pasosFlujo.Any(p =>
                 string.Equals(p, revisorActual, StringComparison.OrdinalIgnoreCase));
 
-            bool perteneceAlArea = string.Equals(revisor.Area, hoja.Sector, StringComparison.OrdinalIgnoreCase);
+            bool perteneceAlArea = await LideraSectorActivoAsync(revisor, hoja.Sector);
 
             bool result;
             switch (revisor.Cargo)
@@ -312,6 +315,30 @@ namespace HojaDeRuta.Services
             }
 
             return result;
+        }
+
+        public async Task<bool> LideraSectorActivoAsync(Revisores? revisor, string? sector)
+        {
+            if (revisor?.Cargo != 10 || string.IsNullOrWhiteSpace(revisor.Mail) || string.IsNullOrWhiteSpace(sector))
+            {
+                return false;
+            }
+
+            var sectoresLiderados = await _sharedService.GetSectoresLideradosAsync(revisor.Mail);
+            return sectoresLiderados.Contains(sector.Trim(), StringComparer.OrdinalIgnoreCase);
+        }
+
+        public static bool TieneAreaDistintaDelSector(Revisores? revisor, string? sector)
+        {
+            if (string.IsNullOrWhiteSpace(revisor?.Area) || string.IsNullOrWhiteSpace(sector))
+            {
+                return true;
+            }
+
+            return !string.Equals(
+                revisor.Area.Trim(),
+                sector.Trim(),
+                StringComparison.OrdinalIgnoreCase);
         }
     }
 }

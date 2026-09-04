@@ -194,16 +194,17 @@ namespace HojaDeRuta.Services
 
             try
             {
-                var sociosTask = sociosRepository.GetAllAsync();
-                var sectoresTask = sectorRepository.GetAllAsync();
-                await Task.WhenAll(sociosTask, sectoresTask);
+                // Ambos repositorios comparten el DbContext scoped de la solicitud. Ejecutar
+                // las consultas en paralelo provoca una segunda operación concurrente sobre él.
+                var socios = await sociosRepository.GetAllAsync();
+                var sectores = await sectorRepository.GetAllAsync();
 
-                var sectoresActivos = sectoresTask.Result
+                var sectoresActivos = sectores
                     .Where(sector => sector.Hdr_Activo && !string.IsNullOrWhiteSpace(sector.Nombre))
                     .Select(sector => sector.Nombre.Trim())
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                return sociosTask.Result
+                return socios
                     .Where(socio =>
                         socio.Hdr_Activo &&
                         socio.LiderDeArea &&

@@ -36,6 +36,14 @@ namespace HojaDeRuta.Services
             _atom = _configuration.GetSection("CreatioConnection").Get<Connection>().XNamespaceATOM;
             _serverUriUsr = _configuration.GetSection("CreatioConnection").Get<Connection>().ServerUriUsr;
 
+            _logger.LogInformation(
+                "Creatio configuration loaded. ServiceUrl={ServiceUrl}; AuthUrl={AuthUrl}; ODataUrl={ODataUrl}; UserConfigured={UserConfigured}; PasswordConfigured={PasswordConfigured}",
+                DescribeUri(_serviceUrl),
+                DescribeUri(_authServiceUri),
+                DescribeUri(_serverUriUsr),
+                !string.IsNullOrWhiteSpace(_username),
+                !string.IsNullOrWhiteSpace(_password));
+
             GetConnectionBPM();
         }
 
@@ -75,16 +83,50 @@ namespace HojaDeRuta.Services
                 {
                     string requestUri = BuildAccountsRequestUri(filter, pageSize, skip);
 
+                    _logger.LogInformation(
+                        "Creatio OData request starting. Uri={RequestUri}; PageSize={PageSize}; Skip={Skip}; CookieState={CookieState}",
+                        DescribeUri(requestUri),
+                        pageSize,
+                        skip,
+                        DescribeCookies(AuthCookie, requestUri));
+
                     var request = CreateCreatioRequest(requestUri);
 
                     using var response = request.GetResponse();
-                    if (response is not HttpWebResponse webResponse || webResponse.StatusCode != HttpStatusCode.OK)
+                    if (response is not HttpWebResponse webResponse)
                     {
+                        _logger.LogWarning(
+                            "Creatio OData returned a non-HTTP response. Uri={RequestUri}; ResponseType={ResponseType}",
+                            DescribeUri(requestUri),
+                            response.GetType().FullName);
                         break;
                     }
 
+                    if (webResponse.StatusCode != HttpStatusCode.OK)
+                    {
+                        _logger.LogWarning(
+                            "Creatio OData returned an unexpected response. Uri={RequestUri}; StatusCode={StatusCode}; ResponseUri={ResponseUri}",
+                            DescribeUri(requestUri),
+                            webResponse.StatusCode,
+                            DescribeUri(webResponse.ResponseUri?.ToString()));
+                        break;
+                    }
+
+                    _logger.LogInformation(
+                        "Creatio OData response received. Uri={RequestUri}; StatusCode={StatusCode}; ContentType={ContentType}; ContentLength={ContentLength}",
+                        DescribeUri(requestUri),
+                        webResponse.StatusCode,
+                        webResponse.ContentType,
+                        webResponse.ContentLength);
+
                     var items = ReadAccountsFromResponse(response);
                     allAccounts.AddRange(items);
+
+                    _logger.LogInformation(
+                        "Creatio OData page processed. Uri={RequestUri}; ItemsInPage={ItemsInPage}; AccumulatedItems={AccumulatedItems}",
+                        DescribeUri(requestUri),
+                        items.Count,
+                        allAccounts.Count);
 
                     if (stopAfterFirstPage || items.Count < pageSize)
                     {
@@ -97,6 +139,18 @@ namespace HojaDeRuta.Services
                 }
 
                 return allAccounts;
+            }
+            catch (WebException ex) when (ex.Response is HttpWebResponse errorResponse)
+            {
+                _logger.LogError(
+                    ex,
+                    "Creatio OData HTTP error. Filter={Filter}; StatusCode={StatusCode}; ResponseUri={ResponseUri}; CookieState={CookieState}; ResponseBody={ResponseBody}",
+                    filter,
+                    errorResponse.StatusCode,
+                    DescribeUri(errorResponse.ResponseUri?.ToString()),
+                    DescribeCookies(AuthCookie, errorResponse.ResponseUri?.ToString()),
+                    ReadResponseBodyForLog(errorResponse));
+                throw;
             }
             catch (Exception ex)
             {
@@ -131,6 +185,16 @@ namespace HojaDeRuta.Services
             {
                 request.Headers.Add("BPMCSRF", csrfToken);
             }
+
+            _logger.LogInformation(
+                "Creatio OData request prepared. Uri={RequestUri}; AuthCookieState={AuthCookieState}; RequestCookieState={RequestCookieState}; HasBpmCsrf={HasBpmCsrf}; HasAspxAuth={HasAspxAuth}; Headers=ForceUseSession:{ForceUseSession},BPMCSRF:{HasBpmCsrf}",
+                DescribeUri(requestUri),
+                DescribeCookies(AuthCookie, _authServiceUri),
+                DescribeCookies(AuthCookie, requestUri),
+                !string.IsNullOrWhiteSpace(csrfToken),
+                HasCookie(AuthCookie, requestUri, ".ASPXAUTH"),
+                request.Headers["ForceUseSession"],
+                !string.IsNullOrWhiteSpace(csrfToken));
 
             return request;
         }
@@ -173,8 +237,22 @@ namespace HojaDeRuta.Services
             {
 
                 string file = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "cookies.dat");
+                var cookieFile = new FileInfo(file);
+                _logger.LogInformation(
+                    "Creatio session initialization starting. CookieFile={CookieFile}; CookieFileExists={CookieFileExists}; CookieFileLength={CookieFileLength}; AuthUrl={AuthUrl}",
+                    file,
+                    cookieFile.Exists,
+                    cookieFile.Exists ? cookieFile.Length : 0,
+                    DescribeUri(_authServiceUri));
+
                 AuthCookie = ReadCookiesFromDisk(file);
-                LoginBPM();
+                _logger.LogInformation("Creatio cookies loaded before login. CookieState={CookieState}", DescribeCookies(AuthCookie, _authServiceUri));
+
+                var loginSucceeded = LoginBPM();
+                _logger.LogInformation(
+                    "Creatio session initialization completed. LoginSucceeded={LoginSucceeded}; CookieState={CookieState}",
+                    loginSucceeded,
+                    DescribeCookies(AuthCookie, _authServiceUri));
 
             }
             catch (Exception ex)
@@ -193,12 +271,24 @@ namespace HojaDeRuta.Services
                 authRequest.CookieContainer = AuthCookie;
                 authRequest.Headers.Set("ForceUseSession", "true");
 
+                _logger.LogInformation(
+                    "Creatio login request starting. AuthUrl={AuthUrl}; UserConfigured={UserConfigured}; PasswordConfigured={PasswordConfigured}; CookieState={CookieState}",
+                    DescribeUri(_authServiceUri),
+                    !string.IsNullOrWhiteSpace(_username),
+                    !string.IsNullOrWhiteSpace(_password),
+                    DescribeCookies(AuthCookie, _authServiceUri));
+
                 try
                 {
 
                     CookieCollection cookieCollection = AuthCookie.GetCookies(new Uri(_authServiceUri));
                     string csrfToken = cookieCollection["BPMCSRF"].Value;
                     authRequest.Headers.Add("BPMCSRF", csrfToken);
+
+                    _logger.LogInformation(
+                        "Creatio login cookie headers prepared. HasBpmCsrf=True; HasAspxAuth={HasAspxAuth}; CookieState={CookieState}",
+                        HasCookie(AuthCookie, _authServiceUri, ".ASPXAUTH"),
+                        DescribeCookies(AuthCookie, _authServiceUri));
 
                 }
                 catch (Exception ex) 
@@ -223,6 +313,13 @@ namespace HojaDeRuta.Services
                 BPM_ResponseStatus status = null;
                 using (var response = (HttpWebResponse)authRequest.GetResponse())
                 {
+                    _logger.LogInformation(
+                        "Creatio login HTTP response received. StatusCode={StatusCode}; ResponseUri={ResponseUri}; ContentType={ContentType}; ContentLength={ContentLength}",
+                        response.StatusCode,
+                        DescribeUri(response.ResponseUri?.ToString()),
+                        response.ContentType,
+                        response.ContentLength);
+
                     using (var reader = new StreamReader(response.GetResponseStream()))
                     {
                         string responseText = reader.ReadToEnd();
@@ -234,13 +331,39 @@ namespace HojaDeRuta.Services
 
                 if (status != null)
                 {
+                    _logger.LogInformation(
+                        "Creatio login response parsed. Code={Code}; Message={Message}; HasException={HasException}; CookieState={CookieState}",
+                        status.Code,
+                        TruncateForLog(status.Message),
+                        status.Exception != null,
+                        DescribeCookies(AuthCookie, _authServiceUri));
+
                     if (status.Code == 0)
                     {
                         WriteCookiesToDisk(AuthCookie);
                         return true;
                     }
 
+                    _logger.LogWarning(
+                        "Creatio login was rejected by the service. Code={Code}; Message={Message}; CookieState={CookieState}",
+                        status.Code,
+                        TruncateForLog(status.Message),
+                        DescribeCookies(AuthCookie, _authServiceUri));
                 }
+                else
+                {
+                    _logger.LogWarning("Creatio login returned an empty or unparseable response. CookieState={CookieState}", DescribeCookies(AuthCookie, _authServiceUri));
+                }
+            }
+            catch (WebException ex) when (ex.Response is HttpWebResponse errorResponse)
+            {
+                _logger.LogError(
+                    ex,
+                    "Creatio login HTTP error. StatusCode={StatusCode}; ResponseUri={ResponseUri}; CookieState={CookieState}; ResponseBody={ResponseBody}",
+                    errorResponse.StatusCode,
+                    DescribeUri(errorResponse.ResponseUri?.ToString()),
+                    DescribeCookies(AuthCookie, _authServiceUri),
+                    ReadResponseBodyForLog(errorResponse));
             }
             catch (Exception ex)
             {
@@ -259,6 +382,7 @@ namespace HojaDeRuta.Services
                 var cookies = cookieJar.GetAllCookies();
                 string json = JsonSerializer.Serialize(cookies, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(file, json);
+                _logger.LogInformation("Creatio cookies persisted. CookieFile={CookieFile}; CookieState={CookieState}", file, DescribeCookies(cookieJar));
             }
             catch (Exception ex)
             {
@@ -270,8 +394,15 @@ namespace HojaDeRuta.Services
         {
             try
             {
+                var cookieFile = new FileInfo(file);
+                _logger.LogInformation(
+                    "Reading persisted Creatio cookies. CookieFile={CookieFile}; Exists={Exists}; Length={Length}",
+                    file,
+                    cookieFile.Exists,
+                    cookieFile.Exists ? cookieFile.Length : 0);
+
                 string json = File.ReadAllText(file);
-                var cookies = JsonSerializer.Deserialize<List<Cookie>>(json);
+                var cookies = JsonSerializer.Deserialize<List<Cookie>>(json) ?? new List<Cookie>();
 
                 var cookieContainer = new CookieContainer();
                 foreach (var cookie in cookies)
@@ -279,6 +410,7 @@ namespace HojaDeRuta.Services
                     cookieContainer.Add(new Cookie(cookie.Name, cookie.Value, cookie.Path, cookie.Domain));
                 }
 
+                _logger.LogInformation("Persisted Creatio cookies loaded. CookieFile={CookieFile}; CookieState={CookieState}", file, DescribeCookies(cookieContainer));
                 return cookieContainer;
             }
             catch (Exception ex)
@@ -286,6 +418,69 @@ namespace HojaDeRuta.Services
                 _logger.LogWarning(ex, "No se pudieron leer las cookies del disco (o el archivo no existe): {FilePath}", file);
                 return new CookieContainer();
             }
+        }
+
+        private static bool HasCookie(CookieContainer cookieJar, string? uriValue, string cookieName)
+        {
+            if (!Uri.TryCreate(uriValue, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            return cookieJar.GetCookies(uri)[cookieName] != null;
+        }
+
+        private static string DescribeCookies(CookieContainer cookieJar, string? uriValue = null)
+        {
+            try
+            {
+                CookieCollection cookies = Uri.TryCreate(uriValue, UriKind.Absolute, out var uri)
+                    ? cookieJar.GetCookies(uri)
+                    : cookieJar.GetAllCookies();
+                var metadata = cookies.Cast<Cookie>()
+                    .Select(cookie => $"{cookie.Name}@{cookie.Domain}{cookie.Path}")
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .Take(20)
+                    .ToArray();
+
+                return $"JarId={cookieJar.GetHashCode()}; Count={cookies.Count}; Cookies=[{string.Join(',', metadata)}]";
+            }
+            catch (Exception ex)
+            {
+                return $"Unavailable={ex.GetType().Name}";
+            }
+        }
+
+        private static string DescribeUri(string? uriValue)
+        {
+            return Uri.TryCreate(uriValue, UriKind.Absolute, out var uri)
+                ? $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}"
+                : "(missing-or-invalid)";
+        }
+
+        private static string ReadResponseBodyForLog(HttpWebResponse response)
+        {
+            try
+            {
+                using var stream = response.GetResponseStream();
+                using var reader = new StreamReader(stream);
+                return TruncateForLog(reader.ReadToEnd());
+            }
+            catch (Exception ex)
+            {
+                return $"(unavailable: {ex.GetType().Name})";
+            }
+        }
+
+        private static string TruncateForLog(string? value, int maxLength = 500)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "(empty)";
+            }
+
+            var normalized = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return normalized.Length <= maxLength ? normalized : normalized[..maxLength] + "...";
         }
         #endregion    
 
